@@ -19,6 +19,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -709,6 +717,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun PlayerScreen() {
         val englishTrack = subtitleTrack(subtitleUri, englishEncoding)
@@ -731,6 +740,17 @@ class MainActivity : ComponentActivity() {
         }
         var dragPosition by remember { mutableFloatStateOf(-1f) }
         var fullscreen by rememberSaveable { mutableStateOf(false) }
+        val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val controlsTimeoutMs = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
+            3_500L, containsIcons = true, containsText = true, containsControls = true
+        ) ?: 3_500L
+        var controlsVisible by remember(videoUri) { mutableStateOf(true) }
+        var controlsInteraction by remember { mutableIntStateOf(0) }
+        var showPlayerMenu by remember { mutableStateOf(false) }
+        var showPlaybackTools by remember { mutableStateOf(false) }
+        LaunchedEffect(landscape, videoUri) {
+            fullscreen = videoUri != null && landscape
+        }
         var controlsLocked by rememberSaveable { mutableStateOf(false) }
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
@@ -748,6 +768,15 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        LaunchedEffect(controlsVisible, frame.playing, controlsLocked, dragPosition, showSubtitleMenu,
+            showPlayerMenu, showPlaybackTools, showSettings, showDialogues, editingMeaning, controlsInteraction, foreground, controlsTimeoutMs) {
+            if (controlsVisible && frame.playing && !controlsLocked && dragPosition < 0 &&
+                !showSubtitleMenu && !showPlayerMenu && !showPlaybackTools && !showSettings &&
+                !showDialogues && editingMeaning == null && foreground) {
+                delay(controlsTimeoutMs)
+                controlsVisible = false
+            }
+        }
         BackHandler(
             enabled = !pictureInPicture &&
                 (controlsLocked || fullscreen || showWords || showLibrary || lookup?.studyAction != null)
@@ -777,11 +806,11 @@ class MainActivity : ComponentActivity() {
                 player.pause()
             }
         }
-        DisposableEffect(fullscreen, pictureInPicture) {
+        DisposableEffect(fullscreen, pictureInPicture, showWords, showLibrary) {
             val controller = WindowCompat.getInsetsController(window, window.decorView)
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             if (!pictureInPicture) {
-                if (fullscreen) controller.hide(WindowInsetsCompat.Type.systemBars())
+                if (fullscreen && !showWords && !showLibrary) controller.hide(WindowInsetsCompat.Type.systemBars())
                 else controller.show(WindowInsetsCompat.Type.systemBars())
             }
             onDispose { controller.show(WindowInsetsCompat.Type.systemBars()) }
@@ -859,8 +888,8 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(lookup) { pronunciation.stop() }
-        LaunchedEffect(lookup, lookup?.studyAction) {
-            if (lookup != null && lookup?.studyAction == null) {
+        LaunchedEffect(lookup, lookup?.studyAction, lookup?.expanded) {
+            if (lookup != null && lookup?.studyAction == null && lookup?.expanded != true) {
                 delay(3_000)
                 lookup = null
             }
@@ -904,74 +933,18 @@ class MainActivity : ComponentActivity() {
         val previousDialogue = adjacentDialogue(navigationDialogues, frame.positionMs, false)
         val nextDialogue = adjacentDialogue(navigationDialogues, frame.positionMs, true)
         val playerLayout = Modifier.fillMaxSize().background(background)
-        Column(if (pictureInPicture) playerLayout else playerLayout.safeDrawingPadding()) {
-            if (!pictureInPicture && !fullscreen && !controlsLocked) Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = {
-                    lookup = null
-                    openVideo(demoVideo)
-                }) { Text("نمونه") }
-                TextButton(onClick = {
-                    lookup = null
-                    showLibrary = true
-                }) { Text("کتابخانه") }
-                Box {
-                    TextButton(enabled = videoUri != null, onClick = { showSubtitleMenu = true }) {
-                        Text("زیرنویس")
-                    }
-                    DropdownMenu(expanded = showSubtitleMenu, onDismissRequest = { showSubtitleMenu = false }) {
-                        DropdownMenuItem(text = { Text("انتخاب زیرنویس انگلیسی") }, onClick = {
-                            showSubtitleMenu = false
-                            selectSubtitle.launch(arrayOf("*/*"))
-                        })
-                        embeddedOptions.forEachIndexed { index, option ->
-                            DropdownMenuItem(
-                                text = {
-                                    val selected = if (option.key == embeddedTrackKey) "✓ " else ""
-                                    Text(selected + option.displayName(index + 1))
-                                },
-                                onClick = {
-                                    showSubtitleMenu = false
-                                    if (option.key != embeddedTrackKey) chooseEmbeddedSubtitle(option.key)
-                                }
-                            )
-                        }
-                        if (embeddedTrackKey != null || subtitleUri != null) {
-                            DropdownMenuItem(text = { Text("خاموش کردن زیرنویس اصلی") }, onClick = {
-                                showSubtitleMenu = false
-                                chooseEmbeddedSubtitle(null)
-                            })
-                        }
-                        DropdownMenuItem(text = { Text("انتخاب زیرنویس فارسی") }, onClick = {
-                            showSubtitleMenu = false
-                            selectTranslation.launch(arrayOf("*/*"))
-                        })
-                        if (translationUri != null) {
-                            DropdownMenuItem(text = { Text("برداشتن زیرنویس فارسی") }, onClick = {
-                                showSubtitleMenu = false
-                                translationUri = null
-                                translationDelayMs = 0
-                            })
-                        }
-                    }
-                }
-                TextButton(onClick = {
-                    lookup = null
-                    showWords = true
-                }) { Text("واژه‌ها") }
-            }
-
-            Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black)) {
+        Box(playerLayout) {
+            Box(Modifier.fillMaxSize().background(Color.Black)) {
                 VideoSurface(player, if (pictureInPicture) VideoScaleMode.Fit else videoScaleMode, Modifier.fillMaxSize())
                 if (videoUri != null && !pictureInPicture) {
                     PlaybackGestureLayer(
                         window = window,
                         player = player,
                         enabled = !playbackError && !controlsLocked,
-                        onExitFullscreen = if (fullscreen && !controlsLocked) ({ fullscreen = false }) else null,
+                        onToggleControls = {
+                            controlsVisible = !controlsVisible
+                            controlsInteraction++
+                        },
                         skipSeconds = skipSeconds,
                         onSkip = if (canSeek && !controlsLocked) ({ delta ->
                             lookup = null
@@ -1013,6 +986,7 @@ class MainActivity : ComponentActivity() {
                         Text(message, color = PinesPalette.Cream, textAlign = TextAlign.Center)
                         if (videoUri == null) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                TextButton(onClick = { openVideo(demoVideo) }) { Text("نمونه") }
                                 TextButton(onClick = { showLibrary = true }) { Text("انتخاب فیلم") }
                                 TextButton(onClick = { showHelp = true }) { Text("راهنما") }
                             }
@@ -1029,7 +1003,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 if (!pictureInPicture) Column(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp),
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .padding(bottom = if (controlsVisible && !controlsLocked && videoUri != null) 104.dp else 12.dp)
+                        .safeDrawingPadding().padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -1037,6 +1013,7 @@ class MainActivity : ComponentActivity() {
                         MeaningCard(
                             lookup = selected,
                             pronunciation = pronunciation,
+                            onDismiss = { lookup = null },
                             canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
                                 normalizeDictionaryTerm(selected.word) != null,
                             onEditMeaning = {
@@ -1074,6 +1051,7 @@ class MainActivity : ComponentActivity() {
                         TappableSubtitle(subtitle.text, subtitleSize, Color(subtitleTextTone.argb), subtitleBackgroundOpacity,
                             enabled = !controlsLocked, personalMeanings = personalMeanings) { term ->
                             if (controlsLocked) return@TappableSubtitle
+                            controlsVisible = false
                             val studyAction = if (pauseOnWordTap) {
                                 val resume = lookup?.studyAction == StudyAction.Resume ||
                                     (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
@@ -1098,105 +1076,125 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                if (!pictureInPicture && supportsPictureInPicture && videoReady && !controlsLocked && !playbackError) {
-                    TextButton(
-                        onClick = {
-                            lookup = null
-                            enterVideoPictureInPicture()
-                        },
-                        modifier = Modifier.align(Alignment.TopStart).padding(10.dp)
-                            .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(10.dp))
-                    ) { Text("تصویر در تصویر", color = Color.White) }
-                }
-                if (!pictureInPicture && (controlsLocked || (videoUri != null && !playbackError))) {
-                    TextButton(
-                        onClick = {
-                            if (controlsLocked) {
-                                controlsLocked = false
-                            } else {
-                                controlsLocked = true
-                                pronunciation.stop()
-                                lookup = null
-                                dragPosition = -1f
-                                showSettings = false
-                                showDialogues = false
-                                showSubtitleMenu = false
+                if (!pictureInPicture && videoUri != null && controlsVisible && !controlsLocked) {
+                    val progress = if (frame.durationMs > 0)
+                        (frame.positionMs.toFloat() / frame.durationMs).coerceIn(0f, 1f) else 0f
+                    val shownPosition = if (dragPosition >= 0) (dragPosition * frame.durationMs).toLong() else frame.positionMs
+                    PlayerOverlay(
+                        title = sourceName ?: "ویدیو",
+                        playing = frame.playing,
+                        canPlay = !playbackError,
+                        canSeek = canSeek,
+                        progress = if (dragPosition >= 0) dragPosition else progress,
+                        positionLabel = if (frame.live) "LIVE" else formatTime(shownPosition) + " / " +
+                            (if (frame.durationMs > 0) formatTime(frame.durationMs) else "—"),
+                        fullscreen = fullscreen,
+                        skipSeconds = skipSeconds,
+                        onBack = { lookup = null; showLibrary = true },
+                        onPlayPause = {
+                            controlsInteraction++
+                            if (lookup?.studyAction != null) lookup = null
+                            replayEndMs = null
+                            when {
+                                player.playbackState == Player.STATE_ENDED -> { player.seekTo(0); player.play() }
+                                player.playWhenReady -> player.pause()
+                                else -> player.play()
                             }
                         },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
-                            .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(10.dp))
-                    ) {
-                        Text(if (controlsLocked) "باز کردن قفل" else "قفل", color = Color.White)
-                    }
-                }
-            }
-
-            if (videoUri != null && !pictureInPicture && !fullscreen && !controlsLocked) {
-                val progress = if (frame.durationMs > 0) {
-                    (frame.positionMs.toFloat() / frame.durationMs).coerceIn(0f, 1f)
-                } else 0f
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Slider(
-                        value = if (dragPosition >= 0) dragPosition else progress,
-                        onValueChange = { dragPosition = it },
-                        onValueChangeFinished = {
+                        onSeekBack = { controlsInteraction++; lookup = null; skipBy(-skipSeconds * 1_000L) },
+                        onSeekForward = { controlsInteraction++; lookup = null; skipBy(skipSeconds * 1_000L) },
+                        onProgress = { dragPosition = it },
+                        onSeekFinished = {
                             if (dragPosition >= 0 && canSeek) {
                                 lookup = null
                                 seekWithinVideo((dragPosition * frame.durationMs).toLong())
                             }
                             dragPosition = -1f
+                            controlsInteraction++
                         },
-                        enabled = canSeek,
-                        modifier = Modifier.weight(1f).semantics {
-                            contentDescription = "موقعیت پخش"
-                            val position = if (dragPosition >= 0) (dragPosition * frame.durationMs).toLong()
-                                else frame.positionMs
-                            stateDescription = if (frame.live) "پخش زنده"
-                                else formatTime(position) + " از " +
-                                    (if (frame.durationMs > 0) formatTime(frame.durationMs) else "زمان نامشخص")
-                        }
-                    )
-                    val shownPosition = if (dragPosition >= 0) {
-                        (dragPosition * frame.durationMs).toLong()
-                    } else frame.positionMs
-                    Text(
-                        if (frame.live) "زنده"
-                        else formatTime(shownPosition) + " / " +
-                            (if (frame.durationMs > 0) formatTime(frame.durationMs) else "—"),
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr)
-                    )
-                }
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(enabled = canSeek, onClick = {
-                        lookup = null
-                        skipBy(-skipSeconds * 1_000L)
-                    }) { Text("−$skipSeconds ثانیه") }
-                    Button(enabled = !playbackError, onClick = {
-                        if (lookup?.studyAction != null) lookup = null
-                        replayEndMs = null
-                        when {
-                            player.playbackState == Player.STATE_ENDED -> {
-                                player.seekTo(0)
-                                player.play()
+                        onFullscreen = { fullscreen = !fullscreen; controlsInteraction++ },
+                        onLock = {
+                            controlsLocked = true
+                            pronunciation.stop()
+                            lookup = null
+                            dragPosition = -1f
+                            showSettings = false
+                            showDialogues = false
+                            showSubtitleMenu = false
+                            showPlayerMenu = false
+                        },
+                        topActions = {
+                            Box {
+                                PlayerIconButton(PlayerGlyph.Subtitles, "زیرنویس", onClick = { showSubtitleMenu = true })
+                                DropdownMenu(expanded = showSubtitleMenu, onDismissRequest = { showSubtitleMenu = false }) {
+                                    DropdownMenuItem(text = { Text("انتخاب زیرنویس انگلیسی") }, onClick = {
+                                        showSubtitleMenu = false
+                                        selectSubtitle.launch(arrayOf("*/*"))
+                                    })
+                                    embeddedOptions.forEachIndexed { index, option ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                val selected = if (option.key == embeddedTrackKey) "✓ " else ""
+                                                Text(selected + option.displayName(index + 1))
+                                            },
+                                            onClick = {
+                                                showSubtitleMenu = false
+                                                if (option.key != embeddedTrackKey) chooseEmbeddedSubtitle(option.key)
+                                            }
+                                        )
+                                    }
+                                    if (embeddedTrackKey != null || subtitleUri != null) {
+                                        DropdownMenuItem(text = { Text("خاموش کردن زیرنویس اصلی") }, onClick = {
+                                            showSubtitleMenu = false
+                                            chooseEmbeddedSubtitle(null)
+                                        })
+                                    }
+                                    DropdownMenuItem(text = { Text("انتخاب زیرنویس فارسی") }, onClick = {
+                                        showSubtitleMenu = false
+                                        selectTranslation.launch(arrayOf("*/*"))
+                                    })
+                                    if (translationUri != null) {
+                                        DropdownMenuItem(text = { Text("برداشتن زیرنویس فارسی") }, onClick = {
+                                            showSubtitleMenu = false
+                                            translationUri = null
+                                            translationDelayMs = 0
+                                        })
+                                    }
+                                }
                             }
-                            player.playWhenReady -> player.pause()
-                            else -> player.play()
-                        }
-                    }) { Text(if (frame.playing) "مکث" else "پخش") }
-                    TextButton(enabled = canSeek, onClick = {
-                        lookup = null
-                        skipBy(skipSeconds * 1_000L)
-                    }) { Text("+$skipSeconds ثانیه") }
+
+                            PlayerIconButton(PlayerGlyph.Settings, "تنظیمات", onClick = { showSettings = true })
+                            Box {
+                                PlayerIconButton(PlayerGlyph.More, "گزینه‌های پخش", onClick = { showPlayerMenu = true })
+                                DropdownMenu(expanded = showPlayerMenu, onDismissRequest = { showPlayerMenu = false }) {
+                                    DropdownMenuItem(text = { Text("کتابخانه") }, onClick = { showPlayerMenu = false; lookup = null; showLibrary = true })
+                                    DropdownMenuItem(text = { Text("دفترچهٔ واژه‌ها") }, onClick = { showPlayerMenu = false; lookup = null; showWords = true })
+                                    DropdownMenuItem(text = { Text("ابزارهای مطالعه و تکرار") }, onClick = { showPlayerMenu = false; showPlaybackTools = true })
+                                    if (supportsPictureInPicture && videoReady && !playbackError) {
+                                        DropdownMenuItem(text = { Text("تصویر در تصویر") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
+                                    }
+                                    DropdownMenuItem(text = { Text("راهنما") }, onClick = { showPlayerMenu = false; showHelp = true })
+                                    DropdownMenuItem(text = { Text("پخش نمونه") }, onClick = { showPlayerMenu = false; lookup = null; openVideo(demoVideo) })
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
+                if (!pictureInPicture && controlsLocked) {
+                    TextButton(onClick = { controlsLocked = false; controlsVisible = true; controlsInteraction++ },
+                        modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(12.dp)
+                            .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(24.dp))) {
+                        Text("باز کردن قفل", color = Color.White)
+                    }
+                }
+            }
+
+        }
+        if (showPlaybackTools && !pictureInPicture && !controlsLocked) {
+            ModalBottomSheet(onDismissRequest = { showPlaybackTools = false }) {
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                    Text("ابزارهای مطالعه", style = MaterialTheme.typography.titleMedium)
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1248,10 +1246,12 @@ class MainActivity : ComponentActivity() {
                             showDialogues = true
                         }
                     ) { Text("دیالوگ‌ها") }
-                    TextButton(enabled = !playbackError, onClick = { fullscreen = true }) { Text("تمام‌صفحه") }
+
+                }
                 }
             }
         }
+
         editingMeaning?.takeUnless { pictureInPicture || controlsLocked }?.let { selected ->
             PersonalMeaningDialog(
                 dao = personalDictionary,
@@ -1426,6 +1426,7 @@ private class Lookup(
     val sourceName: String,
     studyAction: StudyAction?
 ) {
+    var expanded by mutableStateOf(false)
     var meaning by mutableStateOf(meaning)
     var studyAction by mutableStateOf(studyAction)
     var saveState by mutableStateOf(WordSaveState.Ready)
@@ -1474,7 +1475,7 @@ private fun TappableSubtitle(
                 addLink(
                     LinkAnnotation.Clickable(
                         tag = term.start.toString(),
-                        styles = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)),
+                        styles = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.None)),
                         linkInteractionListener = { currentOnTerm(term) }
                     ),
                     start = term.start,
@@ -1517,6 +1518,7 @@ private fun PersianSubtitle(text: String, fontSize: Int, backgroundOpacity: Floa
 private fun MeaningCard(
     lookup: Lookup,
     pronunciation: EnglishPronunciation,
+    onDismiss: () -> Unit,
     canEditMeaning: Boolean,
     onEditMeaning: () -> Unit,
     beforeSpeak: () -> Unit,
@@ -1524,52 +1526,44 @@ private fun MeaningCard(
     onStudyAction: () -> Unit
 ) {
     val meaning = lookup.meaning
-    val label = if (meaning == null || lookup.word.equals(meaning.headword, ignoreCase = true)) {
-        lookup.word
-    } else {
-        "${lookup.word} → ${meaning.headword}"
-    }
+    val label = if (meaning == null || lookup.word.equals(meaning.headword, ignoreCase = true))
+        lookup.word else "${lookup.word} → ${meaning.headword}"
     Column(
-        Modifier.background(PinesPalette.Card, RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+        Modifier.widthIn(max = 520.dp).heightIn(max = 190.dp)
+            .background(PinesPalette.Card.copy(alpha = 0.97f), RoundedCornerShape(16.dp))
+            .verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f, fill = false)) {
-                Text(label, color = PinesPalette.Cream, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    meaning?.persian ?: "در واژه‌نامه پیدا نشد؛ می‌توانید معنی خودتان را اضافه کنید",
-                    color = PinesPalette.Cream,
-                    maxLines = 4,
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(label, color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(meaning?.persian ?: "معنی موجود نیست؛ می‌توانید معنی اضافه کنید",
+                    color = PinesPalette.Cream, maxLines = if (lookup.expanded) 8 else 2,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl)
-                )
+                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl))
             }
             if (meaning != null) {
                 TextButton(enabled = lookup.saveState == WordSaveState.Ready, onClick = onSave) {
-                    Text(
-                        when (lookup.saveState) {
-                            WordSaveState.Ready -> "ذخیره"
-                            WordSaveState.Saving -> "در حال ذخیره"
-                            WordSaveState.Saved -> "ذخیره شد"
-                        },
-                        color = PinesPalette.Cream
-                    )
+                    Text(when (lookup.saveState) {
+                        WordSaveState.Ready -> "ذخیره"
+                        WordSaveState.Saving -> "…"
+                        WordSaveState.Saved -> "ذخیره شد"
+                    }, color = PinesPalette.Cream)
                 }
             }
-            lookup.studyAction?.let { action ->
-                TextButton(onClick = onStudyAction) {
-                    Text(if (action == StudyAction.Resume) "ادامه" else "بستن", color = PinesPalette.Cream)
-                }
+            PlayerIconButton(PlayerGlyph.More, "گزینه‌های واژه", onClick = { lookup.expanded = !lookup.expanded })
+        }
+        if (lookup.expanded) {
+            TextButton(enabled = canEditMeaning, onClick = onEditMeaning) {
+                Text(if (meaning == null) "افزودن معنی" else "ویرایش معنی", color = PinesPalette.Cream)
+            }
+            PronunciationControls(pronunciation, lookup.word, contentColor = PinesPalette.Rose, beforeSpeak = beforeSpeak)
+            TextButton(onClick = onDismiss) { Text("بستن", color = PinesPalette.Cream) }
+        }
+        lookup.studyAction?.let { action ->
+            TextButton(onClick = onStudyAction) {
+                Text(if (action == StudyAction.Resume) "ادامهٔ پخش" else "بستن", color = PinesPalette.Cream)
             }
         }
-        TextButton(enabled = canEditMeaning, onClick = onEditMeaning) {
-            Text(if (meaning == null) "افزودن معنی" else "ویرایش معنی", color = PinesPalette.Cream)
-        }
-        PronunciationControls(
-            pronunciation, lookup.word, contentColor = PinesPalette.Rose, beforeSpeak = beforeSpeak
-        )
     }
 }

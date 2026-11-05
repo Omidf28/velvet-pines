@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.3.2-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.4.0-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -18,6 +18,7 @@ The project is an experimental implementation with local build and automated tes
 
 - Local video playback through Android's Storage Access Framework, including folder browsing, recent media, and a reorderable playback queue.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
+- Video-first playback with automatic landscape immersion, overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
 - Configurable seek gestures, screen locking, and per-media subtitle profiles.
 
@@ -25,7 +26,7 @@ The project is an experimental implementation with local build and automated tes
 
 - English and Persian SRT/WebVTT subtitles with independent timing adjustments.
 - Compatible embedded text-subtitle tracks, subtitle encoding selection, and an indexed timeline for subtitle lookup.
-- Word and phrase selection with temporary definition cards.
+- Word and phrase selection with compact definition cards over the video; editing and pronunciation are available through the card menu.
 - Dialogue navigation, sentence repetition, and optional pause at the end of a subtitle cue.
 
 ### Vocabulary and Review
@@ -116,6 +117,7 @@ Application code currently resides in the `com.subtitleplayer.prototype` package
 - [Android development roadmap](ROADMAP.md) — implementation history and remaining acceptance work; Persian.
 - [Windows development roadmap](WINDOWS_ROADMAP.md) — architecture evaluation, interactive subtitle prototype, shared logic, data compatibility, and distribution milestones; Persian.
 - [Engineering checkpoint](CHECKPOINT.md) — recorded build results and outstanding verification; Persian.
+- [Playback acceptance checklist](docs/PLAYER_ACCEPTANCE.md) — device tests for the immersive player and subtitle interactions.
 - [Manual testing guide](docs/MANUAL.fa.md) — detailed setup and acceptance scenarios; Persian.
 
 The Windows plan begins with a playback and subtitle-overlay feasibility prototype before committing to a desktop framework or native media engine.

@@ -46,7 +46,7 @@ internal fun PlaybackGestureLayer(
     window: Window,
     player: Player,
     enabled: Boolean,
-    onExitFullscreen: (() -> Unit)?,
+    onToggleControls: (() -> Unit)?,
     onSkip: ((Long) -> Unit)?,
     skipSeconds: Int,
     modifier: Modifier
@@ -56,7 +56,7 @@ internal fun PlaybackGestureLayer(
     var skipFeedback by remember { mutableStateOf<String?>(null) }
     var tapSequence by remember { mutableIntStateOf(0) }
     val currentSkip by rememberUpdatedState(onSkip)
-    val currentExit by rememberUpdatedState(onExitFullscreen)
+    val currentToggle by rememberUpdatedState(onToggleControls)
     LaunchedEffect(enabled, tapSequence) {
         if (!enabled) skipFeedback = null
         else if (skipFeedback != null) {
@@ -80,8 +80,8 @@ internal fun PlaybackGestureLayer(
     }
 
     val tapTarget = modifier.semantics {
-        if (enabled && onExitFullscreen != null) {
-            onClick(label = "خروج از تمام‌صفحه") { currentExit?.invoke(); true }
+        if (enabled && onToggleControls != null) {
+            onClick(label = "نمایش یا پنهان کردن کنترل‌های پخش") { currentToggle?.invoke(); true }
         }
         if (enabled && onSkip != null) {
             customActions = listOf(
@@ -89,7 +89,7 @@ internal fun PlaybackGestureLayer(
                 CustomAccessibilityAction("$skipSeconds ثانیه جلو") { currentSkip?.invoke(skipSeconds * 1_000L); true }
             )
         }
-    }.pointerInput(enabled, onSkip != null, onExitFullscreen != null, skipSeconds) {
+    }.pointerInput(enabled, onSkip != null, onToggleControls != null, skipSeconds) {
         if (!enabled) return@pointerInput
         val doubleTap: ((androidx.compose.ui.geometry.Offset) -> Unit)? = if (onSkip == null) null else { point ->
             val forward = point.x >= size.width / 2f
@@ -98,7 +98,7 @@ internal fun PlaybackGestureLayer(
             tapSequence++
         }
         detectTapGestures(
-            onTap = { currentExit?.invoke() },
+            onTap = { currentToggle?.invoke() },
             onDoubleTap = doubleTap
         )
     }
