@@ -1,0 +1,15 @@
+.gradle/
+.idea/
+**/build/
+local.properties
+*.iml
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.key
+*.spbackup
+.DS_Store
+Thumbs.db

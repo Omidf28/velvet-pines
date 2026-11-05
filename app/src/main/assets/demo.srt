@@ -1,0 +1,13 @@
+1
+00:00:01,000 --> 00:00:07,000
+I can't afford to lose this job.
+
+2
+00:00:07,000 --> 00:00:14,000
+We went looking for shelter
+before the storm arrived.
+
+3
+00:00:14,000 --> 00:00:22,000
+Take a breath.
+There's still time to decide.
