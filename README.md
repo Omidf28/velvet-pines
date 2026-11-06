@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.4.0-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.4.1-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -20,7 +20,8 @@ The project is an experimental implementation with local build and automated tes
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
 - Video-first playback with automatic landscape immersion, overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
-- Configurable seek gestures, screen locking, and per-media subtitle profiles.
+- Configurable seek gestures, control and orientation locking, and per-media subtitle profiles.
+- Explicit fullscreen rotation on phones, with an adaptive settings overlay beside the video in landscape and above it in portrait.
 
 ### Interactive Subtitles
 
@@ -94,7 +95,7 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 101 passed |
+| JVM unit tests | 111 passed |
 | SQLite migration and review checks | 14 passed |
 | Android Lint | 0 errors; 25 warnings |
 

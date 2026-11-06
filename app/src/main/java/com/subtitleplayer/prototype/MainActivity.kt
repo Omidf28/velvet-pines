@@ -3,6 +3,7 @@ package com.subtitleplayer.prototype
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.database.sqlite.SQLiteException
 import android.net.Uri
@@ -739,8 +740,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         var dragPosition by remember { mutableFloatStateOf(-1f) }
-        var fullscreen by rememberSaveable { mutableStateOf(false) }
+        var viewport by rememberSaveable { mutableStateOf(PlaybackViewport()) }
         val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val fullscreen = videoUri != null && viewport.immersive(landscape)
+        val controlsLocked = viewport.locked
         val controlsTimeoutMs = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
             3_500L, containsIcons = true, containsText = true, containsControls = true
         ) ?: 3_500L
@@ -748,10 +751,6 @@ class MainActivity : ComponentActivity() {
         var controlsInteraction by remember { mutableIntStateOf(0) }
         var showPlayerMenu by remember { mutableStateOf(false) }
         var showPlaybackTools by remember { mutableStateOf(false) }
-        LaunchedEffect(landscape, videoUri) {
-            fullscreen = videoUri != null && landscape
-        }
-        var controlsLocked by rememberSaveable { mutableStateOf(false) }
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
         var showWords by rememberSaveable { mutableStateOf(false) }
@@ -779,14 +778,14 @@ class MainActivity : ComponentActivity() {
         }
         BackHandler(
             enabled = !pictureInPicture &&
-                (controlsLocked || fullscreen || showWords || showLibrary || lookup?.studyAction != null)
+                (controlsLocked || fullscreen || showWords || showLibrary || lookup != null)
         ) {
             when {
                 showLibrary -> showLibrary = false
                 showWords -> showWords = false
-                controlsLocked -> controlsLocked = false
-                lookup?.studyAction != null -> lookup = null
-                else -> fullscreen = false
+                controlsLocked -> { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ }
+                lookup != null -> lookup = null
+                else -> { viewport = viewport.exitFullscreen(); controlsVisible = true; controlsInteraction++ }
             }
         }
         LaunchedEffect(videoUri) {
@@ -801,10 +800,29 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(showWords, showLibrary, videoUri) {
             pronunciation.stop()
             if (showWords || showLibrary) {
+                viewport = PlaybackViewport()
                 clearAbLoop()
                 replayEndMs = null
                 player.pause()
+            } else {
+                controlsVisible = true
             }
+        }
+        val originalOrientation by rememberSaveable { mutableIntStateOf(requestedOrientation) }
+        val viewportOrientation = viewport.requestedOrientation(
+            playerVisible = videoUri != null && !showLibrary && !showWords,
+            pictureInPicture = pictureInPicture
+        )
+        LaunchedEffect(viewportOrientation) {
+            val request = when (viewportOrientation) {
+                PlaybackOrientation.Automatic -> originalOrientation
+                PlaybackOrientation.Portrait -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                PlaybackOrientation.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            }
+            if (requestedOrientation != request) requestedOrientation = request
+        }
+        DisposableEffect(Unit) {
+            onDispose { requestedOrientation = originalOrientation }
         }
         DisposableEffect(fullscreen, pictureInPicture, showWords, showLibrary) {
             val controller = WindowCompat.getInsetsController(window, window.decorView)
@@ -1112,9 +1130,9 @@ class MainActivity : ComponentActivity() {
                             dragPosition = -1f
                             controlsInteraction++
                         },
-                        onFullscreen = { fullscreen = !fullscreen; controlsInteraction++ },
+                        onFullscreen = { viewport = viewport.toggleFullscreen(landscape); controlsInteraction++ },
                         onLock = {
-                            controlsLocked = true
+                            viewport = viewport.lock(landscape)
                             pronunciation.stop()
                             lookup = null
                             dragPosition = -1f
@@ -1182,7 +1200,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 if (!pictureInPicture && controlsLocked) {
-                    TextButton(onClick = { controlsLocked = false; controlsVisible = true; controlsInteraction++ },
+                    TextButton(onClick = { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ },
                         modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(12.dp)
                             .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(24.dp))) {
                         Text("باز کردن قفل", color = Color.White)
