@@ -136,6 +136,7 @@ class MainActivity : ComponentActivity() {
     }
     private var videoUri by mutableStateOf<Uri?>(null)
     private var videoParentDirectory by mutableStateOf<Uri?>(null)
+    private var videoParentPath by mutableStateOf<String?>(null)
     private var sidecarMatches by mutableStateOf(SidecarMatches())
     private var sidecarStatus by mutableStateOf(SidecarScanStatus.Idle)
     private val sidecarScope = MainScope()
@@ -280,6 +281,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED) rememberCurrentProgress()
                     expireSleepTimer()
                     if (playbackState == Player.STATE_ENDED && pauseAfterDialogue &&
                         abLoop == null && replayEndMs == null && autoPauseEnds.lastOrNull() == player.duration
@@ -332,11 +334,14 @@ class MainActivity : ComponentActivity() {
                         automaticSidecars = savedInstanceState.getBoolean("automaticSidecars", false),
                         size = savedInstanceState.getInt("subtitleSize", defaultSubtitleSize)
                     ),
-                    parentDirectory = savedInstanceState.getString("videoParentDirectory")?.let(Uri::parse)
+                    parentDirectory = savedInstanceState.getString("videoParentDirectory")?.let(Uri::parse),
+                    parentPath = savedInstanceState.getString("videoParentPath")
                 )
             }
             !handleOpenIntent(intent) -> restoreSavedPlayback()
         }
+
+        if (videoUri == null) showLibrary = true
 
         setContent {
             VelvetPinesTheme {
@@ -404,6 +409,7 @@ class MainActivity : ComponentActivity() {
         if (videoUri?.isOnlineVideo == true) return
         outState.putString("video", videoUri?.toString())
         outState.putString("videoParentDirectory", videoParentDirectory?.toString())
+        outState.putString("videoParentPath", videoParentPath)
         outState.putString("subtitle", subtitleUri?.toString())
         outState.putLong("position", resumePosition())
         outState.putLong("subtitleDelayMs", subtitleDelayMs)
@@ -416,6 +422,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        rememberCurrentProgress()
         cancelSidecarDiscovery()
         sidecarScope.cancel()
         pronunciation.close()
@@ -435,9 +442,11 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
-    private fun restoreSavedPlayback(parentDirectory: Uri? = null) {
+    private fun restoreSavedPlayback(parentDirectory: Uri? = null, parentPath: String? = null) {
         val video = history.getString("video", null)?.let(Uri::parse) ?: return
-        openVideo(video, history.getLong("position", 0), autoplay = false, parentDirectory = parentDirectory)
+        val bookmark = knownLibraryVideo(video)?.bookmark
+        openVideo(video, bookmark?.resumePositionMs ?: history.getLong("position", 0), autoplay = false,
+            parentDirectory = parentDirectory, parentPath = parentPath)
     }
 
     private fun loadSubtitleProfiles(): List<SavedVideoSubtitleSettings> {
@@ -491,9 +500,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun resumePosition(): Long =
-        if (player.playbackState == Player.STATE_ENDED) 0 else player.currentPosition
+        if (player.playbackState == Player.STATE_ENDED || !player.isCurrentMediaItemSeekable) 0 else player.currentPosition
 
     private fun savePlayback() {
+        rememberCurrentProgress()
         val grants = contentResolver.persistedUriPermissions
         val readable = grants.filter { it.isReadPermission }.map { it.uri }.toSet()
         val video = videoUri?.takeIf { it == demoVideo || readable.coversReadAccess(it) }
@@ -527,14 +537,17 @@ class MainActivity : ComponentActivity() {
 
     private fun openVideo(
         uri: Uri,
-        positionMs: Long = 0,
+        positionMs: Long? = null,
         autoplay: Boolean = true,
         restoredSubtitles: VideoSubtitleSettings? = null,
         onlineFormat: OnlineVideoFormat? = null,
         smbCredentials: SmbCredentials? = null,
-        parentDirectory: Uri? = null
+        parentDirectory: Uri? = null,
+        parentPath: String? = null
     ) {
+        val incoming = knownLibraryVideo(uri)
         val readable = persistentReadUris()
+        rememberCurrentProgress()
         rememberSubtitleProfile(readable)
         val key = videoSubtitleKey(uri)
         val savedProfile = subtitleProfiles.firstOrNull { videoSubtitleKey(it.video) == key }?.subtitles?.withReadableFiles(readable)
@@ -544,10 +557,13 @@ class MainActivity : ComponentActivity() {
                 VideoSubtitleSettings(english = demoSubtitles, persian = demoTranslation, size = defaultSubtitleSize)
             } else VideoSubtitleSettings(size = defaultSubtitleSize, automaticEnglish = true, automaticSidecars = true)
 
-        val knownParent = parentDirectory ?: knownParentFor(uri)
+        val knownVideo = knownLibraryVideo(uri) ?: incoming
+        val startingPosition = resumePositionForOpen(positionMs, knownVideo?.bookmark, incoming?.bookmark)
+        val knownParent = parentDirectory ?: knownParentFor(uri) ?: knownVideo?.parentDirectory
         cancelSidecarDiscovery()
         videoOpenGeneration++
         videoParentDirectory = validSidecarParent(uri, knownParent)
+        videoParentPath = if (parentDirectory != null) parentPath else knownVideo?.parentPath
         automaticSidecars = settings.automaticSidecars && settings.automaticEnglish && settings.english == null
         sidecarMatches = SidecarMatches()
         sidecarStatus = SidecarScanStatus.Idle
@@ -574,7 +590,7 @@ class MainActivity : ComponentActivity() {
             .build()
         val item = MediaItem.fromUri(uri)
         if (onlineFormat == null) {
-            player.setMediaItem(item, positionMs)
+            player.setMediaItem(item, startingPosition)
         } else {
             val source = when (onlineFormat) {
                 OnlineVideoFormat.Auto -> ProgressiveMediaSource.Factory(httpsDataSource).createMediaSource(item)
@@ -585,7 +601,7 @@ class MainActivity : ComponentActivity() {
                     DataSource.Factory { SmbVideoDataSource(smbCredentials) }
                 ).createMediaSource(item)
             }
-            player.setMediaSource(source, positionMs)
+            player.setMediaSource(source, startingPosition)
         }
         embeddedSelection = EmbeddedSubtitleSelection(
             automaticEnglish = settings.automaticEnglish && settings.english == null,
@@ -739,17 +755,48 @@ class MainActivity : ComponentActivity() {
 
     private fun rememberRecentVideo(uri: Uri, name: String) {
         if (!persistentReadUris().coversReadAccess(uri)) return
-        recentVideos = addRecentVideo(recentVideos, LibraryVideo(uri, name, parentDirectory = videoParentDirectory))
+        val old = knownLibraryVideo(uri)
+        recentVideos = addRecentVideo(recentVideos, LibraryVideo(uri, name,
+            parentPath = if (videoParentDirectory != null) videoParentPath else old?.parentPath,
+            parentDirectory = videoParentDirectory ?: old?.parentDirectory,
+            bookmark = currentProgress(uri) ?: old?.bookmark))
         history.edit().putString("recentVideos", writeVideoEntries(recentVideos)).apply()
     }
 
+    private fun knownLibraryVideo(uri: Uri): LibraryVideo? {
+        val key = videoSubtitleKey(uri)
+        val matches = (recentVideos + playbackQueue).filter { videoSubtitleKey(it.uri) == key }
+        val first = matches.firstOrNull() ?: return null
+        return if (first.bookmark != null) first else first.copy(bookmark = matches.firstNotNullOfOrNull { it.bookmark })
+    }
+
+    private fun currentProgress(uri: Uri): PlaybackBookmark? {
+        if (uri != videoUri || !videoReady || playbackError || !player.isCurrentMediaItemSeekable ||
+            player.currentMediaItem?.localConfiguration?.uri != uri) return null
+        return capturePlaybackBookmark(player.currentPosition, player.duration, player.playbackState == Player.STATE_ENDED)
+    }
+
+    private fun rememberCurrentProgress() {
+        val uri = videoUri ?: return
+        if (uri.scheme != "content" || !persistentReadUris().coversReadAccess(uri)) return
+        val bookmark = currentProgress(uri) ?: return
+        val old = knownLibraryVideo(uri)
+        val entry = LibraryVideo(uri, old?.name ?: "ویدیو",
+            parentPath = if (videoParentDirectory != null) videoParentPath else old?.parentPath,
+            parentDirectory = videoParentDirectory ?: old?.parentDirectory, bookmark = bookmark)
+        val updated = addRecentVideo(recentVideos, entry)
+        if (updated != recentVideos) {
+            recentVideos = updated
+            history.edit().putString("recentVideos", writeVideoEntries(recentVideos)).apply()
+        }
+    }
     private fun updatePlaybackQueue(entries: List<LibraryVideo>) {
         playbackQueue = entries
         history.edit().putString("playbackQueue", writeVideoEntries(entries)).apply()
     }
 
     private fun enqueueVideo(video: LibraryVideo) {
-        if (playbackQueue.any { it.uri == video.uri }) return
+        if (playbackQueue.any { videoSubtitleKey(it.uri) == videoSubtitleKey(video.uri) }) return
         if (playbackQueue.size >= playbackQueueLimit) {
             Toast.makeText(this, "صف پخش پر است.", Toast.LENGTH_SHORT).show()
             return
@@ -782,11 +829,11 @@ class MainActivity : ComponentActivity() {
         }
         val next = playbackQueue[nextIndex]
         showLibrary = false
-        openVideo(next.uri, parentDirectory = next.parentDirectory)
+        openVideo(next.uri, parentDirectory = next.parentDirectory, parentPath = next.parentPath)
         updatePlaybackQueue(playbackQueue.drop(nextIndex + 1))
     }
 
-    private fun openLibraryVideo(video: LibraryVideo) {
+    private fun openLibraryVideo(video: LibraryVideo, startOver: Boolean = false) {
         val uri = video.uri
         if (!persistentReadUris().coversReadAccess(uri)) {
             Toast.makeText(this, "برای دسترسی دوباره، فایل یا پوشه را انتخاب کنید.", Toast.LENGTH_SHORT).show()
@@ -797,18 +844,23 @@ class MainActivity : ComponentActivity() {
         when {
             uri == videoUri && !playbackError -> {
                 val parent = validSidecarParent(uri, video.parentDirectory)
+                if (parent != null) videoParentPath = video.parentPath
                 if (parent != null && parent != videoParentDirectory) {
                     videoParentDirectory = parent
                     startSidecarDiscovery(allowAutomatic = automaticSidecars)
                 }
-                if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
+                if (startOver || player.playbackState == Player.STATE_ENDED) {
+                    clearAbLoop(); replayEndMs = null; player.seekTo(0)
+                    rememberCurrentProgress()
+                }
                 player.play()
             }
+            startOver -> openVideo(uri, positionMs = 0, parentDirectory = video.parentDirectory, parentPath = video.parentPath)
             history.getString("video", null) == uri.toString() -> {
-                restoreSavedPlayback(video.parentDirectory)
+                restoreSavedPlayback(video.parentDirectory, video.parentPath)
                 player.play()
             }
-            else -> openVideo(uri, parentDirectory = video.parentDirectory)
+            else -> openVideo(uri, parentDirectory = video.parentDirectory, parentPath = video.parentPath)
         }
     }
 
@@ -943,7 +995,7 @@ class MainActivity : ComponentActivity() {
                 (controlsLocked || fullscreen || showWords || showLibrary || lookup != null)
         ) {
             when {
-                showLibrary -> showLibrary = false
+                showLibrary -> if (videoUri == null) finish() else showLibrary = false
                 showWords -> showWords = false
                 controlsLocked -> { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ }
                 lookup != null -> lookup = null
@@ -954,10 +1006,17 @@ class MainActivity : ComponentActivity() {
             val source = videoUri ?: return@LaunchedEffect
             sourceName = withContext(Dispatchers.IO) { readVideoName(source) } ?: "ویدیوی محلی"
         }
-        LaunchedEffect(videoUri, videoReady, sourceName, videoParentDirectory) {
+        LaunchedEffect(videoUri, videoReady, sourceName, videoParentDirectory, videoParentPath) {
             val uri = videoUri ?: return@LaunchedEffect
             val name = sourceName ?: return@LaunchedEffect
             if (videoReady && !playbackError && uri.scheme == "content") rememberRecentVideo(uri, name)
+        }
+        LaunchedEffect(videoUri, foreground, pictureInPicture) {
+            if (videoUri == null || (!foreground && !pictureInPicture)) return@LaunchedEffect
+            while (true) {
+                delay(10_000)
+                if (player.isPlaying) rememberCurrentProgress()
+            }
         }
         LaunchedEffect(showWords, showLibrary, videoUri) {
             pronunciation.stop()
@@ -966,6 +1025,7 @@ class MainActivity : ComponentActivity() {
                 clearAbLoop()
                 replayEndMs = null
                 player.pause()
+                rememberCurrentProgress()
             } else {
                 controlsVisible = true
             }
@@ -1095,7 +1155,11 @@ class MainActivity : ComponentActivity() {
                     openVideo(Uri.parse(link.url), onlineFormat = link.format, smbCredentials = credentials)
                 },
                 onOpen = { openLibraryVideo(it) },
-                onBack = { showLibrary = false }
+                onRestart = { openLibraryVideo(it, startOver = true) },
+                canReturnToPlayback = videoUri != null,
+                skipSeconds = skipSeconds,
+                onPlaySample = { showLibrary = false; openDemoVideo() },
+                onBack = { if (videoUri == null) finish() else showLibrary = false }
             )
             return
         }
@@ -1294,6 +1358,7 @@ class MainActivity : ComponentActivity() {
                                 player.playWhenReady -> player.pause()
                                 else -> player.play()
                             }
+                            rememberCurrentProgress()
                         },
                         onSeekBack = { controlsInteraction++; lookup = null; skipBy(-skipSeconds * 1_000L) },
                         onSeekForward = { controlsInteraction++; lookup = null; skipBy(skipSeconds * 1_000L) },

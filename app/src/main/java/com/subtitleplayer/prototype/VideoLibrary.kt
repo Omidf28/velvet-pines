@@ -12,7 +12,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-internal data class LibraryVideo(val uri: Uri, val name: String, val parentPath: String? = null, val parentDirectory: Uri? = null)
+internal data class LibraryVideo(val uri: Uri, val name: String, val parentPath: String? = null, val parentDirectory: Uri? = null, val bookmark: PlaybackBookmark? = null)
 
 internal const val recentVideoLimit = 20
 internal const val playbackQueueLimit = 100
@@ -43,7 +43,11 @@ internal fun readVideoEntries(encoded: String?, limit: Int): List<LibraryVideo> 
             val parent = item.optString("parentDirectory").takeIf(String::isNotBlank)?.let(Uri::parse)?.takeIf {
                 it.scheme == ContentResolver.SCHEME_CONTENT && it.authority == uri.authority && DocumentsContract.isTreeUri(it)
             }
-            LibraryVideo(uri, name, parentDirectory = parent)
+            val bookmark = if (item.has("positionMs")) capturePlaybackBookmark(
+                item.optLong("positionMs"), item.optLong("durationMs"), item.optBoolean("completed")
+            ) else null
+            LibraryVideo(uri, name, parentPath = item.optString("parentPath").takeIf(String::isNotBlank),
+                parentDirectory = parent, bookmark = bookmark)
         } else null
     }.distinctBy(LibraryVideo::uri)
 }
@@ -51,13 +55,22 @@ internal fun readVideoEntries(encoded: String?, limit: Int): List<LibraryVideo> 
 internal fun writeVideoEntries(videos: List<LibraryVideo>): String =
     JSONArray().apply {
         videos.forEach { video ->
-            put(JSONObject().put("uri", video.uri.toString()).put("name", video.name)
-                .put("parentDirectory", video.parentDirectory?.toString().orEmpty()))
+            put(JSONObject().apply {
+                put("uri", video.uri.toString())
+                put("name", video.name)
+                put("parentDirectory", video.parentDirectory?.toString().orEmpty())
+                put("parentPath", video.parentPath.orEmpty())
+                video.bookmark?.let {
+                    put("positionMs", it.positionMs)
+                    put("durationMs", it.durationMs)
+                    put("completed", it.completed)
+                }
+            })
         }
     }.toString()
 
 internal fun addRecentVideo(videos: List<LibraryVideo>, video: LibraryVideo): List<LibraryVideo> =
-    (listOf(video) + videos.filterNot { it.uri == video.uri }).take(recentVideoLimit)
+    (listOf(video) + videos.filterNot { videoSubtitleKey(it.uri) == videoSubtitleKey(video.uri) }).take(recentVideoLimit)
 
 internal suspend fun scanVideoFolder(resolver: ContentResolver, tree: Uri): List<LibraryVideo> {
     val queue = ArrayDeque<Pair<String, String?>>()

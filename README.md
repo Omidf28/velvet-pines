@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.4.4-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.5.0-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -17,6 +17,7 @@ The project is an experimental implementation with local build and automated tes
 ### Media Playback
 
 - Local video playback through Android's Storage Access Framework, including folder browsing, recent media, and a reorderable playback queue.
+- A redesigned library with continue-watching cards, per-video checkpoints within retained history, recorded progress, folder labels, and explicit playback from the beginning.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
 - Video-first playback with automatic landscape immersion, overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
@@ -98,9 +99,9 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 159 passed |
+| JVM unit tests | 176 passed |
 | SQLite migration and review checks | 14 passed |
-| Android Lint | 0 errors; 27 warnings |
+| Android Lint | 0 errors; 28 warnings |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
 
@@ -121,6 +122,7 @@ Application code currently resides in the `com.subtitleplayer.prototype` package
 - [Android development roadmap](ROADMAP.md) — implementation history and remaining acceptance work; Persian.
 - [Windows development roadmap](WINDOWS_ROADMAP.md) — architecture evaluation, interactive subtitle prototype, shared logic, data compatibility, and distribution milestones; Persian.
 - [Engineering checkpoint](CHECKPOINT.md) — recorded build results and outstanding verification; Persian.
+- [Library and playback bookmarks](docs/LIBRARY_PLAYBACK.md) — navigation, checkpoint semantics, retention limits, and migration behavior.
 - [Nearby subtitle discovery](docs/SIDECAR_DISCOVERY.md) — filename rules, access scope, result validity, and a synthetic device test kit.
 - [Embedded subtitle discovery](docs/SUBTITLE_DISCOVERY.md) — selection rules, profile compatibility, and verification scope.
 - [Playback acceptance checklist](docs/PLAYER_ACCEPTANCE.md) — device tests for the immersive player and subtitle interactions.

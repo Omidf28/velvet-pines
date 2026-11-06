@@ -1,4 +1,4 @@
-# Immersive Playback Acceptance — 0.4.4-dev
+# Immersive Playback Acceptance — 0.5.0-dev
 
 Status: pending execution on an Android device. Compilation and JVM tests do not verify touch routing, overlay positioning, or device rendering.
 
@@ -80,6 +80,19 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Upgrade with an older profile lacking `automaticSidecars`; verify that its prior subtitle choice is unchanged. Confirm that an unfinished newer automatic preference remains eligible after reopening.
 - [ ] Start an A/B repeat while discovery is pending; automatic attachment must not disrupt the active study interval.
 - [ ] Refresh nearby matches from the caption menu and select one explicitly. Verify pause state, subtitle timing, source labels, and word selection after attachment.
+## Library and Independent Resume
+
+- [ ] On a fresh start with no restored source, verify library entry, sample playback, help, file/folder selection, network access, and Android Back. Back from the empty library should leave the Activity rather than expose an empty player.
+- [ ] Play video A to one position, open B and stop at another position, then reopen A. Each should resume at its own checkpoint rather than the previous global position.
+- [ ] Repeat after normal app restart, foreground playback, PiP playback/closure, and explicit pause. Checkpoint timing is approximate; do not expect unflushed progress after abrupt process termination.
+- [ ] Use Playback from beginning for a partially watched and a completed source. Verify zero takes priority over older global and per-video positions and the next saved checkpoint reflects the restart.
+- [ ] Complete a video naturally. Confirm completion is recorded even without immediately leaving the player; replay should begin at zero. Near-end credits alone must not mark it completed.
+- [ ] Open an old JSON/history installation without bookmark fields. Existing entries and legacy last-position restore should remain usable.
+- [ ] Fill retained recent history, then open its oldest entry while recording an outgoing movie. The incoming checkpoint must survive that eviction boundary.
+- [ ] Open the same document through file and folder URIs, and different documents with identical filenames. Identity should share a checkpoint only for the same document; folder labels should distinguish duplicates after restart.
+- [ ] Exercise unknown-duration and nonseekable sources. Do not show an invented percentage or persist a nonseekable resume point.
+- [ ] Test search with the keyboard in portrait/landscape, large fonts, TalkBack, empty results, refresh/retry, and repeated Folder/Recent/Queue switches. Controls and results must remain reachable.
+- [ ] Verify queue insertion, duplicate identity checks, removal, ordering, autoplay, and bookmark fallback from retained queued metadata without modifying manual queue order.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.
