@@ -13,8 +13,8 @@ android {
         applicationId = "com.subtitleplayer.prototype"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.5.0-dev"
+        versionCode = 12
+        versionName = "0.6.0-dev"
     }
 
     buildFeatures {

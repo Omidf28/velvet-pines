@@ -1,0 +1,70 @@
+package com.subtitleplayer.prototype
+
+/** Conservative candidates; every proposed base still requires a dictionary hit. */
+internal fun dictionaryBaseForms(term: String): List<String> {
+    val key = normalizeDictionaryTerm(term) ?: return emptyList()
+    if (' ' in key) return emptyList()
+    val irregular = mapOf(
+        "went" to "go", "gone" to "go", "was" to "be", "were" to "be",
+        "been" to "be", "am" to "be", "is" to "be", "are" to "be",
+        "did" to "do", "done" to "do", "had" to "have", "has" to "have",
+        "saw" to "see", "seen" to "see", "took" to "take", "taken" to "take",
+        "came" to "come", "got" to "get", "gotten" to "get", "said" to "say",
+        "thought" to "think", "bought" to "buy", "brought" to "bring",
+        "knew" to "know", "known" to "know", "felt" to "feel", "found" to "find",
+        "made" to "make", "told" to "tell", "left" to "leave", "gave" to "give",
+        "given" to "give", "children" to "child", "men" to "man", "women" to "woman",
+        "feet" to "foot", "teeth" to "tooth", "mice" to "mouse"
+    )
+    irregular[key]?.let { return listOf(it) }
+    return buildList {
+        if (key.endsWith("'s") && key.length > 3) add(key.dropLast(2))
+        if (key.endsWith("ies") && key.length > 4) add(key.dropLast(3) + "y")
+        if (key.endsWith("s") && !key.endsWith("ss") && key.length > 3) add(key.dropLast(1))
+        if (key.endsWith("es") && key.length > 3) add(key.dropLast(2))
+        for (suffix in listOf("ing", "ed", "er", "est")) {
+            if (key.endsWith(suffix) && key.length > suffix.length + 2) {
+                val stem = key.dropLast(suffix.length)
+                add(stem)
+                add(stem + "e")
+                if (stem.length > 2 && stem.last() == stem[stem.lastIndex - 1] && stem.last() !in "aeiou") add(stem.dropLast(1))
+                if (stem.endsWith("i")) add(stem.dropLast(1) + "y")
+            }
+        }
+    }.distinct()
+}
+
+internal val commonWordMeanings = mapOf(
+    "a" to "یک؛ حرف تعریف نامعین", "an" to "یک؛ حرف تعریف نامعین",
+    "the" to "حرف تعریف معین؛ اشاره به چیز مشخص", "i" to "من", "you" to "تو؛ شما",
+    "he" to "او (مذکر)", "she" to "او (مؤنث)", "it" to "آن", "we" to "ما", "they" to "آن‌ها",
+    "am" to "هستم", "is" to "است", "are" to "هستی؛ هستید؛ هستند", "was" to "بود؛ بودم", "were" to "بودی؛ بودید؛ بودند",
+    "of" to "از؛ نشان‌دهندهٔ تعلق", "to" to "به؛ برای؛ نشانهٔ مصدر", "and" to "و", "or" to "یا",
+    "not" to "نه؛ نشان‌دهندهٔ نفی", "don't" to "نمی‌کنم؛ نمی‌کنی؛ نکن (بسته به جمله)",
+    "doesn't" to "نمی‌کند", "didn't" to "نکرد؛ نکردم", "can't" to "نمی‌توانم؛ نمی‌تواند",
+    "won't" to "نخواهد؛ نخواهم", "isn't" to "نیست", "aren't" to "نیستی؛ نیستند", "it's" to "آن است؛ آن دارد (بسته به جمله)",
+    "i'm" to "من هستم", "you're" to "تو هستی؛ شما هستید", "we're" to "ما هستیم", "they're" to "آن‌ها هستند"
+)
+
+internal data class DictionaryResult(val meaning: WordMeaning?, val source: String)
+
+internal fun immediateDictionaryMeaning(key: String, personal: Map<String, WordMeaning>): DictionaryResult? {
+    personal[key]?.let { return DictionaryResult(it, "واژه‌نامهٔ شخصی") }
+    commonWordMeanings[key]?.let { return DictionaryResult(WordMeaning(key, it), "واژه‌نامهٔ آفلاین") }
+    defaultTermMeaning(key)?.let { return DictionaryResult(it, "واژه‌نامهٔ آفلاین") }
+    return null
+}
+
+internal fun indexedDictionaryMeaning(key: String, find: (String) -> WordMeaning?): DictionaryResult {
+    find(key)?.let { return DictionaryResult(it, "واژه‌نامهٔ آفلاین") }
+    val candidates = dictionaryBaseForms(key).mapNotNull(find).take(3)
+    if (candidates.isNotEmpty()) {
+        val definition = candidates.joinToString("\n") { "${it.headword}: ${it.persian}" }.take(1000)
+        return DictionaryResult(WordMeaning(key, definition), "صورت پایهٔ احتمالی · آفلاین")
+    }
+    return DictionaryResult(null, "در واژه‌نامهٔ آفلاین پیدا نشد")
+}
+
+internal fun validOnlineDefinition(value: String): Boolean =
+    value.length in 1..1000 && value.any { it in '\u0600'..'\u06ff' } &&
+        '<' !in value && value.none { it.isISOControl() && it != '\n' && it != '\t' }

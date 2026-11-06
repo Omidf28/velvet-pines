@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.5.0-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.6.0-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -36,7 +36,8 @@ The project is an experimental implementation with local build and automated tes
 
 ### Vocabulary and Review
 
-- A limited offline starter dictionary and an editable personal dictionary with custom phrase support.
+- A bundled English–Persian offline index with 230,921 entries (97,026 single-token keys and 133,895 multiword keys), probable inflection lookup, and personal definition overrides.
+- An explicit MyMemory translation fallback for absent terms, with loading/error states, source labels, and a dismissal timer that begins after lookup completes.
 - Persistent vocabulary entries containing definitions, dialogue context, media references, and timestamps.
 - Spaced-repetition flashcards, due-review sessions, search, filtering, sorting, and study statistics.
 - English text-to-speech using installed Android voices, including slower pronunciation.
@@ -85,13 +86,14 @@ The debug APK is generated at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Run the application and open the bundled synthetic sample, or select a local video and an English subtitle file. Select a subtitle word to view its definition. Words outside the starter dictionary require a personal dictionary entry.
+Run the application and open the bundled synthetic sample, or select a local video and an English subtitle file. Select a subtitle word to view its definition. Most lookups work offline. An absent term offers explicit online translation or a personal definition; names, typos and every possible word are not guaranteed.
 
 ## Validation
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug
 python scripts/verify-review-migration.py
+python scripts/verify-lexicon.py --apk app/build/outputs/apk/debug/app-debug.apk
 ```
 
 The latest recorded validation includes:
@@ -99,8 +101,9 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 176 passed |
-| SQLite migration and review checks | 14 passed |
+| JVM unit tests | 186 passed |
+| SQLite migration and review checks | 14 passed (previous schema validation; schema unchanged) |
+| Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | 0 errors; 28 warnings |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
@@ -119,6 +122,7 @@ Application code currently resides in the `com.subtitleplayer.prototype` package
 
 ## Documentation and Roadmaps
 
+- [Word meanings and dictionary provenance](docs/WORD_MEANINGS.md) — offline coverage, online privacy, rebuilding, and device acceptance.
 - [Android development roadmap](ROADMAP.md) — implementation history and remaining acceptance work; Persian.
 - [Windows development roadmap](WINDOWS_ROADMAP.md) — architecture evaluation, interactive subtitle prototype, shared logic, data compatibility, and distribution milestones; Persian.
 - [Engineering checkpoint](CHECKPOINT.md) — recorded build results and outstanding verification; Persian.
@@ -134,4 +138,4 @@ The Windows plan begins with a playback and subtitle-overlay feasibility prototy
 
 The bundled videos are synthetic test assets. Commercial films and television episodes are not included.
 
-A source-code license has not yet been selected. Third-party libraries remain subject to their respective licenses.
+A source-code license has not yet been selected. Third-party libraries and bundled dictionary data remain subject to their respective licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).

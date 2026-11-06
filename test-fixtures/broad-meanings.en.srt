@@ -1,0 +1,15 @@
+1
+00:00:01,000 --> 00:00:08,000
+The beautiful forest smells like coffee.
+
+2
+00:00:09,000 --> 00:00:16,000
+Learning a language sometimes feels like serendipity.
+
+3
+00:00:17,000 --> 00:00:24,000
+She stopped running and studied the axes.
+
+4
+00:00:25,000 --> 00:00:32,000
+Zzvelvetqz is an invented name, not a known word.

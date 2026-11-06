@@ -206,6 +206,7 @@ class MainActivity : ComponentActivity() {
     private fun clearAbLoop() { abLoop = null; loopStartMs = null }
     private val history by lazy { getSharedPreferences("last_playback", MODE_PRIVATE) }
     private val vocabulary by lazy { SavedWordsDatabase.get(applicationContext).words() }
+    private val packagedDictionary by lazy { PackagedDictionary(applicationContext) }
     private val personalDictionary by lazy { SavedWordsDatabase.get(applicationContext).dictionary() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -1127,8 +1128,29 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(lookup) { pronunciation.stop() }
-        LaunchedEffect(lookup, lookup?.studyAction, lookup?.expanded) {
-            if (lookup != null && lookup?.studyAction == null && lookup?.expanded != true) {
+        LaunchedEffect(lookup, personalMeanings, lookup?.onlineRequest) {
+            val selected = lookup ?: return@LaunchedEffect
+            selected.loading = true
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    if (selected.onlineRequest > 0 && personalMeanings[normalizeDictionaryTerm(selected.word)] == null) {
+                        DictionaryResult(translateSelectedTerm(selected.word), "ترجمهٔ ماشینی · MyMemory")
+                    } else packagedDictionary.resolve(selected.word, personalMeanings)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    DictionaryResult(selected.meaning, if (selected.onlineRequest > 0)
+                        "ترجمه انجام نشد؛ اتصال یا سهمیهٔ سرویس را بررسی کنید"
+                    else "واژه‌نامه باز نشد؛ دوباره واژه را لمس کنید")
+                }
+            }
+            selected.meaning = result.meaning
+            selected.meaningSource = result.source
+            selected.loading = false
+            selected.resultRevision++
+        }
+        LaunchedEffect(lookup, lookup?.studyAction, lookup?.expanded, lookup?.loading, lookup?.resultRevision) {
+            if (lookup != null && lookup?.studyAction == null && lookup?.expanded != true && lookup?.loading == false) {
                 delay(3_000)
                 lookup = null
             }
@@ -1300,6 +1322,7 @@ class MainActivity : ComponentActivity() {
                                 MeaningCard(
                                     lookup = selected,
                                     pronunciation = pronunciation,
+                                    onOnline = { selected.onlineRequest++; selected.loading = true },
                                     onDismiss = { lookup = null },
                                     canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
                                         normalizeDictionaryTerm(selected.word) != null,
@@ -1750,6 +1773,10 @@ private class Lookup(
     val sourceName: String,
     studyAction: StudyAction?
 ) {
+    var loading by mutableStateOf(true)
+    var meaningSource by mutableStateOf("")
+    var onlineRequest by mutableStateOf(0)
+    var resultRevision by mutableStateOf(0)
     var expanded by mutableStateOf(false)
     var meaning by mutableStateOf(meaning)
     var studyAction by mutableStateOf(studyAction)
@@ -1849,6 +1876,7 @@ private fun PersianSubtitle(text: String, fontSize: Int, backgroundOpacity: Floa
 private fun MeaningCard(
     lookup: Lookup,
     pronunciation: EnglishPronunciation,
+    onOnline: () -> Unit,
     onDismiss: () -> Unit,
     canEditMeaning: Boolean,
     onEditMeaning: () -> Unit,
@@ -1868,12 +1896,12 @@ private fun MeaningCard(
             Column(Modifier.weight(1f)) {
                 Text(label, color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(meaning?.persian ?: "معنی موجود نیست؛ می‌توانید معنی اضافه کنید",
+                Text(if (lookup.loading) "در حال جست‌وجوی معنی…" else meaning?.persian ?: lookup.meaningSource,
                     color = PinesPalette.Cream, maxLines = if (lookup.expanded) 8 else 2,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl))
             }
-            if (meaning != null) {
+            if (meaning != null && !lookup.loading) {
                 TextButton(enabled = lookup.saveState == WordSaveState.Ready, onClick = onSave) {
                     Text(when (lookup.saveState) {
                         WordSaveState.Ready -> "ذخیره"
@@ -1884,8 +1912,16 @@ private fun MeaningCard(
             }
             PlayerIconButton(PlayerGlyph.More, "گزینه‌های واژه", onClick = { lookup.expanded = !lookup.expanded })
         }
+        if (!lookup.loading && meaning != null) {
+            Text(lookup.meaningSource, color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
+        }
+        if (!lookup.loading && meaning == null) {
+            TextButton(onClick = onOnline) { Text("ترجمهٔ اینترنتی این واژه", color = PinesPalette.Cream) }
+            Text("فقط واژهٔ انتخاب‌شده به MyMemory فرستاده می‌شود؛ نیازمند اینترنت و دارای سهمیهٔ روزانه.",
+                color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
+        }
         if (lookup.expanded) {
-            TextButton(enabled = canEditMeaning, onClick = onEditMeaning) {
+            TextButton(enabled = canEditMeaning && !lookup.loading, onClick = onEditMeaning) {
                 Text(if (meaning == null) "افزودن معنی" else "ویرایش معنی", color = PinesPalette.Cream)
             }
             PronunciationControls(pronunciation, lookup.word, contentColor = PinesPalette.Rose, beforeSpeak = beforeSpeak)
