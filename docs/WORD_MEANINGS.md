@@ -1,5 +1,7 @@
 # Word meanings — 0.6.0-dev
 
+Since 0.6.1-dev, the index also has an independent [offline search panel](DICTIONARY_SEARCH.md).
+
 ## What ships
 
 The APK includes an English–Persian SQLite dictionary with **230,921 indexed entries**:

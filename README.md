@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.6.0-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.6.1-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -37,6 +37,7 @@ The project is an experimental implementation with local build and automated tes
 ### Vocabulary and Review
 
 - A bundled English–Persian offline index with 230,921 entries (97,026 single-token keys and 133,895 multiword keys), probable inflection lookup, and personal definition overrides.
+- Offline prefix search for words and multiword entries from the library, player menu, or selected word card, with full definitions, pronunciation and personal corrections.
 - An explicit MyMemory translation fallback for absent terms, with loading/error states, source labels, and a dismissal timer that begins after lookup completes.
 - Persistent vocabulary entries containing definitions, dialogue context, media references, and timestamps.
 - Spaced-repetition flashcards, due-review sessions, search, filtering, sorting, and study statistics.
@@ -101,7 +102,7 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 186 passed |
+| JVM unit tests | 195 passed |
 | SQLite migration and review checks | 14 passed (previous schema validation; schema unchanged) |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | 0 errors; 28 warnings |
@@ -122,6 +123,7 @@ Application code currently resides in the `com.subtitleplayer.prototype` package
 
 ## Documentation and Roadmaps
 
+- [Offline dictionary search](docs/DICTIONARY_SEARCH.md) — search behavior, limits, implementation, and device acceptance.
 - [Word meanings and dictionary provenance](docs/WORD_MEANINGS.md) — offline coverage, online privacy, rebuilding, and device acceptance.
 - [Android development roadmap](ROADMAP.md) — implementation history and remaining acceptance work; Persian.
 - [Windows development roadmap](WINDOWS_ROADMAP.md) — architecture evaluation, interactive subtitle prototype, shared logic, data compatibility, and distribution milestones; Persian.

@@ -35,7 +35,15 @@ def verify(asset_dir, apk=None):
             for term in ('beautiful','forest','serendipity','language','coffee'):
                 assert conn.execute('SELECT 1 FROM lexicon WHERE term=?', (term,)).fetchone(), term
             assert not conn.execute('SELECT 1 FROM lexicon WHERE term=?', ('zzvelvetqz',)).fetchone()
-        print(f'PASS: {count:,} entries; {words:,} single-token keys; hashes, license, integrity and all rows valid')
+            query = 'SELECT term, definition FROM lexicon WHERE term >= ? AND term < ? ORDER BY term LIMIT ?'
+            for prefix in ('a', 'coffee', "can'", 'take off', 'well-', 'zzvelvetqz'):
+                rows = conn.execute(query, (prefix, prefix + '\x7f', 41)).fetchall()
+                keys = [row[0] for row in rows]
+                assert len(keys) <= 41 and keys == sorted(keys)
+                assert all(key.startswith(prefix) for key in keys)
+            plan = conn.execute('EXPLAIN QUERY PLAN ' + query, ('coffee', 'coffee\x7f', 41)).fetchall()
+            assert any('SEARCH' in row[3] and 'PRIMARY KEY' in row[3] for row in plan), plan
+        print(f'PASS: {count:,} entries; {words:,} single-token keys; hashes, license, integrity, all rows and indexed prefix queries valid')
     finally:
         if archive: archive.close()
 

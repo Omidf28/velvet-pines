@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Surface
@@ -111,7 +112,7 @@ internal fun PlaybackSettings(
     var section by rememberSaveable { mutableStateOf(SettingsSection.Playback) }
     val scrollState = rememberScrollState()
     LaunchedEffect(section) { scrollState.scrollTo(0) }
-    PlayerSettingsPanel(onDismiss) {
+    PlayerOverlayPanel("تنظیمات پخش", onDismiss) {
         Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
@@ -275,9 +276,9 @@ internal fun PlaybackSettings(
     }
 }
 
-/** A window overlay: opening settings never resizes the underlying video surface. */
+/** Shared window overlay; settings and dictionary never resize the underlying video surface. */
 @Composable
-private fun PlayerSettingsPanel(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun PlayerOverlayPanel(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Dialog(
         onDismissRequest = onDismiss,
@@ -293,7 +294,7 @@ private fun PlayerSettingsPanel(onDismiss: () -> Unit, content: @Composable Colu
                 modifier = Modifier.align(if (landscape) Alignment.CenterEnd else Alignment.BottomCenter)
                     .widthIn(max = if (landscape) 440.dp else 640.dp).fillMaxWidth()
                     .fillMaxHeight(if (landscape) 1f else 0.88f)
-                    .safeDrawingPadding().pointerInput(Unit) { },
+                    .safeDrawingPadding().imePadding().pointerInput(Unit) { },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = if (landscape) 0.dp else 20.dp),
                 color = PinesPalette.Night,
                 tonalElevation = 4.dp
@@ -302,7 +303,7 @@ private fun PlayerSettingsPanel(onDismiss: () -> Unit, content: @Composable Colu
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("تنظیمات پخش", style = MaterialTheme.typography.titleMedium)
+                            Text(title, style = MaterialTheme.typography.titleMedium)
                             Text("VELVET PINES", color = PinesPalette.Rose,
                                 style = MaterialTheme.typography.labelSmall)
                         }

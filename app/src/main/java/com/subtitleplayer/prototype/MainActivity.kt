@@ -969,6 +969,8 @@ class MainActivity : ComponentActivity() {
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
         var showWords by rememberSaveable { mutableStateOf(false) }
+        var showDictionary by rememberSaveable { mutableStateOf(false) }
+        var dictionarySeed by rememberSaveable { mutableStateOf("") }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
         var showSubtitleMenu by remember(videoUri) { mutableStateOf(false) }
         var sourceName by remember(videoUri) { mutableStateOf<String?>(null) }
@@ -983,10 +985,10 @@ class MainActivity : ComponentActivity() {
         }
 
         LaunchedEffect(controlsVisible, frame.playing, controlsLocked, dragPosition, showSubtitleMenu,
-            showPlayerMenu, showPlaybackTools, showSettings, showDialogues, editingMeaning, controlsInteraction, foreground, controlsTimeoutMs) {
+            showPlayerMenu, showPlaybackTools, showSettings, showDialogues, showDictionary, editingMeaning, controlsInteraction, foreground, controlsTimeoutMs) {
             if (controlsVisible && frame.playing && !controlsLocked && dragPosition < 0 &&
                 !showSubtitleMenu && !showPlayerMenu && !showPlaybackTools && !showSettings &&
-                !showDialogues && editingMeaning == null && foreground) {
+                !showDialogues && !showDictionary && editingMeaning == null && foreground) {
                 delay(controlsTimeoutMs)
                 controlsVisible = false
             }
@@ -1156,6 +1158,23 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        if (showDictionary && !pictureInPicture && !controlsLocked) {
+            DictionarySearchPanel(
+                dictionary = packagedDictionary, personal = personalMeanings,
+                personalReady = personalEntries != null, dao = personalDictionary,
+                speech = pronunciation, initialTerm = dictionarySeed,
+                beforeSpeak = {
+                    val resume = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+                    lookup?.let { selected ->
+                        selected.studyAction = if (resume || selected.studyAction == StudyAction.Resume)
+                            StudyAction.Resume else StudyAction.Close
+                    }
+                    player.pause()
+                    replayEndMs = null
+                },
+                onDismiss = { showDictionary = false; controlsVisible = true; controlsInteraction++ }
+            )
+        }
         if (showWords && !pictureInPicture) {
             SavedWordsScreen(vocabulary, pronunciation, onBack = { showWords = false })
             return
@@ -1181,6 +1200,7 @@ class MainActivity : ComponentActivity() {
                 canReturnToPlayback = videoUri != null,
                 skipSeconds = skipSeconds,
                 onPlaySample = { showLibrary = false; openDemoVideo() },
+                onDictionary = { dictionarySeed = ""; showDictionary = true },
                 onBack = { if (videoUri == null) finish() else showLibrary = false }
             )
             return
@@ -1323,6 +1343,7 @@ class MainActivity : ComponentActivity() {
                                     lookup = selected,
                                     pronunciation = pronunciation,
                                     onOnline = { selected.onlineRequest++; selected.loading = true },
+                                    onDictionary = { dictionarySeed = selected.word; showDictionary = true },
                                     onDismiss = { lookup = null },
                                     canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
                                         normalizeDictionaryTerm(selected.word) != null,
@@ -1509,6 +1530,9 @@ class MainActivity : ComponentActivity() {
                                 DropdownMenu(expanded = showPlayerMenu, onDismissRequest = { showPlayerMenu = false }) {
                                     DropdownMenuItem(text = { Text("کتابخانه") }, onClick = { showPlayerMenu = false; lookup = null; showLibrary = true })
                                     DropdownMenuItem(text = { Text("دفترچهٔ واژه‌ها") }, onClick = { showPlayerMenu = false; lookup = null; showWords = true })
+                                    DropdownMenuItem(text = { Text("جست‌وجو در واژه‌نامه") }, onClick = {
+                                        showPlayerMenu = false; dictionarySeed = ""; showDictionary = true
+                                    })
                                     DropdownMenuItem(text = { Text("ابزارهای مطالعه و تکرار") }, onClick = { showPlayerMenu = false; showPlaybackTools = true })
                                     if (supportsPictureInPicture && videoReady && !playbackError) {
                                         DropdownMenuItem(text = { Text("تصویر در تصویر") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
@@ -1877,6 +1901,7 @@ private fun MeaningCard(
     lookup: Lookup,
     pronunciation: EnglishPronunciation,
     onOnline: () -> Unit,
+    onDictionary: () -> Unit,
     onDismiss: () -> Unit,
     canEditMeaning: Boolean,
     onEditMeaning: () -> Unit,
@@ -1921,6 +1946,7 @@ private fun MeaningCard(
                 color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
         }
         if (lookup.expanded) {
+            TextButton(onClick = onDictionary) { Text("جست‌وجو در واژه‌نامه", color = PinesPalette.Cream) }
             TextButton(enabled = canEditMeaning && !lookup.loading, onClick = onEditMeaning) {
                 Text(if (meaning == null) "افزودن معنی" else "ویرایش معنی", color = PinesPalette.Cream)
             }

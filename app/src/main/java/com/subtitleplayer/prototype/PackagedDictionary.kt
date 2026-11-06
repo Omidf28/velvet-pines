@@ -24,6 +24,25 @@ internal class PackagedDictionary(context: Context) {
         }
     }
 
+    /** Prefix range uses the primary-key index, not a scan of 230,000 definitions. Call on IO. */
+    fun search(input: String, personal: Map<String, WordMeaning>): DictionarySearchResult {
+        val prefix = normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
+        val indexed = SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery(
+                "SELECT term, definition FROM lexicon WHERE term >= ? AND term < ? ORDER BY term LIMIT ?",
+                arrayOf(prefix, prefix + '\u007f', (dictionarySearchLimit + 1).toString())
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val term = cursor.getString(0)
+                        add(term to WordMeaning(term, cursor.getString(1)))
+                    }
+                }
+            }
+        }
+        return mergeDictionarySearch(prefix, indexed, personal)
+    }
+
     private fun prepare(): File = synchronized(installLock) {
         val manifest = context.assets.open("lexicon/manifest.json").bufferedReader().use { JSONObject(it.readText()) }
         val hash = manifest.getString("databaseSha256")

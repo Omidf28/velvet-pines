@@ -49,6 +49,7 @@ internal fun VideoLibraryScreen(
     canReturnToPlayback: Boolean,
     skipSeconds: Int,
     onPlaySample: () -> Unit,
+    onDictionary: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -161,6 +162,7 @@ internal fun VideoLibraryScreen(
                         OutlinedButton(onClick = { tab = LibraryTab.Folder; onChooseFolder() }) { Text("انتخاب پوشه") }
                         TextButton(onClick = { showLinkDialog = true }) { Text("لینک ویدیو") }
                         if (canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("نمونه") }
+                        TextButton(onClick = onDictionary) { Text("واژه‌نامه") }
                         TextButton(onClick = { showHelp = true }) { Text("راهنما") }
                     }
                 }
