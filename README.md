@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.4.2-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.4.3-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -27,6 +27,7 @@ The project is an experimental implementation with local build and automated tes
 
 - English and Persian SRT/WebVTT subtitles with independent timing adjustments.
 - Compatible embedded text-subtitle tracks, subtitle encoding selection, and an indexed timeline for subtitle lookup.
+- Automatic embedded English selection for new, unprofiled videos, with metadata-based ranking and explicit manual/off choices retained in local video profiles. External subtitles take priority.
 - Word-level selection by default, with an optional recognized-phrase mode persisted in study settings.
 - Cue-specific selection highlighting and compact definition cards over the video; cards are measured separately above the subtitles so opening one does not shift subtitle text. Editing and pronunciation remain available through the card menu.
 - Dialogue navigation, sentence repetition, and optional pause at the end of a subtitle cue.
@@ -96,9 +97,9 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 121 passed |
+| JVM unit tests | 138 passed |
 | SQLite migration and review checks | 14 passed |
-| Android Lint | 0 errors; 26 warnings |
+| Android Lint | 0 errors; 27 warnings |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
 
@@ -119,6 +120,7 @@ Application code currently resides in the `com.subtitleplayer.prototype` package
 - [Android development roadmap](ROADMAP.md) — implementation history and remaining acceptance work; Persian.
 - [Windows development roadmap](WINDOWS_ROADMAP.md) — architecture evaluation, interactive subtitle prototype, shared logic, data compatibility, and distribution milestones; Persian.
 - [Engineering checkpoint](CHECKPOINT.md) — recorded build results and outstanding verification; Persian.
+- [Embedded subtitle discovery](docs/SUBTITLE_DISCOVERY.md) — selection rules, profile compatibility, and verification scope.
 - [Playback acceptance checklist](docs/PLAYER_ACCEPTANCE.md) — device tests for the immersive player and subtitle interactions.
 - [Manual testing guide](docs/MANUAL.fa.md) — detailed setup and acceptance scenarios; Persian.
 

@@ -1,4 +1,4 @@
-# Immersive Playback Acceptance — 0.4.2-dev
+# Immersive Playback Acceptance — 0.4.3-dev
 
 Status: pending execution on an Android device. Compilation and JVM tests do not verify touch routing, overlay positioning, or device rendering.
 
@@ -53,6 +53,21 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Tap another word before timeout; its definition should receive a fresh display interval. After timeout or dismissal, the highlight must clear.
 - [ ] Tap empty video space while a definition is open. The definition should close and the playback controls should appear without resizing the video or automatically resuming a study pause.
 - [ ] Verify word selection, save, edit, speech, study-pause resume, and lock/unlock in both lookup modes; existing saved phrase cards must remain intact.
+## Automatic Embedded English
+
+- [ ] Open a new local video with supported embedded English text. It should select English automatically and allow word selection without attaching a separate SRT file.
+- [ ] Use multiple language tracks with a non-English container default. Confirm that automatic mode still chooses English.
+- [ ] With both forced and non-forced English tracks, confirm the non-forced track wins. With only forced English, confirm the forced indicator and limited dialogue coverage are understood.
+- [ ] Try missing language metadata, image-only subtitles, and no embedded English. Do not infer English from a track label. The menu should offer external file selection and report no compatible English after preparation completes.
+- [ ] Manually select another track, including reselecting the current automatic track. Confirm that later metadata changes do not override this choice and an unchanged track does not blank its current cue.
+- [ ] Turn primary subtitles off, then wait, seek, close and reopen the local video, and restart the application. Automatic mode must remain off while its retained profile is available.
+- [ ] Disable or change the bundled sample subtitles, then choose Play Sample again. Its bundled English and Persian subtitle files should be restored.
+- [ ] Re-enable automatic English while paused; playback must remain paused.
+- [ ] Re-enable automatic English from the menu. It should resume discovery; a selected external subtitle must take priority until the user explicitly switches away from it.
+- [ ] Hide and show English using the caption menu. This should preserve its source and profile mode; automatic selection should not silently undo the display preference.
+- [ ] Upgrade with existing manual/off profiles and verify that the absence of the new JSON field preserves the old behavior.
+- [ ] Switch quickly between two videos and between queued items. No subtitle text or track selection from the previous source should appear in the next one.
+- [ ] Verify adaptive stream track changes separately where compatible text tracks are exposed. This does not establish general protocol or codec compatibility.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.

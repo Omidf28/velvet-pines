@@ -9,13 +9,21 @@ import java.util.Locale
 internal data class EmbeddedSubtitleTrack(val group: Tracks.Group, val index: Int) {
     val key: String get() = "${group.mediaTrackGroup.id}:$index"
 
+    val candidate: EmbeddedSubtitleCandidate get() {
+        val format = group.getTrackFormat(index)
+        return EmbeddedSubtitleCandidate(key, format.language,
+            forced = format.selectionFlags and C.SELECTION_FLAG_FORCED != 0,
+            default = format.selectionFlags and C.SELECTION_FLAG_DEFAULT != 0)
+    }
+
     fun displayName(number: Int): String {
         val format = group.getTrackFormat(index)
         val language = format.language?.takeUnless { it == "und" }?.let {
             Locale.forLanguageTag(it).getDisplayLanguage(Locale.forLanguageTag("fa"))
         }
         val name = format.label?.takeIf(String::isNotBlank) ?: language?.takeIf(String::isNotBlank)
-        return if (name == null) "زیرنویس داخلی $number" else "زیرنویس داخلی $number · $name"
+        val forced = if (candidate.forced) " · اجباری" else ""
+        return (if (name == null) "زیرنویس داخلی $number" else "زیرنویس داخلی $number · $name") + forced
     }
 }
 

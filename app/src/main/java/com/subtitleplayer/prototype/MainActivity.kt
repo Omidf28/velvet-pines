@@ -142,7 +142,8 @@ class MainActivity : ComponentActivity() {
     }
     private var tracks by mutableStateOf(Tracks.EMPTY)
     private var embeddedOptions by mutableStateOf(emptyList<EmbeddedSubtitleTrack>())
-    private var embeddedTrackKey by mutableStateOf<String?>(null)
+    private var embeddedSelection by mutableStateOf(EmbeddedSubtitleSelection())
+    private val embeddedTrackKey: String? get() = embeddedSelection.key
     private var embeddedSubtitle by mutableStateOf<ActiveSubtitle?>(null)
     private var playbackSpeed by mutableFloatStateOf(1f)
     private var skipSeconds by mutableIntStateOf(10)
@@ -233,12 +234,15 @@ class MainActivity : ComponentActivity() {
             setPlaybackSpeed(this@MainActivity.playbackSpeed)
             addListener(object : Player.Listener {
                 override fun onTracksChanged(newTracks: Tracks) {
+                    if (videoUri == null || player.currentMediaItem?.localConfiguration?.uri != videoUri ||
+                        newTracks != player.currentTracks) return
                     tracks = newTracks
                     embeddedOptions = embeddedTextTracks(newTracks)
-                    if (embeddedTrackKey != null) updateEmbeddedTextSelection()
+                    refreshEmbeddedTextSelection()
                 }
 
                 override fun onCues(cueGroup: CueGroup) {
+                    if (player.currentMediaItem?.localConfiguration?.uri != videoUri || cueGroup != player.currentCues) return
                     val selected = embeddedOptions.firstOrNull { it.key == embeddedTrackKey }
                     if (selected == null || !selected.group.isTrackSelected(selected.index)) {
                         embeddedSubtitle = null
@@ -306,6 +310,7 @@ class MainActivity : ComponentActivity() {
                         persian = savedInstanceState.getString("translation")?.let(Uri::parse),
                         persianDelayMs = savedInstanceState.getLong("translationDelayMs"),
                         embeddedTrack = savedInstanceState.getString("embeddedSubtitleTrack"),
+                        automaticEnglish = savedInstanceState.getBoolean("automaticEnglish", false),
                         size = savedInstanceState.getInt("subtitleSize", defaultSubtitleSize)
                     )
                 )
@@ -384,6 +389,7 @@ class MainActivity : ComponentActivity() {
         outState.putString("translation", translationUri?.toString())
         outState.putLong("translationDelayMs", translationDelayMs)
         outState.putString("embeddedSubtitleTrack", embeddedTrackKey)
+        outState.putBoolean("automaticEnglish", embeddedSelection.automaticEnglish)
         outState.putInt("subtitleSize", subtitleSize)
     }
 
@@ -450,6 +456,7 @@ class MainActivity : ComponentActivity() {
             persian = translationUri,
             persianDelayMs = translationDelayMs,
             embeddedTrack = embeddedTrackKey,
+            automaticEnglish = embeddedSelection.automaticEnglish,
             size = subtitleSize
         ).withReadableFiles(readable)
         val key = videoSubtitleKey(video)
@@ -507,13 +514,13 @@ class MainActivity : ComponentActivity() {
             ?: subtitleProfiles.firstOrNull { videoSubtitleKey(it.video) == key }?.subtitles?.withReadableFiles(readable)
             ?: if (uri == demoVideo) {
                 VideoSubtitleSettings(english = demoSubtitles, persian = demoTranslation, size = defaultSubtitleSize)
-            } else VideoSubtitleSettings(size = defaultSubtitleSize)
+            } else VideoSubtitleSettings(size = defaultSubtitleSize, automaticEnglish = true)
 
         clearAbLoop()
         autoPauseEnds = emptyList()
         lastDialoguePosition = null
         replayEndMs = null
-        embeddedTrackKey = null
+        embeddedSelection = EmbeddedSubtitleSelection(automaticEnglish = false)
         embeddedSubtitle = null
         embeddedOptions = emptyList()
         tracks = Tracks.EMPTY
@@ -545,9 +552,32 @@ class MainActivity : ComponentActivity() {
             }
             player.setMediaSource(source, positionMs)
         }
-        embeddedTrackKey = settings.embeddedTrack.takeIf { settings.english == null }
+        embeddedSelection = EmbeddedSubtitleSelection(
+            automaticEnglish = settings.automaticEnglish && settings.english == null,
+            key = settings.embeddedTrack.takeIf { settings.english == null }
+        )
         player.prepare()
         player.playWhenReady = autoplay
+    }
+
+    private fun openDemoVideo() {
+        openVideo(demoVideo, restoredSubtitles = VideoSubtitleSettings(
+            english = demoSubtitles, persian = demoTranslation, size = defaultSubtitleSize
+        ))
+    }
+    private fun refreshEmbeddedTextSelection() {
+        val updated = embeddedSelection.refresh(embeddedOptions.map { it.candidate }, subtitleUri != null)
+        if (updated.key != embeddedTrackKey || embeddedOptions.none { it.key == updated.key }) embeddedSubtitle = null
+        embeddedSelection = updated
+        updateEmbeddedTextSelection()
+    }
+
+    private fun chooseAutomaticEnglishSubtitle() {
+        replayEndMs = null
+        subtitleUri = null
+        subtitleDelayMs = 0
+        embeddedSelection = embeddedSelection.automatic()
+        refreshEmbeddedTextSelection()
     }
 
     private fun updateEmbeddedTextSelection() {
@@ -564,11 +594,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun chooseEmbeddedSubtitle(key: String?) {
+        if (key != embeddedTrackKey || subtitleUri != null || key == null) embeddedSubtitle = null
         replayEndMs = null
         subtitleUri = null
         subtitleDelayMs = 0
-        embeddedSubtitle = null
-        embeddedTrackKey = key
+        embeddedSelection = embeddedSelection.manual(key)
         updateEmbeddedTextSelection()
     }
 
@@ -1009,7 +1039,7 @@ class MainActivity : ComponentActivity() {
                         Text(message, color = PinesPalette.Cream, textAlign = TextAlign.Center)
                         if (videoUri == null) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                TextButton(onClick = { openVideo(demoVideo) }) { Text("نمونه") }
+                                TextButton(onClick = { openDemoVideo() }) { Text("نمونه") }
                                 TextButton(onClick = { showLibrary = true }) { Text("انتخاب فیلم") }
                                 TextButton(onClick = { showHelp = true }) { Text("راهنما") }
                             }
@@ -1161,6 +1191,33 @@ class MainActivity : ComponentActivity() {
                             Box {
                                 PlayerIconButton(PlayerGlyph.Subtitles, "زیرنویس", onClick = { showSubtitleMenu = true })
                                 DropdownMenu(expanded = showSubtitleMenu, onDismissRequest = { showSubtitleMenu = false }) {
+                                    val available = embeddedOptions.any { it.key == embeddedTrackKey }
+                                    val status = when {
+                                        !englishSubtitlesVisible -> "نمایش زیرنویس انگلیسی پنهان است"
+                                        subtitleUri != null -> "زیرنویس انگلیسی: فایل جداگانه"
+                                        playbackError -> "پخش فیلم خطا دارد؛ اطلاعات ترک داخلی در دسترس نیست"
+                                        embeddedSelection.automaticEnglish && available -> "انگلیسی داخلی: انتخاب خودکار"
+                                        embeddedSelection.automaticEnglish && !videoReady && !playbackError -> "در انتظار اطلاعات زیرنویس فیلم…"
+                                        embeddedSelection.automaticEnglish -> "زیرنویس انگلیسی داخلی پیدا نشد؛ فایل SRT یا VTT انتخاب کنید"
+                                        embeddedTrackKey != null && !available -> "ترک ذخیره‌شده فعلاً در دسترس نیست"
+                                        available -> "زیرنویس داخلی: انتخاب دستی"
+                                        else -> "زیرنویس اصلی خاموش است"
+                                    }
+                                    DropdownMenuItem(enabled = false,
+                                        text = { Text(status, maxLines = 3) }, onClick = { })
+                                    DropdownMenuItem(text = {
+                                        Text((if (embeddedSelection.automaticEnglish) "✓ " else "") + "انتخاب خودکار انگلیسی داخلی")
+                                    }, onClick = {
+                                        showSubtitleMenu = false
+                                        lookup = null
+                                        chooseAutomaticEnglishSubtitle()
+                                    })
+                                    DropdownMenuItem(text = { Text(if (englishSubtitlesVisible) "پنهان کردن انگلیسی" else "نمایش انگلیسی") }, onClick = {
+                                        showSubtitleMenu = false
+                                        lookup = null
+                                        englishSubtitlesVisible = !englishSubtitlesVisible
+                                        history.edit().putBoolean("englishSubtitlesVisible", englishSubtitlesVisible).apply()
+                                    })
                                     DropdownMenuItem(text = { Text("انتخاب زیرنویس انگلیسی") }, onClick = {
                                         showSubtitleMenu = false
                                         selectSubtitle.launch(arrayOf("*/*"))
@@ -1173,13 +1230,15 @@ class MainActivity : ComponentActivity() {
                                             },
                                             onClick = {
                                                 showSubtitleMenu = false
-                                                if (option.key != embeddedTrackKey) chooseEmbeddedSubtitle(option.key)
+                                                lookup = null
+                                                chooseEmbeddedSubtitle(option.key)
                                             }
                                         )
                                     }
-                                    if (embeddedTrackKey != null || subtitleUri != null) {
+                                    if (embeddedSelection.automaticEnglish || embeddedTrackKey != null || subtitleUri != null) {
                                         DropdownMenuItem(text = { Text("خاموش کردن زیرنویس اصلی") }, onClick = {
                                             showSubtitleMenu = false
+                                            lookup = null
                                             chooseEmbeddedSubtitle(null)
                                         })
                                     }
@@ -1208,7 +1267,7 @@ class MainActivity : ComponentActivity() {
                                         DropdownMenuItem(text = { Text("تصویر در تصویر") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
                                     }
                                     DropdownMenuItem(text = { Text("راهنما") }, onClick = { showPlayerMenu = false; showHelp = true })
-                                    DropdownMenuItem(text = { Text("پخش نمونه") }, onClick = { showPlayerMenu = false; lookup = null; openVideo(demoVideo) })
+                                    DropdownMenuItem(text = { Text("پخش نمونه") }, onClick = { showPlayerMenu = false; lookup = null; openDemoVideo() })
                                 }
                             }
                         },
