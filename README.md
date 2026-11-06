@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.4.1-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.4.2-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -27,7 +27,8 @@ The project is an experimental implementation with local build and automated tes
 
 - English and Persian SRT/WebVTT subtitles with independent timing adjustments.
 - Compatible embedded text-subtitle tracks, subtitle encoding selection, and an indexed timeline for subtitle lookup.
-- Word and phrase selection with compact definition cards over the video; editing and pronunciation are available through the card menu.
+- Word-level selection by default, with an optional recognized-phrase mode persisted in study settings.
+- Cue-specific selection highlighting and compact definition cards over the video; cards are measured separately above the subtitles so opening one does not shift subtitle text. Editing and pronunciation remain available through the card menu.
 - Dialogue navigation, sentence repetition, and optional pause at the end of a subtitle cue.
 
 ### Vocabulary and Review
@@ -95,9 +96,9 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 111 passed |
+| JVM unit tests | 121 passed |
 | SQLite migration and review checks | 14 passed |
-| Android Lint | 0 errors; 25 warnings |
+| Android Lint | 0 errors; 26 warnings |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
 

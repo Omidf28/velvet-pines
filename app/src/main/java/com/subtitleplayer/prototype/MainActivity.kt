@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
     private var persianSubtitlesVisible by mutableStateOf(true)
     private var englishEncoding by mutableStateOf(SubtitleTextEncoding.Auto)
     private var persianEncoding by mutableStateOf(SubtitleTextEncoding.Auto)
+    private var subtitleLookupMode by mutableStateOf(SubtitleLookupMode.Words)
     private var pauseOnWordTap by mutableStateOf(false)
     private var pauseAfterDialogue by mutableStateOf(false)
     private var autoPauseEnds: List<Long> = emptyList()
@@ -201,6 +202,7 @@ class MainActivity : ComponentActivity() {
             ?: SubtitleTextEncoding.Auto
         videoScaleMode = VideoScaleMode.entries.firstOrNull { it.name == history.getString("videoScaleMode", null) }
             ?: VideoScaleMode.Fit
+        subtitleLookupMode = subtitleLookupModeFrom(history.getString("subtitleLookupMode", null))
         pauseOnWordTap = history.getBoolean("pauseOnWordTap", false)
         pauseAfterDialogue = history.getBoolean("pauseAfterDialogue", false)
         subtitleSize = defaultSubtitleSize
@@ -724,8 +726,8 @@ class MainActivity : ComponentActivity() {
         val englishTrack = subtitleTrack(subtitleUri, englishEncoding)
         val persianTrack = subtitleTrack(translationUri, persianEncoding, persian = true)
         val cues = englishTrack.cues
-        var lookup by remember(videoUri, subtitleUri, embeddedTrackKey) { mutableStateOf<Lookup?>(null) }
-        var editingMeaning by remember(videoUri, subtitleUri, embeddedTrackKey) { mutableStateOf<Lookup?>(null) }
+        var lookup by remember(videoUri, subtitleUri, embeddedTrackKey, subtitleLookupMode) { mutableStateOf<Lookup?>(null) }
+        var editingMeaning by remember(videoUri, subtitleUri, embeddedTrackKey, subtitleLookupMode) { mutableStateOf<Lookup?>(null) }
         val personalEntries by remember { personalDictionary.observeAll() }.collectAsState(initial = null)
         val personalMeanings = remember(personalEntries) {
             personalEntries.orEmpty().associate { it.wordKey to WordMeaning(it.headword, it.meaning) }
@@ -960,7 +962,10 @@ class MainActivity : ComponentActivity() {
                         player = player,
                         enabled = !playbackError && !controlsLocked,
                         onToggleControls = {
-                            controlsVisible = !controlsVisible
+                            if (lookup != null) {
+                                lookup = null
+                                controlsVisible = true
+                            } else controlsVisible = !controlsVisible
                             controlsInteraction++
                         },
                         skipSeconds = skipSeconds,
@@ -1020,79 +1025,90 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                if (!pictureInPicture) Column(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                        .padding(bottom = if (controlsVisible && !controlsLocked && videoUri != null) 104.dp else 12.dp)
-                        .safeDrawingPadding().padding(horizontal = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    lookup?.takeUnless { controlsLocked }?.let { selected ->
-                        MeaningCard(
-                            lookup = selected,
-                            pronunciation = pronunciation,
-                            onDismiss = { lookup = null },
-                            canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
-                                normalizeDictionaryTerm(selected.word) != null,
-                            onEditMeaning = {
-                                pronunciation.stop()
-                                val resume = selected.studyAction == StudyAction.Resume ||
-                                    (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
-                                player.pause()
-                                replayEndMs = null
-                                selected.studyAction = if (resume) StudyAction.Resume else StudyAction.Close
-                                editingMeaning = selected
-                            },
-                            beforeSpeak = {
-                                val resume = selected.studyAction == StudyAction.Resume ||
-                                    (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
-                                player.pause()
-                                replayEndMs = null
-                                selected.studyAction = if (resume) StudyAction.Resume else StudyAction.Close
-                            },
-                            onSave = {
-                                if (selected.saveState == WordSaveState.Ready) {
-                                    selected.saveState = WordSaveState.Saving
-                                    scope.launch { saveLookup(selected) }
+                if (!pictureInPicture) {
+                    SubtitleOverlay(
+                        topReserved = if (controlsVisible && !controlsLocked) 72.dp else 12.dp,
+                        meaningVisible = lookup != null && !controlsLocked,
+                        subtitles = {
+                            Column(
+                                Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                                    .padding(bottom = if (controlsVisible && !controlsLocked && videoUri != null) 104.dp else 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val source = frame.source
+                                val subtitle = if (embeddedTrackKey != null) embeddedSubtitle
+                                else englishTrack.timeline.activeAt(frame.positionMs - subtitleDelayMs)
+                                if (englishSubtitlesVisible && source != null && source == videoUri && subtitle != null) {
+                                    TappableSubtitle(subtitle.text, subtitleSize, Color(subtitleTextTone.argb), subtitleBackgroundOpacity,
+                                        enabled = !controlsLocked, personalMeanings = personalMeanings,
+                                        mode = subtitleLookupMode, selectedRange = lookup?.selection?.highlightFor(subtitle)) { term ->
+                                        if (controlsLocked) return@TappableSubtitle
+                                        controlsVisible = false
+                                        val studyAction = if (pauseOnWordTap) {
+                                            val resume = lookup?.studyAction == StudyAction.Resume ||
+                                                (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
+                                            player.pause()
+                                            if (resume) StudyAction.Resume else StudyAction.Close
+                                        } else null
+                                        lookup = Lookup(
+                                            word = term.text,
+                                            meaning = term.meaning,
+                                            dialogue = subtitle.text,
+                                            selection = SubtitleSelection(subtitle, term.start, term.endExclusive),
+                                            positionMs = frame.positionMs,
+                                            subtitleStartMs = subtitle.startMs,
+                                            source = source,
+                                            sourceName = sourceName ?: "ویدیوی محلی",
+                                            studyAction = studyAction
+                                        )
+                                    }
                                 }
-                            },
-                            onStudyAction = {
-                                lookup = null
-                                if (selected.studyAction == StudyAction.Resume) player.play()
+                                if (persianSubtitlesVisible && source != null && source == videoUri) {
+                                    persianTrack.timeline.activeAt(frame.positionMs - translationDelayMs)?.let {
+                                        PersianSubtitle(it.text, subtitleSize, subtitleBackgroundOpacity)
+                                    }
+                                }
                             }
-                        )
-                    }
-                    val source = frame.source
-                    val subtitle = if (embeddedTrackKey != null) embeddedSubtitle
-                    else englishTrack.timeline.activeAt(frame.positionMs - subtitleDelayMs)
-                    if (englishSubtitlesVisible && source != null && source == videoUri && subtitle != null) {
-                        TappableSubtitle(subtitle.text, subtitleSize, Color(subtitleTextTone.argb), subtitleBackgroundOpacity,
-                            enabled = !controlsLocked, personalMeanings = personalMeanings) { term ->
-                            if (controlsLocked) return@TappableSubtitle
-                            controlsVisible = false
-                            val studyAction = if (pauseOnWordTap) {
-                                val resume = lookup?.studyAction == StudyAction.Resume ||
-                                    (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
-                                player.pause()
-                                if (resume) StudyAction.Resume else StudyAction.Close
-                            } else null
-                            lookup = Lookup(
-                                word = term.text,
-                                meaning = term.meaning,
-                                dialogue = subtitle.text,
-                                positionMs = frame.positionMs,
-                                subtitleStartMs = subtitle.startMs,
-                                source = source,
-                                sourceName = sourceName ?: "ویدیوی محلی",
-                                studyAction = studyAction
-                            )
+                        },
+                        meaning = {
+                            lookup?.takeUnless { controlsLocked }?.let { selected ->
+                                MeaningCard(
+                                    lookup = selected,
+                                    pronunciation = pronunciation,
+                                    onDismiss = { lookup = null },
+                                    canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
+                                        normalizeDictionaryTerm(selected.word) != null,
+                                    onEditMeaning = {
+                                        pronunciation.stop()
+                                        val resume = selected.studyAction == StudyAction.Resume ||
+                                            (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
+                                        player.pause()
+                                        replayEndMs = null
+                                        selected.studyAction = if (resume) StudyAction.Resume else StudyAction.Close
+                                        editingMeaning = selected
+                                    },
+                                    beforeSpeak = {
+                                        val resume = selected.studyAction == StudyAction.Resume ||
+                                            (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
+                                        player.pause()
+                                        replayEndMs = null
+                                        selected.studyAction = if (resume) StudyAction.Resume else StudyAction.Close
+                                    },
+                                    onSave = {
+                                        if (selected.saveState == WordSaveState.Ready) {
+                                            selected.saveState = WordSaveState.Saving
+                                            scope.launch { saveLookup(selected) }
+                                        }
+                                    },
+                                    onStudyAction = {
+                                        lookup = null
+                                        if (selected.studyAction == StudyAction.Resume) player.play()
+                                    }
+                                )
+                            }
                         }
-                    }
-                    if (persianSubtitlesVisible && source != null && source == videoUri) {
-                        persianTrack.timeline.activeAt(frame.positionMs - translationDelayMs)?.let {
-                            PersianSubtitle(it.text, subtitleSize, subtitleBackgroundOpacity)
-                        }
-                    }
+                    )
                 }
                 if (!pictureInPicture && videoUri != null && controlsVisible && !controlsLocked) {
                     val progress = if (frame.durationMs > 0)
@@ -1365,6 +1381,12 @@ class MainActivity : ComponentActivity() {
                     lastDialoguePosition = player.currentPosition
                     history.edit().putBoolean("pauseAfterDialogue", it).apply()
                 },
+                subtitleLookupMode = subtitleLookupMode,
+                onSubtitleLookupMode = {
+                    subtitleLookupMode = it
+                    pronunciation.stop()
+                    history.edit().putString("subtitleLookupMode", it.name).apply()
+                },
                 pauseOnWordTap = pauseOnWordTap,
                 onPauseOnWordTap = {
                     pauseOnWordTap = it
@@ -1438,6 +1460,7 @@ private class Lookup(
     val word: String,
     meaning: WordMeaning?,
     val dialogue: String,
+    val selection: SubtitleSelection,
     val positionMs: Long,
     val subtitleStartMs: Long,
     val source: Uri,
@@ -1482,14 +1505,17 @@ private fun TappableSubtitle(
     backgroundOpacity: Float,
     enabled: Boolean,
     personalMeanings: Map<String, WordMeaning>,
+    mode: SubtitleLookupMode,
+    selectedRange: IntRange?,
     onTerm: (SubtitleTerm) -> Unit
 ) {
     val currentOnTerm by rememberUpdatedState(onTerm)
-    val annotated = remember(text, enabled, personalMeanings) {
+    val terms = remember(text, personalMeanings, mode) { subtitleTerms(text, personalMeanings, mode) }
+    val annotated = remember(text, enabled, terms, selectedRange) {
         buildAnnotatedString {
             append(text)
             if (!enabled) return@buildAnnotatedString
-            subtitleTerms(text, personalMeanings).forEach { term ->
+            terms.forEach { term ->
                 addLink(
                     LinkAnnotation.Clickable(
                         tag = term.start.toString(),
@@ -1499,6 +1525,10 @@ private fun TappableSubtitle(
                     start = term.start,
                     end = term.endExclusive
                 )
+            }
+            selectedRange?.let { range ->
+                addStyle(SpanStyle(background = PinesPalette.Curtain, color = PinesPalette.Cream),
+                    start = range.first, end = range.last + 1)
             }
         }
     }

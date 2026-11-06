@@ -97,7 +97,7 @@ class SubtitlesTest {
     @Test
     fun linksAnInflectedPhraseAsOneTermWhilePreservingTheVisibleText() {
         val text = "She GAVE\tUP, then left."
-        val terms = subtitleTerms(text)
+        val terms = subtitleTerms(text, mode = SubtitleLookupMode.Phrases)
 
         assertEquals(listOf("She", "GAVE UP", "then", "left"), terms.map(SubtitleTerm::text))
         val phrase = terms[1]
@@ -108,7 +108,7 @@ class SubtitlesTest {
 
     @Test
     fun choosesTheLongestRecognizedPhraseAndHandlesNonbreakingSpaces() {
-        val terms = subtitleTerms("We ran\u00A0out of time, so we ran out.")
+        val terms = subtitleTerms("We ran\u00A0out of time, so we ran out.", mode = SubtitleLookupMode.Phrases)
 
         assertEquals(listOf("run out of", "run out"), terms.mapNotNull {
             it.meaning?.headword?.takeIf { headword -> headword.startsWith("run out") }
@@ -117,7 +117,7 @@ class SubtitlesTest {
 
     @Test
     fun doesNotJoinWordsAcrossPunctuationOrHardLineBreaks() {
-        val terms = subtitleTerms("Give, up. Look\nfor shelter.")
+        val terms = subtitleTerms("Give, up. Look\nfor shelter.", mode = SubtitleLookupMode.Phrases)
 
         assertEquals(listOf("Give", "up", "Look", "for", "shelter"), terms.map(SubtitleTerm::text))
         assertEquals("give", terms.first().meaning?.headword)

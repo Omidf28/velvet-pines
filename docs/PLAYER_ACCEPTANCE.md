@@ -1,4 +1,4 @@
-# Immersive Playback Acceptance — 0.4.1-dev
+# Immersive Playback Acceptance — 0.4.2-dev
 
 Status: pending execution on an Android device. Compilation and JVM tests do not verify touch routing, overlay positioning, or device rendering.
 
@@ -42,6 +42,17 @@ Status: pending execution on an Android device. Compilation and JVM tests do not
 
 Android 16 can ignore orientation requests on displays of at least sw600dp for applications targeting API 36. The layout must remain usable when a rotation request is ignored; this project does not opt out of adaptive platform behavior. See the [official Android orientation and resizability documentation](https://developer.android.com/develop/adaptive-apps/guides/app-orientation-aspect-ratio-resizability).
 
+## Word Selection and Definition Layout
+
+- [ ] With default settings, select a word inside a known phrase such as `gave up`. Only the selected word should be highlighted and looked up.
+- [ ] Switch Study settings to recognized phrases. Selecting either part of a recognized phrase should select the full phrase; custom dictionary phrases should also work. Restart the application and verify the choice persists.
+- [ ] Select one occurrence of a repeated word. Only that occurrence should be highlighted. Identical text in a later cue must not retain the previous cue's selection.
+- [ ] Select an unknown word. The selected range should still be highlighted and the card should offer personal dictionary editing.
+- [ ] Compare subtitle coordinates before and after opening and expanding a definition card, with controls hidden in both cases. The card must not push the subtitles or change the video's bounds.
+- [ ] Test English and Persian together, two-line cues, large fonts, display cutouts, and a short landscape viewport. The card should use the remaining space above the subtitles and scroll when needed.
+- [ ] Tap another word before timeout; its definition should receive a fresh display interval. After timeout or dismissal, the highlight must clear.
+- [ ] Tap empty video space while a definition is open. The definition should close and the playback controls should appear without resizing the video or automatically resuming a study pause.
+- [ ] Verify word selection, save, edit, speech, study-pause resume, and lock/unlock in both lookup modes; existing saved phrase cards must remain intact.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.

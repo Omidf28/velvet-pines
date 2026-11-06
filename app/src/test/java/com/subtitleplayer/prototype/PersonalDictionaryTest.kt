@@ -52,7 +52,7 @@ class PersonalDictionaryTest {
     fun personalPhraseKeepsOriginalSpansAndPunctuationBoundaries() {
         val meaning = WordMeaning("look for", "جست‌وجو کردن")
         val text = "Looking\tfor shelter; looking, for."
-        val terms = subtitleTerms(text, mapOf("looking for" to meaning))
+        val terms = subtitleTerms(text, mapOf("looking for" to meaning), SubtitleLookupMode.Phrases)
         assertEquals(meaning, terms.first().meaning)
         assertEquals("Looking\tfor", text.substring(terms.first().start, terms.first().endExclusive))
         assertEquals(listOf("Looking for", "shelter", "looking", "for"), terms.map { it.text })

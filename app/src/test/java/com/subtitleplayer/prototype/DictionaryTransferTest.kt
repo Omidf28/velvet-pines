@@ -42,8 +42,8 @@ class DictionaryTransferTest {
         val map = mapOf("piece of cake" to WordMeaning("piece of cake", "بسیار آسان"),
             "piece of" to WordMeaning("piece of", "بخشی از"))
         val text = "A piece of cake!"
-        assertEquals("piece of cake", subtitleTerms(text, map)[1].text)
-        assertEquals("بسیار آسان", subtitleTerms(text, map)[1].meaning?.persian)
-        assertEquals(listOf("piece", "of", "cake"), subtitleTerms("piece, of cake", map).map { it.text })
+        assertEquals("piece of cake", subtitleTerms(text, map, SubtitleLookupMode.Phrases)[1].text)
+        assertEquals("بسیار آسان", subtitleTerms(text, map, SubtitleLookupMode.Phrases)[1].meaning?.persian)
+        assertEquals(listOf("piece", "of", "cake"), subtitleTerms("piece, of cake", map, SubtitleLookupMode.Phrases).map { it.text })
     }
 }

@@ -91,6 +91,8 @@ internal fun PlaybackSettings(
     onAudioTrack: (TrackSelectionOverride) -> Unit,
     pauseAfterDialogue: Boolean,
     onPauseAfterDialogue: (Boolean) -> Unit,
+    subtitleLookupMode: SubtitleLookupMode,
+    onSubtitleLookupMode: (SubtitleLookupMode) -> Unit,
     pauseOnWordTap: Boolean,
     onPauseOnWordTap: (Boolean) -> Unit,
     subtitleTextTone: SubtitleTextTone,
@@ -248,6 +250,15 @@ internal fun PlaybackSettings(
 
                     }
                     SettingsSection.Study -> {
+                        Text("انتخاب از زیرنویس", style = MaterialTheme.typography.titleSmall)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SubtitleLookupMode.entries.forEach { mode ->
+                                FilterChip(selected = mode == subtitleLookupMode,
+                                    onClick = { onSubtitleLookupMode(mode) }, label = { Text(mode.label) })
+                            }
+                        }
+                        Text("در حالت واژه، فقط همان کلمه انتخاب می‌شود. حالت عبارت، ترکیب‌های شناخته‌شده و عبارت‌های واژه‌نامهٔ شخصی را یکجا انتخاب می‌کند.",
+                            style = MaterialTheme.typography.bodySmall)
                         SubtitleVisibility("مکث هنگام لمس واژه", pauseOnWordTap, onPauseOnWordTap)
 
                         SubtitleVisibility("مکث پس از هر دیالوگ", pauseAfterDialogue, onPauseAfterDialogue)

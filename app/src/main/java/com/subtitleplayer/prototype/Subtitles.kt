@@ -219,7 +219,8 @@ internal fun defaultTermMeaning(term: String): WordMeaning? {
 
 internal fun subtitleTerms(
     text: String,
-    personalMeanings: Map<String, WordMeaning> = emptyMap()
+    personalMeanings: Map<String, WordMeaning> = emptyMap(),
+    mode: SubtitleLookupMode = SubtitleLookupMode.Words
 ): List<SubtitleTerm> {
     val tokens = subtitleWords.findAll(text).toList()
     val normalized = tokens.map { normalizeWord(it.value) }
@@ -228,7 +229,8 @@ internal fun subtitleTerms(
         while (first < tokens.size) {
             var last = first
             var meaning = lookupWord(tokens[first].value)
-            val limit = minOf(first + (if (personalMeanings.isEmpty()) maxPhraseWords else 8), tokens.size)
+            val limit = if (mode == SubtitleLookupMode.Words) first + 1
+                else minOf(first + (if (personalMeanings.isEmpty()) maxPhraseWords else 8), tokens.size)
             for (next in first + 1 until limit) {
                 val gap = text.substring(tokens[next - 1].range.last + 1, tokens[next].range.first)
                 if (gap.any { it != ' ' && it != '\t' && it != '\u00A0' }) break
