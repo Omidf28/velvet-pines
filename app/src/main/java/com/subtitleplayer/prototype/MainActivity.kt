@@ -105,6 +105,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import java.io.IOException
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.MainScope
@@ -207,6 +208,9 @@ class MainActivity : ComponentActivity() {
     private val history by lazy { getSharedPreferences("last_playback", MODE_PRIVATE) }
     private val vocabulary by lazy { SavedWordsDatabase.get(applicationContext).words() }
     private val packagedDictionary by lazy { PackagedDictionary(applicationContext) }
+    private val wordLookup by lazy {
+        WordLookupService({ packagedDictionary.resolve(it, emptyMap()) }, ::translateSelectedTerm)
+    }
     private val personalDictionary by lazy { SavedWordsDatabase.get(applicationContext).dictionary() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -962,6 +966,9 @@ class MainActivity : ComponentActivity() {
         val controlsTimeoutMs = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
             3_500L, containsIcons = true, containsText = true, containsControls = true
         ) ?: 3_500L
+        val meaningTimeoutMs = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
+            3_000L, containsIcons = true, containsText = true, containsControls = true
+        ) ?: 3_000L
         var controlsVisible by remember(videoUri) { mutableStateOf(true) }
         var controlsInteraction by remember { mutableIntStateOf(0) }
         var showPlayerMenu by remember { mutableStateOf(false) }
@@ -1130,30 +1137,25 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(lookup) { pronunciation.stop() }
-        LaunchedEffect(lookup, personalMeanings, lookup?.onlineRequest) {
+        val selectedPersonalMeaning = lookup?.word?.let(::normalizeDictionaryTerm)?.let(personalMeanings::get)
+        LaunchedEffect(lookup, selectedPersonalMeaning, lookup?.requestRevision) {
             val selected = lookup ?: return@LaunchedEffect
+            val request = selected.requests.consume()
+            val requestContext = kotlinx.coroutines.currentCoroutineContext()
             selected.loading = true
             val result = withContext(Dispatchers.IO) {
-                try {
-                    if (selected.onlineRequest > 0 && personalMeanings[normalizeDictionaryTerm(selected.word)] == null) {
-                        DictionaryResult(translateSelectedTerm(selected.word), "ترجمهٔ ماشینی · MyMemory")
-                    } else packagedDictionary.resolve(selected.word, personalMeanings)
-                } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    DictionaryResult(selected.meaning, if (selected.onlineRequest > 0)
-                        "ترجمه انجام نشد؛ اتصال یا سهمیهٔ سرویس را بررسی کنید"
-                    else "واژه‌نامه باز نشد؛ دوباره واژه را لمس کنید")
-                }
+                wordLookup.resolve(selected.word, personalMeanings, request) { requestContext.ensureActive() }
             }
             selected.meaning = result.meaning
             selected.meaningSource = result.source
+            selected.failure = result.failure
+            if (result.failure != null) selected.expanded = true
             selected.loading = false
             selected.resultRevision++
         }
-        LaunchedEffect(lookup, lookup?.studyAction, lookup?.expanded, lookup?.loading, lookup?.resultRevision) {
+        LaunchedEffect(lookup, lookup?.studyAction, lookup?.expanded, lookup?.loading, lookup?.resultRevision, meaningTimeoutMs) {
             if (lookup != null && lookup?.studyAction == null && lookup?.expanded != true && lookup?.loading == false) {
-                delay(3_000)
+                delay(meaningTimeoutMs)
                 lookup = null
             }
         }
@@ -1342,7 +1344,8 @@ class MainActivity : ComponentActivity() {
                                 MeaningCard(
                                     lookup = selected,
                                     pronunciation = pronunciation,
-                                    onOnline = { selected.onlineRequest++; selected.loading = true },
+                                    onOnline = { selected.requests.online(); selected.requestRevision++; selected.loading = true },
+                                    onRetry = { selected.requests.offline(); selected.requestRevision++; selected.loading = true },
                                     onDictionary = { dictionarySeed = selected.word; showDictionary = true },
                                     onDismiss = { lookup = null },
                                     canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
@@ -1799,7 +1802,9 @@ private class Lookup(
 ) {
     var loading by mutableStateOf(true)
     var meaningSource by mutableStateOf("")
-    var onlineRequest by mutableStateOf(0)
+    val requests = WordLookupRequestGate()
+    var requestRevision by mutableStateOf(0)
+    var failure by mutableStateOf<LookupFailure?>(null)
     var resultRevision by mutableStateOf(0)
     var expanded by mutableStateOf(false)
     var meaning by mutableStateOf(meaning)
@@ -1901,6 +1906,7 @@ private fun MeaningCard(
     lookup: Lookup,
     pronunciation: EnglishPronunciation,
     onOnline: () -> Unit,
+    onRetry: () -> Unit,
     onDictionary: () -> Unit,
     onDismiss: () -> Unit,
     canEditMeaning: Boolean,
@@ -1926,7 +1932,9 @@ private fun MeaningCard(
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl))
             }
-            if (meaning != null && !lookup.loading) {
+            if (lookup.loading) {
+                TextButton(onClick = onDismiss) { Text("لغو", color = PinesPalette.Cream) }
+            } else if (meaning != null) {
                 TextButton(enabled = lookup.saveState == WordSaveState.Ready, onClick = onSave) {
                     Text(when (lookup.saveState) {
                         WordSaveState.Ready -> "ذخیره"
@@ -1941,7 +1949,13 @@ private fun MeaningCard(
             Text(lookup.meaningSource, color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
         }
         if (!lookup.loading && meaning == null) {
-            TextButton(onClick = onOnline) { Text("ترجمهٔ اینترنتی این واژه", color = PinesPalette.Cream) }
+            if (lookup.failure == LookupFailure.OfflineUnavailable) {
+                TextButton(onClick = onRetry) { Text("تلاش دوبارهٔ آفلاین", color = PinesPalette.Cream) }
+            }
+            TextButton(onClick = onOnline) {
+                Text(if (lookup.failure != null && lookup.failure != LookupFailure.OfflineUnavailable)
+                    "تلاش دوبارهٔ آنلاین" else "ترجمهٔ اینترنتی این واژه", color = PinesPalette.Cream)
+            }
             Text("فقط واژهٔ انتخاب‌شده به MyMemory فرستاده می‌شود؛ نیازمند اینترنت و دارای سهمیهٔ روزانه.",
                 color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
         }

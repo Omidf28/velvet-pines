@@ -2,6 +2,8 @@
 
 Since 0.6.1-dev, the index also has an independent [offline search panel](DICTIONARY_SEARCH.md).
 
+See [0.6.2 lookup reliability](LOOKUP_RELIABILITY.md) for temporary caches, explicit retries and cancellation behavior.
+
 ## What ships
 
 The APK includes an English–Persian SQLite dictionary with **230,921 indexed entries**:

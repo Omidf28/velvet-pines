@@ -46,7 +46,7 @@ internal val commonWordMeanings = mapOf(
     "i'm" to "من هستم", "you're" to "تو هستی؛ شما هستید", "we're" to "ما هستیم", "they're" to "آن‌ها هستند"
 )
 
-internal data class DictionaryResult(val meaning: WordMeaning?, val source: String)
+internal data class DictionaryResult(val meaning: WordMeaning?, val source: String, val failure: LookupFailure? = null)
 
 internal fun immediateDictionaryMeaning(key: String, personal: Map<String, WordMeaning>): DictionaryResult? {
     personal[key]?.let { return DictionaryResult(it, "واژه‌نامهٔ شخصی") }
