@@ -1,4 +1,4 @@
-# Immersive Playback Acceptance — 0.4.3-dev
+# Immersive Playback Acceptance — 0.4.4-dev
 
 Status: pending execution on an Android device. Compilation and JVM tests do not verify touch routing, overlay positioning, or device rendering.
 
@@ -68,6 +68,18 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Upgrade with existing manual/off profiles and verify that the absence of the new JSON field preserves the old behavior.
 - [ ] Switch quickly between two videos and between queued items. No subtitle text or track selection from the previous source should appear in the next one.
 - [ ] Verify adaptive stream track changes separately where compatible text tracks are exposed. This does not establish general protocol or codec compatibility.
+## Nearby Subtitle Files
+
+- [ ] Generate the sidecar test kit, extract it into a fresh phone folder, and open that folder through the library. Verify the auto, ambiguous, and untagged cases separately.
+- [ ] Open identically named videos in different nested folders. Only subtitles from the actual known parent may be offered or attached.
+- [ ] Verify recent playback and queued entries after restarting the application; the known parent and retained subtitle choice should remain usable while their grants remain valid.
+- [ ] Open the same video using a single-file picker without known parent context. Do not assume parent access or search unrelated folders.
+- [ ] Make a manual/off/internal-only selection or select a word while discovery is slow. A late result must not overwrite the choice or dismiss the word card. Switch A → B → A during a slow query to check stale-result rejection.
+- [ ] Test malformed, empty, oversized, and inaccessible English-tagged files. Failed validation must leave the current source intact and must not pause, seek, or resize video playback.
+- [ ] Test permission revocation, provider cancellation, a missing source row, and a directory exceeding the discovery limit. Failure should remain within the caption menu.
+- [ ] Upgrade with an older profile lacking `automaticSidecars`; verify that its prior subtitle choice is unchanged. Confirm that an unfinished newer automatic preference remains eligible after reopening.
+- [ ] Start an A/B repeat while discovery is pending; automatic attachment must not disrupt the active study interval.
+- [ ] Refresh nearby matches from the caption menu and select one explicitly. Verify pause state, subtitle timing, source labels, and word selection after attachment.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.

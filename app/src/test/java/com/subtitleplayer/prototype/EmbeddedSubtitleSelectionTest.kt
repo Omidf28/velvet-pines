@@ -108,6 +108,7 @@ class EmbeddedSubtitleSelectionTest {
         val off = VideoSubtitleSettings()
         val manual = VideoSubtitleSettings(embeddedTrack = "english")
         assertFalse(off.automaticEnglish)
+        assertFalse(off.automaticSidecars)
         assertFalse(manual.automaticEnglish)
         assertNull(EmbeddedSubtitleSelection(off.automaticEnglish, off.embeddedTrack).refresh(listOf(english)).key)
         assertEquals("english", EmbeddedSubtitleSelection(manual.automaticEnglish, manual.embeddedTrack)

@@ -12,7 +12,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-internal data class LibraryVideo(val uri: Uri, val name: String, val parentPath: String? = null)
+internal data class LibraryVideo(val uri: Uri, val name: String, val parentPath: String? = null, val parentDirectory: Uri? = null)
 
 internal const val recentVideoLimit = 20
 internal const val playbackQueueLimit = 100
@@ -39,15 +39,20 @@ internal fun readVideoEntries(encoded: String?, limit: Int): List<LibraryVideo> 
         val item = array.optJSONObject(index) ?: return@mapNotNull null
         val uri = Uri.parse(item.optString("uri"))
         val name = item.optString("name")
-        if (uri.scheme == ContentResolver.SCHEME_CONTENT && name.isNotBlank()) LibraryVideo(uri, name)
-        else null
+        if (uri.scheme == ContentResolver.SCHEME_CONTENT && name.isNotBlank()) {
+            val parent = item.optString("parentDirectory").takeIf(String::isNotBlank)?.let(Uri::parse)?.takeIf {
+                it.scheme == ContentResolver.SCHEME_CONTENT && it.authority == uri.authority && DocumentsContract.isTreeUri(it)
+            }
+            LibraryVideo(uri, name, parentDirectory = parent)
+        } else null
     }.distinctBy(LibraryVideo::uri)
 }
 
 internal fun writeVideoEntries(videos: List<LibraryVideo>): String =
     JSONArray().apply {
         videos.forEach { video ->
-            put(JSONObject().put("uri", video.uri.toString()).put("name", video.name))
+            put(JSONObject().put("uri", video.uri.toString()).put("name", video.name)
+                .put("parentDirectory", video.parentDirectory?.toString().orEmpty()))
         }
     }.toString()
 
@@ -66,6 +71,7 @@ internal suspend fun scanVideoFolder(resolver: ContentResolver, tree: Uri): List
         context.ensureActive()
         val (folderId, path) = queue.removeFirst()
         if (!seen.add(folderId)) continue
+        val parent = DocumentsContract.buildDocumentUriUsingTree(tree, folderId)
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folderId)
         val cursor = resolver.query(children, columns, null, null, null)
             ?: throw IOException("Folder provider did not return documents")
@@ -83,7 +89,7 @@ internal suspend fun scanVideoFolder(resolver: ContentResolver, tree: Uri): List
                     queue.addLast(id to nestedPath)
                 } else if (isVideo(name, mime)) {
                     val uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
-                    videos.add(LibraryVideo(uri, name, path))
+                    videos.add(LibraryVideo(uri, name, path, parent))
                 }
             }
         }

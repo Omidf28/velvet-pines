@@ -15,6 +15,7 @@ internal data class VideoSubtitleSettings(
     val persianDelayMs: Long = 0,
     val embeddedTrack: String? = null,
     val automaticEnglish: Boolean = false,
+    val automaticSidecars: Boolean = false,
     val size: Int = 22
 )
 
@@ -50,6 +51,7 @@ internal fun readVideoSubtitleSettings(encoded: String): List<SavedVideoSubtitle
                 persianDelayMs = item.optLong("persianDelay"),
                 embeddedTrack = item.optString("embeddedTrack").takeIf(String::isNotBlank),
                 automaticEnglish = item.optBoolean("automaticEnglish", false),
+                automaticSidecars = item.optBoolean("automaticSidecars", false),
                 size = item.optInt("size", 22).coerceIn(16, 32)
             )
         )
@@ -69,6 +71,7 @@ internal fun writeVideoSubtitleSettings(profiles: List<SavedVideoSubtitleSetting
                     .put("persianDelay", settings.persianDelayMs)
                     .put("embeddedTrack", settings.embeddedTrack.orEmpty())
                     .put("automaticEnglish", settings.automaticEnglish)
+                    .put("automaticSidecars", settings.automaticSidecars)
                     .put("size", settings.size)
             )
         }

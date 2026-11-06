@@ -8,8 +8,10 @@ import android.content.res.Configuration
 import android.database.sqlite.SQLiteException
 import android.net.Uri
 import android.os.Bundle
+import android.os.CancellationSignal
 import android.os.SystemClock
 import android.provider.OpenableColumns
+import android.provider.DocumentsContract
 import android.util.Rational
 import android.view.View
 import android.view.WindowManager
@@ -44,6 +46,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -103,6 +106,11 @@ import java.io.IOException
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -127,6 +135,16 @@ class MainActivity : ComponentActivity() {
         }
     }
     private var videoUri by mutableStateOf<Uri?>(null)
+    private var videoParentDirectory by mutableStateOf<Uri?>(null)
+    private var sidecarMatches by mutableStateOf(SidecarMatches())
+    private var sidecarStatus by mutableStateOf(SidecarScanStatus.Idle)
+    private val sidecarScope = MainScope()
+    private var sidecarJob: Job? = null
+    private var sidecarCancellation: CancellationSignal? = null
+    private var sidecarRequestId = 0L
+    private var videoOpenGeneration = 0L
+    private var subtitlePreferenceRevision = 0L
+    private var automaticSidecars = false
     private var subtitleUri by mutableStateOf<Uri?>(null)
     private var translationUri by mutableStateOf<Uri?>(null)
     private var playbackError by mutableStateOf(false)
@@ -311,8 +329,10 @@ class MainActivity : ComponentActivity() {
                         persianDelayMs = savedInstanceState.getLong("translationDelayMs"),
                         embeddedTrack = savedInstanceState.getString("embeddedSubtitleTrack"),
                         automaticEnglish = savedInstanceState.getBoolean("automaticEnglish", false),
+                        automaticSidecars = savedInstanceState.getBoolean("automaticSidecars", false),
                         size = savedInstanceState.getInt("subtitleSize", defaultSubtitleSize)
-                    )
+                    ),
+                    parentDirectory = savedInstanceState.getString("videoParentDirectory")?.let(Uri::parse)
                 )
             }
             !handleOpenIntent(intent) -> restoreSavedPlayback()
@@ -383,6 +403,7 @@ class MainActivity : ComponentActivity() {
         outState.putBoolean("showLibrary", showLibrary)
         if (videoUri?.isOnlineVideo == true) return
         outState.putString("video", videoUri?.toString())
+        outState.putString("videoParentDirectory", videoParentDirectory?.toString())
         outState.putString("subtitle", subtitleUri?.toString())
         outState.putLong("position", resumePosition())
         outState.putLong("subtitleDelayMs", subtitleDelayMs)
@@ -390,10 +411,13 @@ class MainActivity : ComponentActivity() {
         outState.putLong("translationDelayMs", translationDelayMs)
         outState.putString("embeddedSubtitleTrack", embeddedTrackKey)
         outState.putBoolean("automaticEnglish", embeddedSelection.automaticEnglish)
+        outState.putBoolean("automaticSidecars", automaticSidecars)
         outState.putInt("subtitleSize", subtitleSize)
     }
 
     override fun onDestroy() {
+        cancelSidecarDiscovery()
+        sidecarScope.cancel()
         pronunciation.close()
         player.release()
         super.onDestroy()
@@ -411,9 +435,9 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
-    private fun restoreSavedPlayback() {
+    private fun restoreSavedPlayback(parentDirectory: Uri? = null) {
         val video = history.getString("video", null)?.let(Uri::parse) ?: return
-        openVideo(video, history.getLong("position", 0), autoplay = false)
+        openVideo(video, history.getLong("position", 0), autoplay = false, parentDirectory = parentDirectory)
     }
 
     private fun loadSubtitleProfiles(): List<SavedVideoSubtitleSettings> {
@@ -457,6 +481,7 @@ class MainActivity : ComponentActivity() {
             persianDelayMs = translationDelayMs,
             embeddedTrack = embeddedTrackKey,
             automaticEnglish = embeddedSelection.automaticEnglish,
+            automaticSidecars = automaticSidecars,
             size = subtitleSize
         ).withReadableFiles(readable)
         val key = videoSubtitleKey(video)
@@ -483,9 +508,10 @@ class MainActivity : ComponentActivity() {
         edit.apply()
 
         val retained = listOfNotNull(
-            videoUri, subtitleUri, translationUri, libraryFolder,
+            videoUri, subtitleUri, translationUri, libraryFolder, videoParentDirectory,
             history.getString("video", null)?.let(Uri::parse)
         ) + recentVideos.map(LibraryVideo::uri) + playbackQueue.map(LibraryVideo::uri) +
+            recentVideos.mapNotNull(LibraryVideo::parentDirectory) + playbackQueue.mapNotNull(LibraryVideo::parentDirectory) +
             subtitleProfiles.flatMap { listOfNotNull(it.video, it.subtitles.english, it.subtitles.persian) }
         val retainedGrants = retained.flatMap { listOf(it, libraryGrantUri(it)) }.toSet()
         for (grant in grants) {
@@ -505,17 +531,26 @@ class MainActivity : ComponentActivity() {
         autoplay: Boolean = true,
         restoredSubtitles: VideoSubtitleSettings? = null,
         onlineFormat: OnlineVideoFormat? = null,
-        smbCredentials: SmbCredentials? = null
+        smbCredentials: SmbCredentials? = null,
+        parentDirectory: Uri? = null
     ) {
         val readable = persistentReadUris()
         rememberSubtitleProfile(readable)
         val key = videoSubtitleKey(uri)
+        val savedProfile = subtitleProfiles.firstOrNull { videoSubtitleKey(it.video) == key }?.subtitles?.withReadableFiles(readable)
         val settings = restoredSubtitles
-            ?: subtitleProfiles.firstOrNull { videoSubtitleKey(it.video) == key }?.subtitles?.withReadableFiles(readable)
+            ?: savedProfile
             ?: if (uri == demoVideo) {
                 VideoSubtitleSettings(english = demoSubtitles, persian = demoTranslation, size = defaultSubtitleSize)
-            } else VideoSubtitleSettings(size = defaultSubtitleSize, automaticEnglish = true)
+            } else VideoSubtitleSettings(size = defaultSubtitleSize, automaticEnglish = true, automaticSidecars = true)
 
+        val knownParent = parentDirectory ?: knownParentFor(uri)
+        cancelSidecarDiscovery()
+        videoOpenGeneration++
+        videoParentDirectory = validSidecarParent(uri, knownParent)
+        automaticSidecars = settings.automaticSidecars && settings.automaticEnglish && settings.english == null
+        sidecarMatches = SidecarMatches()
+        sidecarStatus = SidecarScanStatus.Idle
         clearAbLoop()
         autoPauseEnds = emptyList()
         lastDialoguePosition = null
@@ -558,6 +593,7 @@ class MainActivity : ComponentActivity() {
         )
         player.prepare()
         player.playWhenReady = autoplay
+        startSidecarDiscovery(allowAutomatic = automaticSidecars)
     }
 
     private fun openDemoVideo() {
@@ -573,6 +609,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun chooseAutomaticEnglishSubtitle() {
+        automaticSidecars = false
+        subtitlePreferenceRevision++
         replayEndMs = null
         subtitleUri = null
         subtitleDelayMs = 0
@@ -594,6 +632,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun chooseEmbeddedSubtitle(key: String?) {
+        automaticSidecars = false
+        subtitlePreferenceRevision++
         if (key != embeddedTrackKey || subtitleUri != null || key == null) embeddedSubtitle = null
         replayEndMs = null
         subtitleUri = null
@@ -602,6 +642,90 @@ class MainActivity : ComponentActivity() {
         updateEmbeddedTextSelection()
     }
 
+    private fun knownParentFor(uri: Uri): Uri? {
+        if (uri == videoUri && videoParentDirectory != null) return videoParentDirectory
+        val key = videoSubtitleKey(uri)
+        return (recentVideos + playbackQueue).firstOrNull {
+            videoSubtitleKey(it.uri) == key && it.parentDirectory != null
+        }?.parentDirectory
+    }
+
+    private fun validSidecarParent(video: Uri, parent: Uri?): Uri? = parent?.takeIf {
+        video.scheme == "content" && it.scheme == "content" && it.authority == video.authority &&
+            DocumentsContract.isTreeUri(it) && persistentReadUris().coversReadAccess(it)
+    }
+
+    private fun chooseExternalSubtitle(uri: Uri) {
+        chooseEmbeddedSubtitle(null)
+        subtitleUri = uri
+    }
+
+    private fun chooseNearbySubtitle(nearby: SidecarMatch) {
+        val source = videoUri ?: return
+        if (nearby !in sidecarMatches.matches) return
+        val parent = validSidecarParent(source, videoParentDirectory) ?: run {
+            sidecarMatches = SidecarMatches()
+            sidecarStatus = SidecarScanStatus.Failed
+            return
+        }
+        chooseExternalSubtitle(DocumentsContract.buildDocumentUriUsingTree(parent, nearby.file.id))
+    }
+    private fun cancelSidecarDiscovery() {
+        sidecarRequestId++
+        sidecarCancellation?.cancel()
+        sidecarJob?.cancel()
+        sidecarCancellation = null
+        sidecarJob = null
+    }
+
+    private fun startSidecarDiscovery(allowAutomatic: Boolean) {
+        val source = videoUri ?: return
+        val parent = validSidecarParent(source, videoParentDirectory) ?: run {
+            cancelSidecarDiscovery()
+            sidecarMatches = SidecarMatches()
+            sidecarStatus = if (videoParentDirectory == null) SidecarScanStatus.Idle else SidecarScanStatus.Failed
+            return
+        }
+        cancelSidecarDiscovery()
+        val requestId = sidecarRequestId
+        val started = SubtitleDiscoveryVersion(videoOpenGeneration, subtitlePreferenceRevision)
+        val encoding = englishEncoding
+        val cancellation = CancellationSignal()
+        sidecarCancellation = cancellation
+        sidecarStatus = SidecarScanStatus.Loading
+        sidecarJob = sidecarScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val matches = discoverSubtitleSidecars(contentResolver, source, parent, cancellation)
+                    val candidate = matches.automatic.takeIf { allowAutomatic }
+                    val readable = candidate?.takeIf {
+                        val uri = DocumentsContract.buildDocumentUriUsingTree(parent, it.file.id)
+                        try {
+                            loadSubtitles(uri, persian = false, encoding = encoding).isNotEmpty()
+                        } catch (_: IOException) { false }
+                        catch (_: SecurityException) { false }
+                        catch (_: IllegalArgumentException) { false }
+                    }
+                    cancellation.throwIfCanceled()
+                    Triple(matches, readable, candidate != null && readable == null)
+                }
+                if (requestId != sidecarRequestId) return@launch
+                sidecarMatches = result.first
+                sidecarStatus = if (result.third) SidecarScanStatus.Unreadable else SidecarScanStatus.Ready
+                val current = SubtitleDiscoveryVersion(videoOpenGeneration, subtitlePreferenceRevision)
+                if (result.second != null && encoding == englishEncoding && canApplySidecarAutomatically(
+                        started, current, automaticMode = allowAutomatic && automaticSidecars && embeddedSelection.automaticEnglish &&
+                            !playbackError && loopStartMs == null && replayEndMs == null,
+                        externalFileSelected = subtitleUri != null)) {
+                    chooseExternalSubtitle(DocumentsContract.buildDocumentUriUsingTree(parent, result.second!!.file.id))
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (requestId == sidecarRequestId) sidecarStatus = SidecarScanStatus.Failed
+            }
+        }
+    }
     private fun keepReadAccess(uri: Uri): Boolean = try {
         contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         true
@@ -615,7 +739,7 @@ class MainActivity : ComponentActivity() {
 
     private fun rememberRecentVideo(uri: Uri, name: String) {
         if (!persistentReadUris().coversReadAccess(uri)) return
-        recentVideos = addRecentVideo(recentVideos, LibraryVideo(uri, name))
+        recentVideos = addRecentVideo(recentVideos, LibraryVideo(uri, name, parentDirectory = videoParentDirectory))
         history.edit().putString("recentVideos", writeVideoEntries(recentVideos)).apply()
     }
 
@@ -658,11 +782,12 @@ class MainActivity : ComponentActivity() {
         }
         val next = playbackQueue[nextIndex]
         showLibrary = false
-        openVideo(next.uri)
+        openVideo(next.uri, parentDirectory = next.parentDirectory)
         updatePlaybackQueue(playbackQueue.drop(nextIndex + 1))
     }
 
-    private fun openLibraryVideo(uri: Uri) {
+    private fun openLibraryVideo(video: LibraryVideo) {
+        val uri = video.uri
         if (!persistentReadUris().coversReadAccess(uri)) {
             Toast.makeText(this, "برای دسترسی دوباره، فایل یا پوشه را انتخاب کنید.", Toast.LENGTH_SHORT).show()
             return
@@ -671,14 +796,19 @@ class MainActivity : ComponentActivity() {
         showLibrary = false
         when {
             uri == videoUri && !playbackError -> {
+                val parent = validSidecarParent(uri, video.parentDirectory)
+                if (parent != null && parent != videoParentDirectory) {
+                    videoParentDirectory = parent
+                    startSidecarDiscovery(allowAutomatic = automaticSidecars)
+                }
                 if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
                 player.play()
             }
             history.getString("video", null) == uri.toString() -> {
-                restoreSavedPlayback()
+                restoreSavedPlayback(video.parentDirectory)
                 player.play()
             }
-            else -> openVideo(uri)
+            else -> openVideo(uri, parentDirectory = video.parentDirectory)
         }
     }
 
@@ -824,7 +954,7 @@ class MainActivity : ComponentActivity() {
             val source = videoUri ?: return@LaunchedEffect
             sourceName = withContext(Dispatchers.IO) { readVideoName(source) } ?: "ویدیوی محلی"
         }
-        LaunchedEffect(videoUri, videoReady, sourceName) {
+        LaunchedEffect(videoUri, videoReady, sourceName, videoParentDirectory) {
             val uri = videoUri ?: return@LaunchedEffect
             val name = sourceName ?: return@LaunchedEffect
             if (videoReady && !playbackError && uri.scheme == "content") rememberRecentVideo(uri, name)
@@ -887,8 +1017,7 @@ class MainActivity : ComponentActivity() {
         val selectSubtitle = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 keepReadAccess(uri)
-                chooseEmbeddedSubtitle(null)
-                subtitleUri = uri
+                chooseExternalSubtitle(uri)
             }
         }
 
@@ -965,7 +1094,7 @@ class MainActivity : ComponentActivity() {
                     showLibrary = false
                     openVideo(Uri.parse(link.url), onlineFormat = link.format, smbCredentials = credentials)
                 },
-                onOpen = { openLibraryVideo(it.uri) },
+                onOpen = { openLibraryVideo(it) },
                 onBack = { showLibrary = false }
             )
             return
@@ -1075,6 +1204,7 @@ class MainActivity : ComponentActivity() {
                                         mode = subtitleLookupMode, selectedRange = lookup?.selection?.highlightFor(subtitle)) { term ->
                                         if (controlsLocked) return@TappableSubtitle
                                         controlsVisible = false
+                                        subtitlePreferenceRevision++
                                         val studyAction = if (pauseOnWordTap) {
                                             val resume = lookup?.studyAction == StudyAction.Resume ||
                                                 (player.playWhenReady && player.playbackState != Player.STATE_ENDED)
@@ -1222,6 +1352,35 @@ class MainActivity : ComponentActivity() {
                                         showSubtitleMenu = false
                                         selectSubtitle.launch(arrayOf("*/*"))
                                     })
+                                    if (videoParentDirectory != null) {
+                                        HorizontalDivider(color = PinesPalette.Curtain)
+                                        DropdownMenuItem(enabled = sidecarStatus != SidecarScanStatus.Loading,
+                                            text = { Text("جست‌وجوی زیرنویس کنار فیلم") }, onClick = {
+                                                lookup = null
+                                                startSidecarDiscovery(allowAutomatic = false)
+                                            })
+                                        val nearbyStatus = when (sidecarStatus) {
+                                            SidecarScanStatus.Loading -> "در حال بررسی پوشه…"
+                                            SidecarScanStatus.Failed -> "پوشه قابل خواندن نبود؛ دوباره تلاش کنید"
+                                            SidecarScanStatus.Unreadable -> "فایل هم‌نام قابل خواندن نبود؛ انتخاب دستی در دسترس است"
+                                            SidecarScanStatus.Ready -> if (sidecarMatches.matches.isEmpty()) "زیرنویس انگلیسی یا بی‌برچسب هم‌نام پیدا نشد" else null
+                                            SidecarScanStatus.Idle -> null
+                                        }
+                                        nearbyStatus?.let { message ->
+                                            DropdownMenuItem(enabled = false, text = { Text(message, maxLines = 3) }, onClick = { })
+                                        }
+                                        sidecarMatches.matches.forEach { nearby ->
+                                            DropdownMenuItem(text = {
+                                                Text(nearby.file.name + if (!nearby.english) " · زبان نامشخص" else if (nearby.forced) " · اجباری" else "",
+                                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                            }, onClick = {
+                                                showSubtitleMenu = false
+                                                lookup = null
+                                                chooseNearbySubtitle(nearby)
+                                            })
+                                        }
+                                        HorizontalDivider(color = PinesPalette.Curtain)
+                                    }
                                     embeddedOptions.forEachIndexed { index, option ->
                                         DropdownMenuItem(
                                             text = {
