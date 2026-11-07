@@ -2,7 +2,7 @@
 
 ## Library Experience
 
-When no media source can be restored, the application opens its library instead of an empty player. A previously restored source still opens in the player. The library retains access to local files, folder selection, network links, the synthetic sample, and offline help.
+Launching from the app icon opens Files. Choose a video or resume one from Recent. Opening a video from the Android file picker or another app goes directly to the player. The library retains access to local files, folder selection, network links, the synthetic sample, and offline help.
 
 The header, tabs, and search are compact. Source actions, sorting, the continue-watching card, and media rows use the scrolling content area. While the search field owns the visible keyboard, secondary headers are hidden so results remain reachable in a short landscape viewport. Opening media explicitly hides the keyboard.
 

@@ -19,10 +19,10 @@ import java.util.Locale
 /** File artwork is deliberately generic; it does not pretend to be a frame from the video. */
 @Composable
 private fun LibraryArtwork(name: String) {
-    Box(Modifier.size(width = 64.dp, height = 76.dp).background(
+    Box(Modifier.size(width = 48.dp, height = 54.dp).background(
         Brush.linearGradient(listOf(PinesPalette.Curtain, PinesPalette.Card, Color(0xFF18231C))),
         RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(22.dp)) {
+        Canvas(Modifier.size(18.dp)) {
             drawPath(Path().apply {
                 moveTo(size.width * 0.2f, 0f); lineTo(size.width, size.height / 2)
                 lineTo(size.width * 0.2f, size.height); close()
@@ -43,7 +43,7 @@ internal fun LibraryVideoCard(
     var menuOpen by remember(video.uri) { mutableStateOf(false) }
     Card(onClick = onOpen, modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = PinesPalette.Card.copy(alpha = 0.94f))) {
-        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LibraryArtwork(video.name)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {

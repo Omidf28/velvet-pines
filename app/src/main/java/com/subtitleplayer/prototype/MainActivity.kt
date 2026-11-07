@@ -153,6 +153,8 @@ class MainActivity : ComponentActivity() {
     private var playbackError by mutableStateOf(false)
     private var videoReady by mutableStateOf(false)
     private var showLibrary by mutableStateOf(false)
+    private var showWords by mutableStateOf(false)
+    private var libraryTab by mutableStateOf(LibraryTab.Folder)
     private var libraryFolder by mutableStateOf<Uri?>(null)
     private var favoriteFolders by mutableStateOf<List<LibraryFolderShortcut>>(emptyList())
     private var libraryPath by mutableStateOf<List<LibrarySubfolder>>(emptyList())
@@ -260,6 +262,7 @@ class MainActivity : ComponentActivity() {
         legacyQueuedVideos = readVideoEntries(history.getString("playbackQueue", null), legacyQueueEntryLimit)
             .filter { readable.coversReadAccess(it.uri) }
         showLibrary = savedInstanceState?.getBoolean("showLibrary") == true
+        showWords = savedInstanceState?.getBoolean("showWords") == true
 
         player = ExoPlayer.Builder(this).build().apply {
             setAudioAttributes(
@@ -346,7 +349,7 @@ class MainActivity : ComponentActivity() {
                     parentPath = savedInstanceState.getString("videoParentPath")
                 )
             }
-            !handleOpenIntent(intent) -> restoreSavedPlayback()
+            else -> showLibrary = !handleOpenIntent(intent)
         }
 
         if (videoUri == null) showLibrary = true
@@ -361,7 +364,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (handleOpenIntent(intent)) showLibrary = false
+        if (handleOpenIntent(intent)) {
+            showWords = false
+            showLibrary = false
+        } else if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+            showWords = false
+            libraryTab = LibraryTab.Folder
+            showLibrary = true
+        }
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -414,6 +424,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean("showLibrary", showLibrary)
+        outState.putBoolean("showWords", showWords)
         if (videoUri?.isOnlineVideo == true) return
         outState.putString("video", videoUri?.toString())
         outState.putString("videoParentDirectory", videoParentDirectory?.toString())
@@ -997,10 +1008,6 @@ class MainActivity : ComponentActivity() {
         var showPlaybackTools by remember { mutableStateOf(false) }
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
-        var showWords by rememberSaveable { mutableStateOf(false) }
-        var libraryTab by remember {
-            mutableStateOf(if (libraryFolder != null || recentVideos.isEmpty()) LibraryTab.Folder else LibraryTab.Recent)
-        }
         var includeLibrarySubfolders by remember(libraryFolder, libraryFolderRevision) { mutableStateOf(false) }
         val libraryBrowseState = remember(libraryFolder, libraryFolderRevision, libraryPath, libraryTab) {
             LibraryBrowseState()
@@ -1060,6 +1067,7 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(showWords, showLibrary, videoUri) {
             pronunciation.stop()
             if (showWords || showLibrary) {
+                lookup = null
                 viewport = PlaybackViewport()
                 clearAbLoop()
                 replayEndMs = null
@@ -1213,7 +1221,13 @@ class MainActivity : ComponentActivity() {
                         showWords = false
                     }
                 },
-                onBack = { showWords = false }
+                onBack = if (showLibrary) null else ({ showWords = false }),
+                bottomBar = {
+                    HomeNavigation(showingWords = true, onFiles = {
+                        showLibrary = true
+                        showWords = false
+                    }, onWords = {})
+                }
             )
             return
         }
@@ -1250,7 +1264,12 @@ class MainActivity : ComponentActivity() {
                 canReturnToPlayback = videoUri != null,
                 skipSeconds = skipSeconds,
                 onPlaySample = { showLibrary = false; openDemoVideo() },
-                onSavedWords = { lookup = null; showWords = true },
+                bottomBar = {
+                    HomeNavigation(showingWords = false, onFiles = {}, onWords = {
+                        lookup = null
+                        showWords = true
+                    })
+                },
                 onDictionary = { dictionarySeed = ""; showDictionary = true },
                 onBack = { if (videoUri == null) finish() else showLibrary = false }
             )

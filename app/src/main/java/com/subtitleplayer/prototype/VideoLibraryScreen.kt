@@ -32,7 +32,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal enum class LibraryTab(val label: String) { Folder("پوشه"), Recent("اخیرها") }
+internal enum class LibraryTab(val label: String) { Folder("پوشه‌ها"), Recent("اخیرها") }
 
 internal class LibraryBrowseState {
     var query by mutableStateOf("")
@@ -73,7 +73,7 @@ internal fun VideoLibraryScreen(
     canReturnToPlayback: Boolean,
     skipSeconds: Int,
     onPlaySample: () -> Unit,
-    onSavedWords: () -> Unit,
+    bottomBar: @Composable () -> Unit,
     onDictionary: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -197,7 +197,7 @@ internal fun VideoLibraryScreen(
                 Column(Modifier.weight(1f)) {
                     Text("VELVET PINES", color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall,
                         fontFamily = FontFamily.Serif, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("کتابخانه", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("فایل‌ها", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (canReturnToPlayback) TextButton(onClick = onBack) { Text("بازگشت به فیلم") }
                 Box {
@@ -219,11 +219,6 @@ internal fun VideoLibraryScreen(
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     })
                 }
-                Tab(
-                    selected = false,
-                    onClick = { keyboard?.hide(); onSavedWords() },
-                    text = { Text("دفترچهٔ واژه‌ها", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                )
             }
         }
         if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = ::changeQuery, singleLine = true,
@@ -251,13 +246,11 @@ internal fun VideoLibraryScreen(
                             Button(onClick = ::chooseFolder) {
                                 Text(if (folder == null) "انتخاب پوشه" else "تغییر پوشه")
                             }
+                            TextButton(onClick = onChooseFile) { Text("باز کردن فایل") }
                             if (currentFolder != null) {
-                                OutlinedButton(onClick = { onToggleFavorite(currentFolder) }) {
-                                    Text(favoriteAction)
-                                }
-                            } else {
-                                TextButton(onClick = onChooseFile) { Text("باز کردن فایل") }
-                                if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
+                                TextButton(onClick = { onToggleFavorite(currentFolder) }) { Text(favoriteAction) }
+                            } else if (!canReturnToPlayback) {
+                                TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
                             }
                         }
                     }
@@ -306,15 +299,16 @@ internal fun VideoLibraryScreen(
             if (!showRecent && visibleFolders.isNotEmpty()) {
                 item(key = "subfolder-heading") { Text("زیرپوشه‌ها", style = MaterialTheme.typography.titleSmall) }
                 items(visibleFolders, key = { "folder:" + it.documentId }) { subfolder ->
-                    OutlinedCard(
-                        onClick = { navigateTo(folderPath + subfolder) },
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            .clickable(onClickLabel = "باز کردن پوشه") { navigateTo(folderPath + subfolder) }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                            Text(subfolder.name, style = MaterialTheme.typography.titleSmall,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text("باز کردن پوشه", style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
-                        }
+                        HomeNavigationIcon(folder = true)
+                        Text(subfolder.name, style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -362,6 +356,7 @@ internal fun VideoLibraryScreen(
                 }
             }
         }
+        if (!searchEditing) bottomBar()
     }
     if (showHelp) PlaybackHelpDialog(skipSeconds, onDismiss = { showHelp = false })
     if (showLinkDialog) VideoLinkDialog(onDismiss = { showLinkDialog = false },
