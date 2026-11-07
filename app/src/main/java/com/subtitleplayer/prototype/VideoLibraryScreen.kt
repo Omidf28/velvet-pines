@@ -78,7 +78,7 @@ internal fun VideoLibraryScreen(
     onPlaySample: () -> Unit,
     bottomBar: @Composable () -> Unit,
     onDictionary: () -> Unit,
-    onBack: () -> Unit
+    onReturnToPlayback: () -> Unit
 ) {
     val context = LocalContext.current
     val resolver = context.contentResolver
@@ -131,8 +131,9 @@ internal fun VideoLibraryScreen(
         keyboard?.hide()
         onFolderPathChange(path)
     }
-    BackHandler(enabled = tab == LibraryTab.Folder && folderPath.isNotEmpty() && !searchEditing) {
-        navigateTo(folderPath.dropLast(1))
+    BackHandler(enabled = !searchEditing && (tab == LibraryTab.Recent || folderPath.isNotEmpty())) {
+        if (tab == LibraryTab.Recent) onTabChange(LibraryTab.Folder)
+        else navigateTo(folderPath.dropLast(1))
     }
     BackHandler(enabled = searchOpen && !searchEditing, onBack = ::closeSearch)
     LaunchedEffect(browseState, resolver, browseState.scanRevision) {
@@ -170,7 +171,6 @@ internal fun VideoLibraryScreen(
     }
     fun chooseFolder() {
         keyboard?.hide()
-        onTabChange(LibraryTab.Folder)
         onChooseFolder()
     }
     fun folderName(uri: Uri): String = folderNames[uri] ?: fallbackFolderName(uri)
@@ -221,7 +221,7 @@ internal fun VideoLibraryScreen(
                     Text("Files", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("Velvet Pines", color = PinesPalette.Muted, style = MaterialTheme.typography.labelSmall)
                 }
-                if (canReturnToPlayback) PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = onBack)
+                if (canReturnToPlayback) PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = onReturnToPlayback)
                 if (!searchOpen && (showRecent || folder != null)) {
                     PlayerIconButton(PlayerGlyph.Search, "Search files", onClick = {
                         searchOpen = true

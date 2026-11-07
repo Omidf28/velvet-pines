@@ -8,7 +8,9 @@ The header, tabs, and search are compact. Source actions, sorting, the continue-
 
 Media rows show the filename, known folder label, playback state, and recorded progress when available. Their artwork is a generic branded file tile, not an extracted video thumbnail. Tap a row to play or resume it. A resumable row also offers playback from the beginning. When an episode ends, return to the library and choose the next episode from the same folder.
 
-Folder scans start when the Folder tab is requested. Returning from playback to the same folder keeps the search, scroll position, and completed scan in the current session. Refresh reads the folder again, and Retry is available after a read error. Recent browsing does not eagerly rescan the selected folder. File changes require a refresh; this is not a persistent media index or filesystem watcher.
+Folder scans start when the Folders tab is requested. Returning from playback, Flashcards, or Recent keeps the search, scroll position, and completed scan for the current folder in the current session. Recent keeps a separate search and scroll position. Choosing a different folder resets its view. Canceling the folder picker leaves the active tab selected. Refresh reads the folder again, and Retry is available after a read error.
+
+In portrait playback, Android Back returns to Files. In fullscreen, it exits fullscreen first. In Files, Back clears an open search, goes up a folder, or returns from Recent to Folders. Back from the root of Folders closes the app. The play icon in the Files toolbar returns to the loaded video. Flashcards retains its search, filters, and expanded card when switching to Files and back.
 
 ## Bookmark Semantics
 

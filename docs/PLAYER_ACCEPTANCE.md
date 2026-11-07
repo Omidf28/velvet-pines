@@ -98,6 +98,9 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Exercise unknown-duration and nonseekable sources. Do not show an invented percentage or persist a nonseekable resume point.
 - [ ] Test search with the keyboard in portrait/landscape, large fonts, TalkBack, empty results, refresh/retry, and repeated Folder/Recent switches. Controls and results must remain reachable.
 - [ ] Play an episode directly from a folder and let it finish. Return to the same library tab and folder, then select the next episode. Verify playback and subtitle discovery use the selected file.
+- [ ] From portrait playback, use Android Back to return to the same file list and scroll position. Use the Files toolbar play icon to return to the paused video. In fullscreen, Back should leave fullscreen before returning to Files.
+- [ ] Scroll in Folders and Recent, then switch between them. Each tab should retain its position. Back from Recent should return to Folders. Cancel the folder picker from Recent and verify that Recent stays selected.
+- [ ] Set a Flashcards filter and expand a word. Switch to Files and back. Verify that the filter and expanded word are still selected.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.

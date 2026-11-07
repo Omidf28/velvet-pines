@@ -64,6 +64,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -778,6 +779,7 @@ class MainActivity : ComponentActivity() {
     private fun selectLibraryFolder(folder: Uri, path: List<LibrarySubfolder> = emptyList()) {
         libraryFolder = folder
         libraryPath = path
+        libraryTab = LibraryTab.Folder
         libraryFolderRevision++
         history.edit().putString("libraryFolder", folder.toString()).apply()
     }
@@ -1015,9 +1017,11 @@ class MainActivity : ComponentActivity() {
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
         var includeLibrarySubfolders by remember(libraryFolder, libraryFolderRevision) { mutableStateOf(false) }
-        val libraryBrowseState = remember(libraryFolder, libraryFolderRevision, libraryPath, libraryTab) {
+        val folderBrowseState = remember(libraryFolder, libraryFolderRevision, libraryPath) {
             LibraryBrowseState()
         }
+        val recentBrowseState = remember { LibraryBrowseState() }
+        val flashcardsState = rememberSaveableStateHolder()
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
@@ -1043,15 +1047,15 @@ class MainActivity : ComponentActivity() {
             }
         }
         BackHandler(
-            enabled = !pictureInPicture &&
-                (controlsLocked || fullscreen || showWords || showLibrary || lookup != null)
+            enabled = !pictureInPicture && (showWords || showLibrary || videoUri != null)
         ) {
             when {
                 showWords -> showWords = false
-                showLibrary -> if (videoUri == null) finish() else showLibrary = false
+                showLibrary -> finish()
                 controlsLocked -> { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ }
                 lookup != null -> lookup = null
-                else -> { viewport = viewport.exitFullscreen(); controlsVisible = true; controlsInteraction++ }
+                fullscreen -> { viewport = viewport.exitFullscreen(); controlsVisible = true; controlsInteraction++ }
+                else -> showLibrary = true
             }
         }
         LaunchedEffect(videoUri) {
@@ -1218,23 +1222,25 @@ class MainActivity : ComponentActivity() {
             )
         }
         if (showWords && !pictureInPicture) {
-            SavedWordsScreen(
-                vocabulary, pronunciation,
-                onOpenScene = { entry ->
-                    if (openSavedWordScene(entry)) {
-                        lookup = null
-                        showLibrary = false
-                        showWords = false
+            flashcardsState.SaveableStateProvider("flashcards") {
+                SavedWordsScreen(
+                    vocabulary, pronunciation,
+                    onOpenScene = { entry ->
+                        if (openSavedWordScene(entry)) {
+                            lookup = null
+                            showLibrary = false
+                            showWords = false
+                        }
+                    },
+                    onBack = if (showLibrary) null else ({ showWords = false }),
+                    bottomBar = {
+                        HomeNavigation(showingWords = true, onFiles = {
+                            showLibrary = true
+                            showWords = false
+                        }, onWords = {})
                     }
-                },
-                onBack = if (showLibrary) null else ({ showWords = false }),
-                bottomBar = {
-                    HomeNavigation(showingWords = true, onFiles = {
-                        showLibrary = true
-                        showWords = false
-                    }, onWords = {})
-                }
-            )
+                )
+            }
             return
         }
         if (showLibrary && !pictureInPicture) {
@@ -1247,7 +1253,7 @@ class MainActivity : ComponentActivity() {
                 recent = recentVideos,
                 tab = libraryTab,
                 onTabChange = { libraryTab = it },
-                browseState = libraryBrowseState,
+                browseState = if (libraryTab == LibraryTab.Folder) folderBrowseState else recentBrowseState,
                 includeSubfolders = includeLibrarySubfolders,
                 onIncludeSubfoldersChange = { includeLibrarySubfolders = it },
                 onChooseFolder = { selectFolder.launch(libraryFolder) },
@@ -1277,7 +1283,7 @@ class MainActivity : ComponentActivity() {
                     })
                 },
                 onDictionary = { dictionarySeed = ""; showDictionary = true },
-                onBack = { if (videoUri == null) finish() else showLibrary = false }
+                onReturnToPlayback = { showLibrary = false }
             )
             return
         }
