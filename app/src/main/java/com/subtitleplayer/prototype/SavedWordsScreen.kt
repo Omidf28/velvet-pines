@@ -254,7 +254,7 @@ internal fun SavedWordsScreen(
                 enabled = dueCount > 0 && !exporting,
                 onClick = { keyboard?.hide(); reviewingSource = null; reviewing = true },
                 modifier = Modifier.padding(horizontal = 12.dp)
-            ) { Text(if (dueCount > 0) "مرور همهٔ واژه‌های آماده ($dueCount)" else "فعلاً همهٔ مرورها انجام شده‌اند") }
+            ) { Text(if (dueCount > 0) "مرور فلش‌کارت‌ها ($dueCount)" else "فعلاً همهٔ مرورها انجام شده‌اند") }
             if (selectedSource != null) {
                 TextButton(
                     enabled = sourceDueCount > 0 && !exporting,

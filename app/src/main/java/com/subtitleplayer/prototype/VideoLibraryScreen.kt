@@ -73,6 +73,7 @@ internal fun VideoLibraryScreen(
     canReturnToPlayback: Boolean,
     skipSeconds: Int,
     onPlaySample: () -> Unit,
+    onSavedWords: () -> Unit,
     onDictionary: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -218,6 +219,11 @@ internal fun VideoLibraryScreen(
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     })
                 }
+                Tab(
+                    selected = false,
+                    onClick = { keyboard?.hide(); onSavedWords() },
+                    text = { Text("دفترچهٔ واژه‌ها", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                )
             }
         }
         if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = ::changeQuery, singleLine = true,

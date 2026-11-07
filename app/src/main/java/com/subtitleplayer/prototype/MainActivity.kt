@@ -1034,8 +1034,8 @@ class MainActivity : ComponentActivity() {
                 (controlsLocked || fullscreen || showWords || showLibrary || lookup != null)
         ) {
             when {
-                showLibrary -> if (videoUri == null) finish() else showLibrary = false
                 showWords -> showWords = false
+                showLibrary -> if (videoUri == null) finish() else showLibrary = false
                 controlsLocked -> { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ }
                 lookup != null -> lookup = null
                 else -> { viewport = viewport.exitFullscreen(); controlsVisible = true; controlsInteraction++ }
@@ -1250,6 +1250,7 @@ class MainActivity : ComponentActivity() {
                 canReturnToPlayback = videoUri != null,
                 skipSeconds = skipSeconds,
                 onPlaySample = { showLibrary = false; openDemoVideo() },
+                onSavedWords = { lookup = null; showWords = true },
                 onDictionary = { dictionarySeed = ""; showDictionary = true },
                 onBack = { if (videoUri == null) finish() else showLibrary = false }
             )
