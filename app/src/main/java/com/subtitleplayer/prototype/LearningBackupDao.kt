@@ -2,6 +2,8 @@ package com.subtitleplayer.prototype
 
 import androidx.room.*
 
+internal data class LearningRestoreResult(val cards: Int, val personalDefinitions: Int)
+
 @Dao
 internal interface LearningBackupDao {
     @Query("SELECT * FROM saved_words ORDER BY id")
@@ -18,7 +20,8 @@ internal interface LearningBackupDao {
     suspend fun restoreDictionary(entries: List<PersonalDictionaryEntry>): List<Long>
 
     @Transaction
-    suspend fun restore(backup: LearningBackup): Int =
-        restoreWords(backup.words.map { it.copy(id = 0) }).count { it != -1L } +
-            restoreDictionary(backup.dictionary).count { it != -1L }
+    suspend fun restore(backup: LearningBackup): LearningRestoreResult = LearningRestoreResult(
+        cards = restoreWords(backup.words.map { it.copy(id = 0) }).count { it != -1L },
+        personalDefinitions = restoreDictionary(backup.dictionary).count { it != -1L }
+    )
 }

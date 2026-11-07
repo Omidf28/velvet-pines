@@ -2,6 +2,7 @@ package com.subtitleplayer.prototype
 
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.security.MessageDigest
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -25,7 +26,12 @@ class LearningBackupTest {
         assertThrows(IOException::class.java) { parseLearningBackup(bytes().copyOf(7)) }
         assertThrows(IOException::class.java) { parseLearningBackup(bytes() + byteArrayOf(1)) }
         assertThrows(IOException::class.java) { parseLearningBackup(bytes().also { it[0] = 0 }) }
-        assertThrows(IOException::class.java) { parseLearningBackup(bytes().also { it[7] = 99 }) }
+    }
+    @Test fun rejectsUnsupportedVersionEvenWithAValidChecksum() {
+        val body = bytes().let { it.copyOf(it.size - 32) }.also { it[7] = 99 }
+        val checksum = MessageDigest.getInstance("SHA-256").digest(body)
+        val error = assertThrows(IOException::class.java) { parseLearningBackup(body + checksum) }
+        assertEquals("Unsupported backup", error.message)
     }
     @Test fun rejectsInvalidProgressBeforeRestore() {
         val invalid = backup.copy(words = listOf(word.copy(reviewLevel = 9)))

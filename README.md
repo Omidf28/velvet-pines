@@ -110,7 +110,7 @@ python scripts/verify-lexicon.py --apk app/build/outputs/apk/release/app-release
 
 `apksigner` is provided by Android SDK Build Tools. Compare its certificate SHA-256 fingerprint with the expected release certificate before distributing the APK. With all four variables unset, Gradle produces `app-release-unsigned.apk` for build verification. A partially configured signing environment fails with the names of the missing variables.
 
-Android upgrades require a compatible signing identity. Before replacing a debug-signed beta with a differently signed release, open Flashcards, then choose Backup and Restore from the overflow menu and export a `.spbackup`. Restore the saved words and review history after the release installation and grant access to your video folders again.
+Android upgrades require a compatible signing identity. Before replacing a debug-signed beta with a differently signed release, open Flashcards, choose Backup and Restore from the overflow menu, and export a `.spbackup` to Downloads or another shared folder. Select **Verify backup** and check the card count before uninstalling. On earlier betas, use **Choose backup file**, check the preview counts, and select **Cancel**. After installing the release, use **Restore backup** to recover saved words and review history, then grant access to your video folders again.
 
 ## Validation
 
@@ -126,8 +126,8 @@ The latest recorded validation includes:
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
 | Unsigned Android release build and critical lint | Passed |
-| JVM unit tests | 221 passed |
-| SQLite migration and review checks | 13 passed. The optional comparison against a Room schema was skipped. |
+| JVM unit tests | 222 passed |
+| SQLite migration and review checks | 14 passed, including comparison with the Room-generated schema |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | 0 errors, 30 warnings |
 
