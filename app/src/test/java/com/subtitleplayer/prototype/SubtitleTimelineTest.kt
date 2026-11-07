@@ -40,6 +40,19 @@ class SubtitleTimelineTest {
         assertEquals(second, timeline.firstActiveCueAt(400))
         assertNull(timeline.firstActiveCueAt(600))
     }
+    @Test fun selectionMapsToItsOwnCueInAnOverlappingSubtitle() {
+        val first = SubtitleCue(100, 500, "🎬 first")
+        val second = SubtitleCue(200, 600, "second\nlast")
+        val timeline = SubtitleTimeline(listOf(first, second))
+        val secondStart = first.text.length + 1
+
+        assertEquals(first, timeline.cueForSelectionAt(250, 3, first.text.length))
+        assertEquals(second, timeline.cueForSelectionAt(250, secondStart, secondStart + 6))
+        assertEquals(second, timeline.cueForSelectionAt(550, 7, 11))
+        assertNull(timeline.cueForSelectionAt(250, first.text.length - 1, secondStart + 1))
+        assertNull(timeline.cueForSelectionAt(250, first.text.length, secondStart))
+        assertNull(timeline.cueForSelectionAt(600, 0, 3))
+    }
     @Test fun supportsLongSubtitleFilesAndBackwardSeeks() {
         val cues = List(20000) { SubtitleCue(it * 1000L, it * 1000L + 900, "line$it") }
         val timeline = SubtitleTimeline(cues)

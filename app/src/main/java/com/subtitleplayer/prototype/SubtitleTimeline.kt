@@ -36,6 +36,23 @@ internal class SubtitleTimeline(source: List<SubtitleCue>) {
         return first
     }
 
+    /** Map offsets in the displayed, newline-joined text back to its source cue. */
+    fun cueForSelectionAt(positionMs: Long, start: Int, endExclusive: Int): SubtitleCue? {
+        if (start < 0 || endExclusive <= start) return null
+        var offset = 0
+        var selected: SubtitleCue? = null
+        visitActive(positionMs) { cue ->
+            val cueEnd = offset + cue.text.length
+            if (start < cueEnd) {
+                if (start >= offset && endExclusive <= cueEnd) selected = cue
+                true
+            } else {
+                offset = cueEnd + 1
+                false
+            }
+        }
+        return selected
+    }
     fun activeAt(positionMs: Long): ActiveSubtitle? {
         val visible = mutableListOf<SubtitleCue>()
         visitActive(positionMs) {

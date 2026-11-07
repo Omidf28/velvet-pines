@@ -1285,12 +1285,14 @@ class MainActivity : ComponentActivity() {
         val canReplayDialogue = canSeek && !frame.live && embeddedTrackKey == null
         val quickReplayAvailable = canReplayDialogue && (showPlayerMenu || listeningMode) &&
             replayDialogueAt(frame.positionMs) != null
-        fun replayCurrentDialogue() {
+        fun replayDialogue(dialogue: DialogueRange) {
             if (!canReplayDialogue || !player.isCurrentMediaItemSeekable || player.isCurrentMediaItemLive) return
-            val dialogue = replayDialogueAt(player.currentPosition) ?: return
             lookup = null
             controlsVisible = false
             seekWithinVideo(dialogue.startMs, dialogue.endMs)
+        }
+        fun replayCurrentDialogue() {
+            if (canReplayDialogue) replayDialogueAt(player.currentPosition)?.let(::replayDialogue)
         }
         val playerLayout = Modifier.fillMaxSize().background(background)
         Box(playerLayout) {
@@ -1402,6 +1404,11 @@ class MainActivity : ComponentActivity() {
                                             selection = SubtitleSelection(subtitle, term.start, term.endExclusive),
                                             positionMs = frame.positionMs,
                                             subtitleStartMs = subtitle.startMs,
+                                            replayCue = if (embeddedTrackKey == null) {
+                                                englishTrack.timeline.cueForSelectionAt(
+                                                    frame.positionMs - subtitleDelayMs, term.start, term.endExclusive
+                                                )
+                                            } else null,
                                             source = source,
                                             sourceName = sourceName ?: "ویدیوی محلی",
                                             studyAction = studyAction
@@ -1432,6 +1439,9 @@ class MainActivity : ComponentActivity() {
                         },
                         meaning = {
                             lookup?.takeUnless { controlsLocked }?.let { selected ->
+                                val replayRange = selected.replayCue
+                                    ?.takeIf { canReplayDialogue && selected.source == videoUri }
+                                    ?.toDialogueRange(subtitleDelayMs, frame.durationMs)
                                 MeaningCard(
                                     lookup = selected,
                                     pronunciation = pronunciation,
@@ -1447,12 +1457,16 @@ class MainActivity : ComponentActivity() {
                                                     selection = selected.selection.copy(start = term.start, endExclusive = term.endExclusive),
                                                     positionMs = selected.positionMs,
                                                     subtitleStartMs = selected.subtitleStartMs,
+                                                    replayCue = selected.replayCue,
                                                     source = selected.source,
                                                     sourceName = selected.sourceName,
                                                     studyAction = selected.studyAction
                                                 )
                                             }
                                         }
+                                    },
+                                    onReplay = replayRange?.let { range ->
+                                        { if (lookup === selected) replayDialogue(range) }
                                     },
                                     onDictionary = { dictionarySeed = selected.word; showDictionary = true },
                                     onDismiss = { lookup = null },
@@ -1940,6 +1954,7 @@ private class Lookup(
     val selection: SubtitleSelection,
     val positionMs: Long,
     val subtitleStartMs: Long,
+    val replayCue: SubtitleCue?,
     val source: Uri,
     val sourceName: String,
     studyAction: StudyAction?
@@ -2052,6 +2067,7 @@ private fun MeaningCard(
     onOnline: () -> Unit,
     onRetry: () -> Unit,
     phraseChoices: @Composable () -> Unit,
+    onReplay: (() -> Unit)?,
     onDictionary: () -> Unit,
     onDismiss: () -> Unit,
     canEditMeaning: Boolean,
@@ -2105,6 +2121,9 @@ private fun MeaningCard(
                 color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
         }
         if (lookup.expanded) {
+            if (onReplay != null) {
+                TextButton(onClick = onReplay) { Text("بازپخش این دیالوگ", color = PinesPalette.Cream) }
+            }
             phraseChoices()
             TextButton(onClick = onDictionary) { Text("جست‌وجو در واژه‌نامه", color = PinesPalette.Cream) }
             TextButton(enabled = canEditMeaning && !lookup.loading, onClick = onEditMeaning) {
