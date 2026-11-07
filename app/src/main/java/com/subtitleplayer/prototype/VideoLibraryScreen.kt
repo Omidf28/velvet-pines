@@ -34,6 +34,21 @@ import kotlinx.coroutines.withContext
 
 internal enum class LibraryTab(val label: String) { Folder("پوشه"), Recent("اخیرها") }
 
+internal class LibraryBrowseState {
+    var query by mutableStateOf("")
+    val listState = LazyListState()
+    var folderListing by mutableStateOf<LibraryFolderListing?>(null)
+    var folderError by mutableStateOf(false)
+    var scanRevision by mutableIntStateOf(0)
+        private set
+
+    fun refreshFolder() {
+        folderListing = null
+        folderError = false
+        scanRevision++
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun VideoLibraryScreen(
@@ -45,6 +60,9 @@ internal fun VideoLibraryScreen(
     recent: List<LibraryVideo>,
     tab: LibraryTab,
     onTabChange: (LibraryTab) -> Unit,
+    browseState: LibraryBrowseState,
+    includeSubfolders: Boolean,
+    onIncludeSubfoldersChange: (Boolean) -> Unit,
     onChooseFolder: () -> Unit,
     onOpenFavorite: (LibraryFolderShortcut) -> Unit,
     onToggleFavorite: (LibraryFolderShortcut) -> Unit,
@@ -63,7 +81,7 @@ internal fun VideoLibraryScreen(
     val orderPrefs = remember(context) { context.getSharedPreferences("display_order", android.content.Context.MODE_PRIVATE) }
     var orderName by rememberSaveable { mutableStateOf(orderPrefs.getString("library", LibraryDisplayOrder.Default.name)) }
     val order = LibraryDisplayOrder.entries.firstOrNull { it.name == orderName } ?: LibraryDisplayOrder.Default
-    var query by rememberSaveable { mutableStateOf("") }
+    val query = browseState.query
     var searchFocused by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val searchEditing = searchFocused && WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -71,15 +89,15 @@ internal fun VideoLibraryScreen(
     var showLinkDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var smbBrowse by remember { mutableStateOf<SmbBrowseRequest?>(null) }
-    var includeSubfolders by remember(folder, folderRevision) { mutableStateOf(false) }
-    var folderListing by remember(folder, folderRevision, folderPath, includeSubfolders) {
-        mutableStateOf<LibraryFolderListing?>(null)
+    val folderListing = browseState.folderListing
+    val folderError = browseState.folderError
+    val libraryListState = browseState.listState
+
+    fun changeQuery(value: String) {
+        if (browseState.query == value) return
+        browseState.query = value
+        libraryListState.requestScrollToItem(0)
     }
-    var folderError by remember(folder, folderRevision, folderPath, includeSubfolders) { mutableStateOf(false) }
-    var refresh by remember { mutableIntStateOf(0) }
-    var loadedRefresh by remember(folder, folderRevision, folderPath, includeSubfolders) { mutableIntStateOf(-1) }
-    val libraryListState = rememberLazyListState()
-    LaunchedEffect(order, query, tab, folder, folderPath, includeSubfolders) { libraryListState.scrollToItem(0) }
 
     val browse = smbBrowse
     if (browse != null) {
@@ -88,25 +106,21 @@ internal fun VideoLibraryScreen(
     }
     fun navigateTo(path: List<LibrarySubfolder>) {
         keyboard?.hide()
-        query = ""
         onFolderPathChange(path)
     }
     BackHandler(enabled = tab == LibraryTab.Folder && folderPath.isNotEmpty() && !searchEditing) {
         navigateTo(folderPath.dropLast(1))
     }
-    LaunchedEffect(folder, folderRevision, folderPath, includeSubfolders, resolver, refresh, tab) {
-        if (folder == null || tab != LibraryTab.Folder || loadedRefresh == refresh) return@LaunchedEffect
-        folderListing = null
-        folderError = false
+    LaunchedEffect(browseState, resolver, browseState.scanRevision) {
+        if (folder == null || tab != LibraryTab.Folder || folderListing != null || folderError) return@LaunchedEffect
         try {
-            folderListing = withContext(Dispatchers.IO) {
+            browseState.folderListing = withContext(Dispatchers.IO) {
                 scanVideoFolder(resolver, folder, folderPath, includeSubfolders)
             }
-            loadedRefresh = refresh
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            folderError = true
+            browseState.folderError = true
         }
     }
     var folderNames by remember { mutableStateOf<Map<Uri, String>>(emptyMap()) }
@@ -132,7 +146,6 @@ internal fun VideoLibraryScreen(
     }
     fun chooseFolder() {
         keyboard?.hide()
-        query = ""
         onTabChange(LibraryTab.Folder)
         onChooseFolder()
     }
@@ -207,12 +220,12 @@ internal fun VideoLibraryScreen(
                 }
             }
         }
-        if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+        if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = ::changeQuery, singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).onFocusChanged { searchFocused = it.isFocused },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
             label = { Text(if (showRecent) "جست‌وجوی فیلم" else "جست‌وجو در این مسیر") },
-            trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("پاک") } }))
+            trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { changeQuery("") }) { Text("پاک") } }))
         LazyColumn(state = libraryListState, modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!searchEditing && showRecent) item(key = "library-actions") {
@@ -263,7 +276,11 @@ internal fun VideoLibraryScreen(
                     }
                     FilterChip(
                         selected = includeSubfolders,
-                        onClick = { includeSubfolders = !includeSubfolders },
+                        onClick = {
+                            onIncludeSubfoldersChange(!includeSubfolders)
+                            browseState.refreshFolder()
+                            libraryListState.requestScrollToItem(0)
+                        },
                         label = { Text("ویدیوهای زیرپوشه‌ها هم نمایش داده شوند") }
                     )
                 }
@@ -275,7 +292,6 @@ internal fun VideoLibraryScreen(
                     folderName = ::folderName,
                     onOpen = { shortcut ->
                         keyboard?.hide()
-                        query = ""
                         onOpenFavorite(shortcut)
                     },
                     onRemove = onToggleFavorite
@@ -306,9 +322,13 @@ internal fun VideoLibraryScreen(
                         DisplayOrderMenu(order.name,
                             if (order == LibraryDisplayOrder.Default && showRecent) "اخیرترین تماشا" else order.label,
                             LibraryDisplayOrder.entries.map { it.name to it.label },
-                            onSelect = { orderName = it; orderPrefs.edit().putString("library", it).apply() })
+                            onSelect = {
+                                if (orderName != it) libraryListState.requestScrollToItem(0)
+                                orderName = it
+                                orderPrefs.edit().putString("library", it).apply()
+                            })
                     }
-                    if (!showRecent && folder != null) TextButton(enabled = folderListing != null || folderError, onClick = { refresh++ }) { Text("تازه‌سازی") }
+                    if (!showRecent && folder != null) TextButton(enabled = folderListing != null || folderError, onClick = browseState::refreshFolder) { Text("تازه‌سازی") }
                 }
             }
             val message = when {
@@ -326,7 +346,7 @@ internal fun VideoLibraryScreen(
                         if (!showRecent && folder != null && folderListing == null && !folderError)
                             CircularProgressIndicator(Modifier.size(24.dp), color = PinesPalette.Rose)
                         Text(message, color = PinesPalette.Muted)
-                        if (!showRecent && folderError) TextButton(onClick = { refresh++ }) { Text("تلاش دوباره") }
+                        if (!showRecent && folderError) TextButton(onClick = browseState::refreshFolder) { Text("تلاش دوباره") }
                     }
                 }
             } else {

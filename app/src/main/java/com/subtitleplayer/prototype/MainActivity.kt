@@ -1001,6 +1001,10 @@ class MainActivity : ComponentActivity() {
         var libraryTab by remember {
             mutableStateOf(if (libraryFolder != null || recentVideos.isEmpty()) LibraryTab.Folder else LibraryTab.Recent)
         }
+        var includeLibrarySubfolders by remember(libraryFolder, libraryFolderRevision) { mutableStateOf(false) }
+        val libraryBrowseState = remember(libraryFolder, libraryFolderRevision, libraryPath, libraryTab) {
+            LibraryBrowseState()
+        }
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
@@ -1223,6 +1227,9 @@ class MainActivity : ComponentActivity() {
                 recent = recentVideos,
                 tab = libraryTab,
                 onTabChange = { libraryTab = it },
+                browseState = libraryBrowseState,
+                includeSubfolders = includeLibrarySubfolders,
+                onIncludeSubfoldersChange = { includeLibrarySubfolders = it },
                 onChooseFolder = { selectFolder.launch(libraryFolder) },
                 onOpenFavorite = { folder ->
                     if (persistentReadUris().coversReadAccess(folder.tree)) selectLibraryFolder(folder.tree, folder.path)
