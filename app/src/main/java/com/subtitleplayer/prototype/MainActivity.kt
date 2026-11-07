@@ -161,6 +161,9 @@ class MainActivity : ComponentActivity() {
     private var favoriteFolders by mutableStateOf<List<LibraryFolderShortcut>>(emptyList())
     private var libraryPath by mutableStateOf<List<LibrarySubfolder>>(emptyList())
     private var libraryFolderRevision by mutableIntStateOf(0)
+    private var includeLibrarySubfolders by mutableStateOf(false)
+    private var folderBrowseState by mutableStateOf(LibraryBrowseState())
+    private val parentFolderPositions = mutableMapOf<Int, LibraryBrowsePosition>()
     private var recentVideos by mutableStateOf(emptyList<LibraryVideo>())
     private var legacyQueuedVideos: List<LibraryVideo> = emptyList()
     private var foreground by mutableStateOf(false)
@@ -264,6 +267,22 @@ class MainActivity : ComponentActivity() {
                 .mapNotNull(::parseLibraryFolderUri).distinct().take(favoriteFolderLimit)
                 .map { LibraryFolderShortcut(it) }
         val readable = persistentReadUris()
+        libraryTab = LibraryTab.entries.firstOrNull { it.name == savedInstanceState?.getString("libraryTab") }
+            ?: LibraryTab.Folder
+        val savedFolder = savedInstanceState?.getString("libraryLocation")
+            ?.let(::readFavoriteFolderShortcuts)?.singleOrNull()
+        if (savedInstanceState != null && savedFolder != null &&
+            savedFolder.tree == libraryFolder && readable.coversReadAccess(savedFolder.tree)) {
+            libraryPath = savedFolder.path
+            includeLibrarySubfolders = savedInstanceState.getBoolean("libraryIncludeSubfolders")
+            folderBrowseState = LibraryBrowseState(
+                LibraryBrowsePosition(
+                    savedInstanceState.getString("libraryQuery").orEmpty(),
+                    savedInstanceState.getInt("libraryScrollIndex").coerceAtLeast(0),
+                    savedInstanceState.getInt("libraryScrollOffset").coerceAtLeast(0)
+                )
+            )
+        }
         recentVideos = readVideoEntries(history.getString("recentVideos", null), recentVideoLimit)
             .filter { readable.coversReadAccess(it.uri) }
         legacyQueuedVideos = readVideoEntries(history.getString("playbackQueue", null), legacyQueueEntryLimit)
@@ -432,6 +451,15 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         outState.putBoolean("showLibrary", showLibrary)
         outState.putBoolean("showWords", showWords)
+        outState.putString("libraryTab", libraryTab.name)
+        libraryFolder?.let { folder ->
+            outState.putString("libraryLocation", writeFavoriteFolderShortcuts(listOf(LibraryFolderShortcut(folder, libraryPath))))
+            outState.putBoolean("libraryIncludeSubfolders", includeLibrarySubfolders)
+            val position = folderBrowseState.position()
+            outState.putString("libraryQuery", position.query.take(512))
+            outState.putInt("libraryScrollIndex", position.index)
+            outState.putInt("libraryScrollOffset", position.offset)
+        }
         if (videoUri?.isOnlineVideo == true) return
         outState.putString("video", videoUri?.toString())
         outState.putString("videoParentDirectory", videoParentDirectory?.toString())
@@ -779,9 +807,21 @@ class MainActivity : ComponentActivity() {
     private fun selectLibraryFolder(folder: Uri, path: List<LibrarySubfolder> = emptyList()) {
         libraryFolder = folder
         libraryPath = path
+        parentFolderPositions.clear()
+        includeLibrarySubfolders = false
+        folderBrowseState = LibraryBrowseState()
         libraryTab = LibraryTab.Folder
         libraryFolderRevision++
         history.edit().putString("libraryFolder", folder.toString()).apply()
+    }
+
+    private fun navigateLibraryPath(path: List<LibrarySubfolder>) {
+        if (path == libraryPath) return
+        if (path.size > libraryPath.size) parentFolderPositions[libraryPath.size] = folderBrowseState.position()
+        val position = parentFolderPositions[path.size]
+        parentFolderPositions.keys.removeAll { it >= path.size }
+        libraryPath = path
+        folderBrowseState = LibraryBrowseState(position)
     }
 
     private fun toggleFavoriteFolder(folder: LibraryFolderShortcut) {
@@ -1016,10 +1056,6 @@ class MainActivity : ComponentActivity() {
         var showPlaybackTools by remember { mutableStateOf(false) }
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
-        var includeLibrarySubfolders by remember(libraryFolder, libraryFolderRevision) { mutableStateOf(false) }
-        val folderBrowseState = remember(libraryFolder, libraryFolderRevision, libraryPath) {
-            LibraryBrowseState()
-        }
         val recentBrowseState = remember { LibraryBrowseState() }
         val flashcardsState = rememberSaveableStateHolder()
         var showDictionary by rememberSaveable { mutableStateOf(false) }
@@ -1248,7 +1284,7 @@ class MainActivity : ComponentActivity() {
                 folder = libraryFolder,
                 folderRevision = libraryFolderRevision,
                 folderPath = libraryPath,
-                onFolderPathChange = { libraryPath = it },
+                onFolderPathChange = ::navigateLibraryPath,
                 favoriteFolders = favoriteFolders,
                 recent = recentVideos,
                 tab = libraryTab,

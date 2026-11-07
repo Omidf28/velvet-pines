@@ -12,6 +12,8 @@ Folder scans start when the Folders tab is requested. Returning from playback, F
 
 In portrait playback, Android Back returns to Files. In fullscreen, it exits fullscreen first. In Files, Back clears an open search, goes up a folder, or returns from Recent to Folders. Back from the root of Folders closes the app. The play icon in the Files toolbar returns to the loaded video. Flashcards retains its search, filters, and expanded card when switching to Files and back.
 
+Going up a folder in the same session restores the parent's search and scroll position after its files load. If Android recreates the activity, Files restores the selected tab and the current folder's path, search, and scroll position while the root grant remains valid. A fresh launch starts at the root of Files.
+
 ## Bookmark Semantics
 
 Bookmarks are retained with up to 20 recent entries. Legacy queue records can supply a cached bookmark or folder context when reopening the same video.

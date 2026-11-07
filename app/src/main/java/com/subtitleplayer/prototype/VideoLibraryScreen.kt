@@ -37,15 +37,34 @@ import kotlinx.coroutines.withContext
 
 internal enum class LibraryTab(val label: String) { Folder("Folders"), Recent("Recent") }
 
-internal class LibraryBrowseState {
-    var query by mutableStateOf("")
+internal data class LibraryBrowsePosition(val query: String, val index: Int, val offset: Int)
+
+internal class LibraryBrowseState(initialPosition: LibraryBrowsePosition? = null) {
+    var query by mutableStateOf(initialPosition?.query.orEmpty())
     val listState = LazyListState()
     var folderListing by mutableStateOf<LibraryFolderListing?>(null)
+        private set
     var folderError by mutableStateOf(false)
     var scanRevision by mutableIntStateOf(0)
         private set
+    private var pendingScroll = initialPosition
+
+    fun position(): LibraryBrowsePosition = pendingScroll
+        ?: LibraryBrowsePosition(query, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+
+    fun showFolder(listing: LibraryFolderListing) {
+        pendingScroll?.let { listState.requestScrollToItem(it.index, it.offset) }
+        pendingScroll = null
+        folderListing = listing
+    }
+
+    fun scrollToTop() {
+        pendingScroll = null
+        listState.requestScrollToItem(0)
+    }
 
     fun refreshFolder() {
+        pendingScroll = position()
         folderListing = null
         folderError = false
         scanRevision++
@@ -104,7 +123,7 @@ internal fun VideoLibraryScreen(
     fun changeQuery(value: String) {
         if (browseState.query == value) return
         browseState.query = value
-        libraryListState.requestScrollToItem(0)
+        browseState.scrollToTop()
     }
 
     fun closeSearch() {
@@ -136,16 +155,18 @@ internal fun VideoLibraryScreen(
         else navigateTo(folderPath.dropLast(1))
     }
     BackHandler(enabled = searchOpen && !searchEditing, onBack = ::closeSearch)
-    LaunchedEffect(browseState, resolver, browseState.scanRevision) {
+    val scanRevision = browseState.scanRevision
+    LaunchedEffect(browseState, resolver, scanRevision) {
         if (folder == null || tab != LibraryTab.Folder || folderListing != null || folderError) return@LaunchedEffect
         try {
-            browseState.folderListing = withContext(Dispatchers.IO) {
+            val listing = withContext(Dispatchers.IO) {
                 scanVideoFolder(resolver, folder, folderPath, includeSubfolders)
             }
+            if (browseState.scanRevision == scanRevision) browseState.showFolder(listing)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            browseState.folderError = true
+            if (browseState.scanRevision == scanRevision) browseState.folderError = true
         }
     }
     var folderNames by remember { mutableStateOf<Map<Uri, String>>(emptyMap()) }
@@ -246,7 +267,7 @@ internal fun VideoLibraryScreen(
                                 showLibraryMenu = false
                                 onIncludeSubfoldersChange(!includeSubfolders)
                                 browseState.refreshFolder()
-                                libraryListState.requestScrollToItem(0)
+                                browseState.scrollToTop()
                             })
                         }
                         HorizontalDivider()
@@ -255,7 +276,7 @@ internal fun VideoLibraryScreen(
                             DropdownMenuItem(text = { Text((if (order == option) "✓ " else "") + label) },
                                 onClick = {
                                     showLibraryMenu = false
-                                    if (orderName != option.name) libraryListState.requestScrollToItem(0)
+                                    if (orderName != option.name) browseState.scrollToTop()
                                     orderName = option.name
                                     orderPrefs.edit().putString("library", orderName).apply()
                                 })

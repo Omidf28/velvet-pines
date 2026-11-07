@@ -101,6 +101,8 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] From portrait playback, use Android Back to return to the same file list and scroll position. Use the Files toolbar play icon to return to the paused video. In fullscreen, Back should leave fullscreen before returning to Files.
 - [ ] Scroll in Folders and Recent, then switch between them. Each tab should retain its position. Back from Recent should return to Folders. Cancel the folder picker from Recent and verify that Recent stays selected.
 - [ ] Set a Flashcards filter and expand a word. Switch to Files and back. Verify that the filter and expanded word are still selected.
+- [ ] In a long folder list, scroll down, open a subfolder, and use Back to return. Repeat with an active search when opening the subfolder. The parent should reopen at its prior search and scroll position after loading.
+- [ ] With Files showing a nested folder, use Android's Don't keep activities developer option to force activity recreation by opening and dismissing the folder picker. Verify the current folder, search, and scroll are restored. Repeat from Recent and verify the tab is still selected.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.
