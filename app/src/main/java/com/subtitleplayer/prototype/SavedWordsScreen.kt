@@ -61,7 +61,12 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun SavedWordsScreen(dao: SavedWordsDao, pronunciation: EnglishPronunciation, onBack: () -> Unit) {
+internal fun SavedWordsScreen(
+    dao: SavedWordsDao,
+    pronunciation: EnglishPronunciation,
+    onOpenScene: (SavedWord) -> Unit,
+    onBack: () -> Unit
+) {
     DisposableEffect(pronunciation) { onDispose { pronunciation.stop() } }
     val words by remember(dao) { dao.observeAll() }.collectAsState(initial = null)
     val loadedWords = words
@@ -382,10 +387,11 @@ internal fun SavedWordsScreen(dao: SavedWordsDao, pronunciation: EnglishPronunci
             }
         } else {
                 items(visibleWords, key = SavedWord::id) { entry ->
-                    SavedWordCard(entry, pronunciation, now, canDelete = !deleting && !exporting) {
-                        keyboard?.hide()
-                        deletionCandidate = entry
-                    }
+                    SavedWordCard(
+                        entry, pronunciation, now, actionsEnabled = !deleting && !exporting,
+                        onOpenScene = { keyboard?.hide(); onOpenScene(entry) },
+                        onDelete = { keyboard?.hide(); deletionCandidate = entry }
+                    )
                 }
         }
         }
@@ -399,7 +405,8 @@ private fun SavedWordCard(
     entry: SavedWord,
     pronunciation: EnglishPronunciation,
     now: Long,
-    canDelete: Boolean,
+    actionsEnabled: Boolean,
+    onOpenScene: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(Modifier.fillMaxWidth()) {
@@ -432,7 +439,8 @@ private fun SavedWordCard(
                 style = MaterialTheme.typography.bodySmall
             )
             PronunciationControls(pronunciation, entry.word, entry.dialogue)
-            TextButton(enabled = canDelete, onClick = onDelete) { Text("حذف از دفترچه") }
+            TextButton(enabled = actionsEnabled, onClick = onOpenScene) { Text("رفتن به صحنه") }
+            TextButton(enabled = actionsEnabled, onClick = onDelete) { Text("حذف از دفترچه") }
         }
     }
 }

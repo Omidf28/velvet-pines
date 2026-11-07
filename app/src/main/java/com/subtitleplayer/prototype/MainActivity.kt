@@ -122,6 +122,7 @@ private val demoTranslation = Uri.parse("asset:///demo.fa.vtt")
 private val background = PinesPalette.Night
 private val accent = PinesPalette.Rose
 private val Uri.isOnlineVideo: Boolean get() = scheme == "https" || scheme == "rtsp" || scheme == "smb"
+private fun Uri.savedWordSourceId(): String = if (isOnlineVideo) remoteVideoId(toString()) else toString()
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MainActivity : ComponentActivity() {
@@ -913,6 +914,41 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun openSavedWordScene(entry: SavedWord): Boolean {
+        fun unavailable(message: String): Boolean {
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            return false
+        }
+
+        val source = Uri.parse(entry.sourceUri)
+        val current = videoUri
+        val sameSource = current != null && (
+            current.savedWordSourceId() == entry.sourceUri ||
+                (current.scheme == "content" && source.scheme == "content" &&
+                    videoSubtitleKey(current) == videoSubtitleKey(source))
+            )
+        if (entry.positionMs < 0) return unavailable("زمان این صحنه معتبر نیست.")
+        if (sameSource && videoReady && !playbackError) {
+            if (!player.isCurrentMediaItemSeekable || player.duration <= 0) {
+                return unavailable("رفتن به زمان ذخیره‌شده در این ویدیو در دسترس نیست.")
+            }
+            if (entry.positionMs >= player.duration) {
+                return unavailable("زمان ذخیره‌شده خارج از بازهٔ این ویدیو است.")
+            }
+            player.pause()
+            seekWithinVideo(entry.positionMs)
+            return true
+        }
+
+        if (entry.sourceUri.startsWith("remote:")) {
+            return unavailable("برای دیدن این صحنه، همان ویدیوی آنلاین را باز کنید و پس از آماده‌شدن دوباره تلاش کنید.")
+        }
+        if (source != demoVideo && (source.scheme != "content" || !persistentReadUris().coversReadAccess(source))) {
+            return unavailable("برای دسترسی دوباره به صحنه، ویدیو را از فایل یا پوشه باز کنید.")
+        }
+        openVideo(source, positionMs = entry.positionMs, autoplay = false)
+        return true
+    }
     private suspend fun saveLookup(lookup: Lookup) {
         val meaning = lookup.meaning ?: return
         try {
@@ -925,8 +961,7 @@ class MainActivity : ComponentActivity() {
                     dialogue = lookup.dialogue,
                     positionMs = lookup.positionMs,
                     subtitleStartMs = lookup.subtitleStartMs,
-                    sourceUri = if (lookup.source.isOnlineVideo) remoteVideoId(lookup.source.toString())
-                    else lookup.source.toString(),
+                    sourceUri = lookup.source.savedWordSourceId(),
                     sourceName = lookup.sourceName
                 )
             )
@@ -1178,7 +1213,17 @@ class MainActivity : ComponentActivity() {
             )
         }
         if (showWords && !pictureInPicture) {
-            SavedWordsScreen(vocabulary, pronunciation, onBack = { showWords = false })
+            SavedWordsScreen(
+                vocabulary, pronunciation,
+                onOpenScene = { entry ->
+                    if (openSavedWordScene(entry)) {
+                        lookup = null
+                        showLibrary = false
+                        showWords = false
+                    }
+                },
+                onBack = { showWords = false }
+            )
             return
         }
         if (showLibrary && !pictureInPicture) {
