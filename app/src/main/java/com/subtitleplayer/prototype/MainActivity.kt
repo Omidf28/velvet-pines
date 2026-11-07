@@ -1209,10 +1209,10 @@ class MainActivity : ComponentActivity() {
         }
 
         val canSeek = frame.source == videoUri && frame.seekable && !playbackError
-        val navigationDialogues = remember(cues, subtitleDelayMs, frame.durationMs) {
+        val dialogueRanges = remember(cues, subtitleDelayMs, frame.durationMs) {
             cues.mapNotNull { it.toDialogueRange(subtitleDelayMs, frame.durationMs) }
-                .distinctBy { it.startMs }
         }
+        val navigationDialogues = remember(dialogueRanges) { dialogueRanges.distinctBy { it.startMs } }
         LaunchedEffect(navigationDialogues, pauseAfterDialogue, foreground) {
             autoPauseEnds = dialoguePauseBoundaries(navigationDialogues)
             lastDialoguePosition = player.currentPosition
@@ -1553,6 +1553,13 @@ class MainActivity : ComponentActivity() {
                                     DropdownMenuItem(text = { Text("جست‌وجو در واژه‌نامه") }, onClick = {
                                         showPlayerMenu = false; dictionarySeed = ""; showDictionary = true
                                     })
+                                    if (canSeek && dialogueRanges.isNotEmpty()) {
+                                        DropdownMenuItem(text = { Text("جست‌وجوی دیالوگ‌ها") }, onClick = {
+                                            showPlayerMenu = false
+                                            lookup = null
+                                            showDialogues = true
+                                        })
+                                    }
                                     DropdownMenuItem(text = { Text("ابزارهای مطالعه و تکرار") }, onClick = { showPlayerMenu = false; showPlaybackTools = true })
                                     if (supportsPictureInPicture && videoReady && !playbackError) {
                                         DropdownMenuItem(text = { Text("تصویر در تصویر") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
@@ -1624,9 +1631,10 @@ class MainActivity : ComponentActivity() {
                     }) { Text("دیالوگ بعدی") }
                     TextButton(onClick = { showSettings = true }) { Text("تنظیمات") }
                     TextButton(
-                        enabled = canSeek && cues.isNotEmpty(),
+                        enabled = canSeek && dialogueRanges.isNotEmpty(),
                         onClick = {
                             lookup = null
+                            showPlaybackTools = false
                             showDialogues = true
                         }
                     ) { Text("دیالوگ‌ها") }
@@ -1650,11 +1658,8 @@ class MainActivity : ComponentActivity() {
             )
         }
         if (!pictureInPicture && !controlsLocked && showDialogues && canSeek) {
-            val dialogues = remember(cues, subtitleDelayMs, frame.durationMs) {
-                cues.mapNotNull { it.toDialogueRange(subtitleDelayMs, frame.durationMs) }
-            }
             DialogueList(
-                dialogues = dialogues,
+                dialogues = dialogueRanges,
                 positionMs = frame.positionMs,
                 onSeek = { dialogue ->
                     showDialogues = false
