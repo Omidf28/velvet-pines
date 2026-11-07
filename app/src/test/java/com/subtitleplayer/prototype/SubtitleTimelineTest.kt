@@ -29,6 +29,17 @@ class SubtitleTimelineTest {
         val cues = listOf(SubtitleCue(100, 200, "short"), SubtitleCue(0, 10000, "long"))
         assertEquals(ActiveSubtitle("long\nshort", 0), SubtitleTimeline(cues).activeAt(150))
     }
+    @Test fun replayUsesTheFirstVisibleCueEvenWhenCuesOverlap() {
+        val first = SubtitleCue(100, 400, "first")
+        val second = SubtitleCue(100, 600, "second")
+        val later = SubtitleCue(300, 500, "later")
+        val timeline = SubtitleTimeline(listOf(later, first, second))
+
+        assertNull(timeline.firstActiveCueAt(99))
+        assertEquals(first, timeline.firstActiveCueAt(350))
+        assertEquals(second, timeline.firstActiveCueAt(400))
+        assertNull(timeline.firstActiveCueAt(600))
+    }
     @Test fun supportsLongSubtitleFilesAndBackwardSeeks() {
         val cues = List(20000) { SubtitleCue(it * 1000L, it * 1000L + 900, "line$it") }
         val timeline = SubtitleTimeline(cues)

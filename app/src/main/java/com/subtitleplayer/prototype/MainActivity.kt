@@ -1277,6 +1277,21 @@ class MainActivity : ComponentActivity() {
         }
         val previousDialogue = adjacentDialogue(navigationDialogues, frame.positionMs, false)
         val nextDialogue = adjacentDialogue(navigationDialogues, frame.positionMs, true)
+        fun replayDialogueAt(positionMs: Long): DialogueRange? {
+            return englishTrack.timeline.firstActiveCueAt(positionMs - subtitleDelayMs)
+                ?.toDialogueRange(subtitleDelayMs, frame.durationMs)
+                ?: dialogueRanges.getOrNull(dialogueUpperBound(dialogueRanges, positionMs) - 1)
+        }
+        val canReplayDialogue = canSeek && !frame.live && embeddedTrackKey == null
+        val quickReplayAvailable = canReplayDialogue && (showPlayerMenu || listeningMode) &&
+            replayDialogueAt(frame.positionMs) != null
+        fun replayCurrentDialogue() {
+            if (!canReplayDialogue || !player.isCurrentMediaItemSeekable || player.isCurrentMediaItemLive) return
+            val dialogue = replayDialogueAt(player.currentPosition) ?: return
+            lookup = null
+            controlsVisible = false
+            seekWithinVideo(dialogue.startMs, dialogue.endMs)
+        }
         val playerLayout = Modifier.fillMaxSize().background(background)
         Box(playerLayout) {
             Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -1399,12 +1414,19 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 if (listeningMode && !controlsLocked) {
-                                    TextButton(
-                                        onClick = { listeningMode = false },
-                                        modifier = Modifier.background(
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                                        val buttonBackground = Modifier.background(
                                             Color.Black.copy(alpha = 0.75f), RoundedCornerShape(24.dp)
                                         )
-                                    ) { Text("نمایش زیرنویس", color = PinesPalette.Cream) }
+                                        TextButton(onClick = { listeningMode = false }, modifier = buttonBackground) {
+                                            Text("نمایش زیرنویس", color = PinesPalette.Cream)
+                                        }
+                                        if (quickReplayAvailable) {
+                                            TextButton(onClick = ::replayCurrentDialogue, modifier = buttonBackground) {
+                                                Text("بازپخش دیالوگ", color = PinesPalette.Cream)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -1631,6 +1653,12 @@ class MainActivity : ComponentActivity() {
                                                 listeningMode = !listeningMode
                                             }
                                         )
+                                    }
+                                    if (quickReplayAvailable) {
+                                        DropdownMenuItem(text = { Text("بازپخش دیالوگ") }, onClick = {
+                                            showPlayerMenu = false
+                                            replayCurrentDialogue()
+                                        })
                                     }
                                     if (canSeek && dialogueRanges.isNotEmpty()) {
                                         DropdownMenuItem(text = { Text("جست‌وجوی دیالوگ‌ها") }, onClick = {

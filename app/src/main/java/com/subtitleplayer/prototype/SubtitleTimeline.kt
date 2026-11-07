@@ -15,17 +15,33 @@ internal class SubtitleTimeline(source: List<SubtitleCue>) {
         return end
     }
 
-    fun activeAt(positionMs: Long): ActiveSubtitle? {
-        if (cues.isEmpty()) return null
-        val visible = mutableListOf<SubtitleCue>()
-        fun collect(node: Int, left: Int, right: Int) {
-            if (maxEnd[node] <= positionMs || cues[left].startMs > positionMs) return
-            if (left == right) { visible.add(cues[left]); return }
+    /** Return true from the visitor to stop at the first required cue. */
+    private fun visitActive(positionMs: Long, visit: (SubtitleCue) -> Boolean) {
+        if (cues.isEmpty()) return
+        fun collect(node: Int, left: Int, right: Int): Boolean {
+            if (maxEnd[node] <= positionMs || cues[left].startMs > positionMs) return false
+            if (left == right) return visit(cues[left])
             val middle = (left + right) / 2
-            collect(node * 2, left, middle)
-            collect(node * 2 + 1, middle + 1, right)
+            return collect(node * 2, left, middle) || collect(node * 2 + 1, middle + 1, right)
         }
         collect(1, 0, cues.lastIndex)
+    }
+
+    fun firstActiveCueAt(positionMs: Long): SubtitleCue? {
+        var first: SubtitleCue? = null
+        visitActive(positionMs) {
+            first = it
+            true
+        }
+        return first
+    }
+
+    fun activeAt(positionMs: Long): ActiveSubtitle? {
+        val visible = mutableListOf<SubtitleCue>()
+        visitActive(positionMs) {
+            visible.add(it)
+            false
+        }
         val first = visible.firstOrNull() ?: return null
         return ActiveSubtitle(visible.joinToString("\n") { it.text }, first.startMs)
     }
