@@ -1,6 +1,7 @@
 package com.subtitleplayer.prototype
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,6 +39,8 @@ private enum class LibraryTab(val label: String) { Folder("پوشه"), Recent("�
 internal fun VideoLibraryScreen(
     folder: Uri?,
     folderRevision: Int,
+    folderPath: List<LibrarySubfolder>,
+    onFolderPathChange: (List<LibrarySubfolder>) -> Unit,
     favoriteFolders: Set<Uri>,
     recent: List<LibraryVideo>,
     queue: List<LibraryVideo>,
@@ -71,25 +74,40 @@ internal fun VideoLibraryScreen(
     var showLinkDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var smbBrowse by remember { mutableStateOf<SmbBrowseRequest?>(null) }
-    var tab by rememberSaveable { mutableStateOf(if (recent.isNotEmpty()) LibraryTab.Recent else LibraryTab.Folder) }
-    var folderVideos by remember(folder, folderRevision) { mutableStateOf<List<LibraryVideo>?>(null) }
-    var folderError by remember(folder, folderRevision) { mutableStateOf(false) }
+    var tab by rememberSaveable {
+        mutableStateOf(if (folderPath.isNotEmpty() || recent.isEmpty()) LibraryTab.Folder else LibraryTab.Recent)
+    }
+    var includeSubfolders by remember(folder, folderRevision) { mutableStateOf(false) }
+    var folderListing by remember(folder, folderRevision, folderPath, includeSubfolders) {
+        mutableStateOf<LibraryFolderListing?>(null)
+    }
+    var folderError by remember(folder, folderRevision, folderPath, includeSubfolders) { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
-    var loadedRefresh by remember(folder, folderRevision) { mutableIntStateOf(-1) }
+    var loadedRefresh by remember(folder, folderRevision, folderPath, includeSubfolders) { mutableIntStateOf(-1) }
     val libraryListState = rememberLazyListState()
-    LaunchedEffect(order, query, tab, folder) { libraryListState.scrollToItem(0) }
+    LaunchedEffect(order, query, tab, folder, folderPath, includeSubfolders) { libraryListState.scrollToItem(0) }
 
     val browse = smbBrowse
     if (browse != null) {
         SmbBrowserScreen(browse, onOpen = onOpenLink, onBack = { smbBrowse = null })
         return
     }
-    LaunchedEffect(folder, folderRevision, resolver, refresh, tab) {
+    fun navigateTo(path: List<LibrarySubfolder>) {
+        keyboard?.hide()
+        query = ""
+        onFolderPathChange(path)
+    }
+    BackHandler(enabled = tab == LibraryTab.Folder && folderPath.isNotEmpty() && !searchEditing) {
+        navigateTo(folderPath.dropLast(1))
+    }
+    LaunchedEffect(folder, folderRevision, folderPath, includeSubfolders, resolver, refresh, tab) {
         if (folder == null || tab != LibraryTab.Folder || loadedRefresh == refresh) return@LaunchedEffect
-        folderVideos = null
+        folderListing = null
         folderError = false
         try {
-            folderVideos = withContext(Dispatchers.IO) { scanVideoFolder(resolver, folder) }
+            folderListing = withContext(Dispatchers.IO) {
+                scanVideoFolder(resolver, folder, folderPath, includeSubfolders)
+            }
             loadedRefresh = refresh
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -131,8 +149,8 @@ internal fun VideoLibraryScreen(
         }
     }
     val showRecent = tab == LibraryTab.Recent
-    val videos = remember(showRecent, recent, folderVideos, bookmarksByKey) {
-        (if (showRecent) recent else folderVideos.orEmpty()).map { video ->
+    val videos = remember(showRecent, recent, folderListing, bookmarksByKey) {
+        (if (showRecent) recent else folderListing?.videos.orEmpty()).map { video ->
             video.copy(bookmark = video.bookmark ?: bookmarksByKey[videoSubtitleKey(video.uri)])
         }
     }
@@ -154,6 +172,9 @@ internal fun VideoLibraryScreen(
         if (search.isEmpty()) orderedVideos else orderedVideos.filter {
             it.name.contains(search, ignoreCase = true) || it.parentPath?.contains(search, ignoreCase = true) == true
         }
+    }
+    val visibleFolders = remember(folderListing, search) {
+        folderListing?.folders.orEmpty().filter { search.isEmpty() || it.name.contains(search, ignoreCase = true) }
     }
     val continuation = if (showRecent && search.isEmpty()) videos.firstOrNull { it.bookmark?.resumable == true } else null
     Column(Modifier.fillMaxSize().pinesAtmosphere().safeDrawingPadding()) {
@@ -195,7 +216,7 @@ internal fun VideoLibraryScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).onFocusChanged { searchFocused = it.isFocused },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                label = { Text("جست‌وجوی فیلم یا پوشه") },
+                label = { Text(if (showRecent) "جست‌وجوی فیلم" else "جست‌وجو در این مسیر") },
                 trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("پاک") } }))
             LazyColumn(state = libraryListState, modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -206,7 +227,7 @@ internal fun VideoLibraryScreen(
                         if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
                     }
                 }
-                if (!searchEditing && !showRecent) item(key = "current-folder") {
+                if (!searchEditing && !showRecent && folderPath.isEmpty()) item(key = "current-folder") {
                     Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("پوشهٔ فعلی", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
@@ -228,7 +249,7 @@ internal fun VideoLibraryScreen(
                         }
                     }
                 }
-                if (!searchEditing && !showRecent) item(key = "favorite-folders") {
+                if (!searchEditing && !showRecent && folderPath.isEmpty()) item(key = "favorite-folders") {
                     FavoriteFoldersSection(
                         folders = favoriteFolders.sortedBy(::folderName),
                         selected = folder,
@@ -239,6 +260,39 @@ internal fun VideoLibraryScreen(
                 }
                 if (continuation != null && !searchEditing) item(key = "continue-watching") {
                     ContinueWatchingCard(continuation, onOpen = { keyboard?.hide(); onOpen(continuation) })
+                }
+                if (!searchEditing && !showRecent && folder != null) item(key = "folder-navigation") {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (folderPath.isNotEmpty()) {
+                            Text("مسیر پوشه", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
+                            Text((listOf(folderName(folder)) + folderPath.map { it.name }).joinToString(" / "),
+                                style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { navigateTo(folderPath.dropLast(1)) }) { Text("پوشهٔ بالاتر") }
+                                TextButton(onClick = { navigateTo(emptyList()) }) { Text("پوشهٔ اصلی") }
+                            }
+                        }
+                        FilterChip(
+                            selected = includeSubfolders,
+                            onClick = { includeSubfolders = !includeSubfolders },
+                            label = { Text("ویدیوهای زیرپوشه‌ها هم نمایش داده شوند") }
+                        )
+                    }
+                }
+                if (!showRecent && visibleFolders.isNotEmpty()) {
+                    item(key = "subfolder-heading") { Text("زیرپوشه‌ها", style = MaterialTheme.typography.titleSmall) }
+                    items(visibleFolders, key = { "folder:" + it.documentId }) { subfolder ->
+                        OutlinedCard(
+                            onClick = { navigateTo(folderPath + subfolder) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                Text(subfolder.name, style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text("باز کردن پوشه", style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
+                            }
+                        }
+                    }
                 }
                 if (!searchEditing && (showRecent || folder != null)) item(key = "library-order") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -252,13 +306,13 @@ internal fun VideoLibraryScreen(
                                 LibraryDisplayOrder.entries.map { it.name to it.label },
                                 onSelect = { orderName = it; orderPrefs.edit().putString("library", it).apply() })
                         }
-                        if (!showRecent && folder != null) TextButton(enabled = folderVideos != null || folderError, onClick = { refresh++ }) { Text("تازه‌سازی") }
+                        if (!showRecent && folder != null) TextButton(enabled = folderListing != null || folderError, onClick = { refresh++ }) { Text("تازه‌سازی") }
                     }
                 }
                 val message = when {
                     !showRecent && folder == null -> null
                     !showRecent && folderError -> "پوشه خوانده نشد. دوباره تلاش کن یا دسترسی پوشه را انتخاب کن."
-                    !showRecent && folderVideos == null -> "در حال بررسی پوشه…"
+                    !showRecent && folderListing == null -> "در حال بررسی پوشه…"
                     search.isNotEmpty() && filtered.isEmpty() -> "ویدیویی با این جست‌وجو پیدا نشد."
                     showRecent && filtered.isEmpty() -> "پس از تماشای اولین فیلم، ادامهٔ تماشا و فیلم‌های اخیر اینجا نمایش داده می‌شوند."
                     filtered.isEmpty() -> "در این پوشه ویدیویی پیدا نشد."
@@ -267,7 +321,7 @@ internal fun VideoLibraryScreen(
                 if (message != null) item(key = "library-message") {
                     Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (!showRecent && folder != null && folderVideos == null && !folderError)
+                            if (!showRecent && folder != null && folderListing == null && !folderError)
                                 CircularProgressIndicator(Modifier.size(24.dp), color = PinesPalette.Rose)
                             Text(message, color = PinesPalette.Muted)
                             if (!showRecent && folderError) TextButton(onClick = { refresh++ }) { Text("تلاش دوباره") }

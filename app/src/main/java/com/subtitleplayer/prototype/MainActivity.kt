@@ -1052,6 +1052,9 @@ class MainActivity : ComponentActivity() {
         var showWords by rememberSaveable { mutableStateOf(false) }
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
+        var libraryPath by remember(libraryFolder, libraryFolderRevision) {
+            mutableStateOf<List<LibrarySubfolder>>(emptyList())
+        }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
         var showSubtitleMenu by remember(videoUri) { mutableStateOf(false) }
         var sourceName by remember(videoUri) { mutableStateOf<String?>(null) }
@@ -1266,6 +1269,8 @@ class MainActivity : ComponentActivity() {
             VideoLibraryScreen(
                 folder = libraryFolder,
                 folderRevision = libraryFolderRevision,
+                folderPath = libraryPath,
+                onFolderPathChange = { libraryPath = it },
                 favoriteFolders = favoriteFolders,
                 recent = recentVideos,
                 queue = playbackQueue,
