@@ -5,6 +5,23 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val releaseSigningVariables = listOf(
+    "VELVET_PINES_KEYSTORE",
+    "VELVET_PINES_STORE_PASSWORD",
+    "VELVET_PINES_KEY_ALIAS",
+    "VELVET_PINES_KEY_PASSWORD",
+)
+val releaseSigningValues = releaseSigningVariables.associateWith {
+    providers.environmentVariable(it).orNull?.takeIf(String::isNotBlank)
+}
+val configureReleaseSigning = releaseSigningValues.values.any { it != null }
+if (configureReleaseSigning) {
+    val missingVariables = releaseSigningValues.filterValues { it == null }.keys
+    require(missingVariables.isEmpty()) {
+        "Set all Velvet Pines release signing variables. Missing: ${missingVariables.joinToString()}"
+    }
+}
+
 android {
     namespace = "com.subtitleplayer.prototype"
     compileSdk = 36
@@ -15,6 +32,20 @@ android {
         targetSdk = 36
         versionCode = 17
         versionName = "0.7.0-beta.2"
+    }
+
+    if (configureReleaseSigning) {
+        val releaseKeystore = rootProject.file(releaseSigningValues.getValue("VELVET_PINES_KEYSTORE")!!)
+        require(releaseKeystore.isFile) { "VELVET_PINES_KEYSTORE must point to a keystore file." }
+        val releaseSigning = signingConfigs.create("release") {
+            storeFile = releaseKeystore
+            storePassword = releaseSigningValues.getValue("VELVET_PINES_STORE_PASSWORD")
+            keyAlias = releaseSigningValues.getValue("VELVET_PINES_KEY_ALIAS")
+            keyPassword = releaseSigningValues.getValue("VELVET_PINES_KEY_PASSWORD")
+        }
+        buildTypes.named("release") {
+            signingConfig = releaseSigning
+        }
     }
 
     buildFeatures {

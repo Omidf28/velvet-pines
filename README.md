@@ -91,6 +91,27 @@ app/build/outputs/apk/debug/app-debug.apk
 
 Run the application and open the bundled synthetic sample, or select a local video and an English subtitle file. Select a subtitle word to view its definition. Most lookups work offline. An absent term offers explicit online translation or a personal definition; names, typos and every possible word are not guaranteed.
 
+### Release APK
+
+Set these environment variables in the build process using a private keystore and its credentials. Keep the keystore outside the repository and supply credentials through a local secret store or the CI secret manager.
+
+| Environment variable | Value |
+| --- | --- |
+| `VELVET_PINES_KEYSTORE` | Absolute path to the release keystore |
+| `VELVET_PINES_STORE_PASSWORD` | Keystore password |
+| `VELVET_PINES_KEY_ALIAS` | Release key alias |
+| `VELVET_PINES_KEY_PASSWORD` | Release key password |
+
+```powershell
+.\gradlew.bat --no-configuration-cache :app:assembleRelease
+apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+python scripts/verify-lexicon.py --apk app/build/outputs/apk/release/app-release.apk
+```
+
+`apksigner` is provided by Android SDK Build Tools. Compare its certificate SHA-256 fingerprint with the expected release certificate before distributing the APK. With all four variables unset, Gradle produces `app-release-unsigned.apk` for build verification. A partially configured signing environment fails with the names of the missing variables.
+
+Android upgrades require a compatible signing identity. Before replacing a debug-signed beta with a differently signed release, open Flashcards, then choose Backup and Restore from the overflow menu and export a `.spbackup`. Restore the saved words and review history after the release installation and grant access to your video folders again.
+
 ## Validation
 
 ```powershell

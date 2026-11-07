@@ -80,9 +80,13 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Upgrade with an older profile lacking `automaticSidecars`; verify that its prior subtitle choice is unchanged. Confirm that an unfinished newer automatic preference remains eligible after reopening.
 - [ ] Start an A/B repeat while discovery is pending; automatic attachment must not disrupt the active study interval.
 - [ ] Refresh nearby matches from the caption menu and select one explicitly. Verify pause state, subtitle timing, source labels, and word selection after attachment.
-## Library and Independent Resume
+## Files, Flashcards, and Independent Resume
 
-- [ ] On a fresh start with no restored source, verify library entry, sample playback, help, file/folder selection, network access, and Android Back. Back from the empty library should leave the Activity rather than expose an empty player.
+- [ ] Launch from the app icon after a fresh install and again after watching a video and closing the app. Both launches should land on Files. Open a video explicitly and check its resume position. Android Back from the library root should leave the Activity.
+- [ ] Grant access to a folder, open a subfolder, favorite it, and reopen it from the favorite list after restarting the app. Tap a video row to play immediately, then go back to the folder.
+- [ ] Open Flashcards from the bottom bar without starting a video. Check the empty state and a populated list. Tap a saved English word to reveal its meaning and sentence, then tap again to collapse it. Switch back to Files and check that the folder is still selected.
+- [ ] With existing saved words and review history, export a `.spbackup` from the Flashcards overflow menu. Restore it on a separate test install and verify the saved words, personal definitions, and review progress.
+- [ ] From Files, verify sample playback, help, single-file selection, and network access.
 - [ ] Play video A to one position, open B and stop at another position, then reopen A. Each should resume at its own checkpoint rather than the previous global position.
 - [ ] Repeat after normal app restart, foreground playback, PiP playback/closure, and explicit pause. Checkpoint timing is approximate; do not expect unflushed progress after abrupt process termination.
 - [ ] Use Playback from beginning for a partially watched and a completed source. Verify zero takes priority over older global and per-video positions and the next saved checkpoint reflects the restart.
