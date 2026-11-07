@@ -82,6 +82,7 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Refresh nearby matches from the caption menu and select one explicitly. Verify pause state, subtitle timing, source labels, and word selection after attachment.
 ## Files, Flashcards, and Independent Resume
 
+- [ ] Set the phone language to Persian and open Velvet Pines. Files, Flashcards, menus, player settings, and app messages should remain English and left-to-right. Open a saved card with a Persian definition and verify its text order. The Android file picker follows the phone language.
 - [ ] Launch from the app icon after a fresh install and again after watching a video and closing the app. Both launches should land on Files. Open a video explicitly and check its resume position. Android Back from the library root should leave the Activity.
 - [ ] Grant access to a folder, open a subfolder, favorite it, and reopen it from the favorite list after restarting the app. Tap a video row to play immediately, then go back to the folder.
 - [ ] Open Flashcards from the bottom bar without starting a video. Check the empty state and a populated list. Tap a saved English word to reveal its meaning and sentence, then tap again to collapse it. Switch back to Files and check that the folder is still selected.

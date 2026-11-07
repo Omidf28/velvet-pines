@@ -37,10 +37,13 @@ internal fun PlayerIconButton(
     IconButton(
         onClick = onClick,
         enabled = enabled,
+        colors = if (large) IconButtonDefaults.filledIconButtonColors(
+            containerColor = PinesPalette.Accent, contentColor = MaterialTheme.colorScheme.onPrimary
+        ) else IconButtonDefaults.iconButtonColors(contentColor = PinesPalette.Ink),
         modifier = Modifier.size(if (large) 64.dp else 48.dp).semantics { contentDescription = label }
     ) {
+        val ink = LocalContentColor.current
         Canvas(Modifier.size(if (large) 38.dp else 24.dp)) {
-            val ink = if (enabled) Color.White else Color.White.copy(alpha = 0.35f)
             val unit = size.width / 24f
             fun line(x: Float, y: Float, x2: Float, y2: Float) = drawLine(
                 ink, Offset(x * unit, y * unit), Offset(x2 * unit, y2 * unit), 1.8f * unit, StrokeCap.Round
@@ -121,21 +124,24 @@ internal fun PlayerOverlay(
                     .safeDrawingPadding().padding(horizontal=8.dp,vertical=6.dp),
                 verticalAlignment=Alignment.CenterVertically
             ) {
-                PlayerIconButton(PlayerGlyph.Back,"بازگشت به کتابخانه",onClick=onBack)
-                Column(Modifier.weight(1f).padding(horizontal=6.dp)) {
-                    Text(title,color=Color.White,maxLines=1,overflow=TextOverflow.Ellipsis,
-                        style=MaterialTheme.typography.titleSmall)
-                    Text("VELVET PINES",color=PinesPalette.Rose,style=MaterialTheme.typography.labelSmall)
-                }
+                PlayerIconButton(PlayerGlyph.Back,"Back to Files",onClick=onBack)
+                Text(
+                    title, modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
+                    color = PinesPalette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall
+                )
                 topActions()
             }
-            Row(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha=0.35f), RoundedCornerShape(48.dp))
-                .padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically,
-                horizontalArrangement=Arrangement.spacedBy(32.dp)) {
-                PlayerIconButton(PlayerGlyph.Previous,"$skipSeconds ثانیه عقب",canSeek,onClick=onSeekBack)
+            Row(
+                Modifier.align(Alignment.Center).glassPanel(RoundedCornerShape(48.dp), overVideo = true)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                PlayerIconButton(PlayerGlyph.Previous,"Back $skipSeconds seconds",canSeek,onClick=onSeekBack)
                 PlayerIconButton(if(playing) PlayerGlyph.Pause else PlayerGlyph.Play,
-                    if(playing) "مکث" else "پخش",canPlay,large=true,onClick=onPlayPause)
-                PlayerIconButton(PlayerGlyph.Next,"$skipSeconds ثانیه جلو",canSeek,onClick=onSeekForward)
+                    if(playing) "Pause" else "Play",canPlay,large=true,onClick=onPlayPause)
+                PlayerIconButton(PlayerGlyph.Next,"Forward $skipSeconds seconds",canSeek,onClick=onSeekForward)
             }
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
@@ -144,13 +150,13 @@ internal fun PlayerOverlay(
             ) {
                 Slider(value=progress,onValueChange=onProgress,onValueChangeFinished=onSeekFinished,
                     enabled=canSeek,modifier=Modifier.fillMaxWidth().height(32.dp).semantics {
-                        contentDescription="موقعیت پخش"; stateDescription=positionLabel
-                    },colors=SliderDefaults.colors(thumbColor=PinesPalette.Cream,activeTrackColor=PinesPalette.Rose))
+                        contentDescription="Playback position"; stateDescription=positionLabel
+                    },colors=SliderDefaults.colors(thumbColor=PinesPalette.Ink,activeTrackColor=PinesPalette.Accent))
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Text(positionLabel,color=Color.White,modifier=Modifier.weight(1f),
                         style=MaterialTheme.typography.labelMedium.copy(textDirection=TextDirection.Ltr))
-                    PlayerIconButton(PlayerGlyph.Lock,"قفل کنترل‌ها",onClick=onLock)
-                    PlayerIconButton(PlayerGlyph.Expand,if(fullscreen) "خروج از تمام‌صفحه" else "تمام‌صفحه",onClick=onFullscreen)
+                    PlayerIconButton(PlayerGlyph.Lock,"Lock controls",onClick=onLock)
+                    PlayerIconButton(PlayerGlyph.Expand,if(fullscreen) "Exit fullscreen" else "Fullscreen",onClick=onFullscreen)
                 }
             }
         }

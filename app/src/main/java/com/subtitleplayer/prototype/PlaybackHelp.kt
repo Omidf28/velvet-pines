@@ -12,28 +12,28 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun PlaybackHelp(skipSeconds: Int) {
-    PinesIdentityBanner(compact = true)
-    Text("نسخهٔ آزمایشی ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
-    HelpCard("کنترل تصویر",
-        "یک لمس روی فضای خالی، کنترل‌های شناور را نشان می‌دهد یا پنهان می‌کند و فیلم کوچک نمی‌شود. کنترل‌ها هنگام پخش خودکار محو می‌شوند. دکمهٔ تمام‌صفحه جهت گوشی را تغییر می‌دهد. دو ضربه سمت چپ: $skipSeconds ثانیه عقب؛ سمت راست: جلو. کشیدن عمودی سمت چپ، روشنایی و سمت راست، صدای پلیر را تغییر می‌دهد. قفل، لمس‌ها و جهت تصویر را قفل می‌کند.")
-    HelpCard("زیرنویس انگلیسی",
-        "برای فیلم تازه، زیرنویس متنی داخلی با زبان انگلیسی ثبت‌شده خودکار انتخاب می‌شود. از منوی زیرنویس می‌توانید حالت خودکار، ترک دستی، فایل جداگانه یا خاموش‌کردن را انتخاب کنید. پنهان‌کردن انگلیسی فقط نمایش را عوض می‌کند. فایل‌های قبلی انتخاب ذخیره‌شدهٔ خود را نگه می‌دارند.")
-    HelpCard("زیرنویس کنار فیلم",
-        "فیلم را از پوشهٔ مجاز کتابخانه باز کنید. فایل هم‌نامی مانند Episode.en.srt، اگر یکتا و خواندنی باشد، در حالت خودکار باز می‌شود. فایل بی‌برچسب یا چند گزینهٔ هم‌ارزش را از منوی زیرنویس انتخاب کنید. جست‌وجو فقط همان پوشه را می‌خواند و انتخاب دستی یا خاموش‌شدهٔ قبلی را عوض نمی‌کند.")
-    HelpCard("کشف معنی",
-        "روی واژهٔ انگلیسی بزنید؛ انتخاب پیش‌فرض فقط همان کلمه است. برای اصطلاحات، در تنظیمات مطالعه حالت عبارت را انتخاب کنید. معنی پس از آماده‌شدن روی همان تصویر حدود سه ثانیه نمایش داده می‌شود؛ زمان پیشنهادی دسترس‌پذیری رعایت می‌شود. منوی سه‌نقطهٔ کارت گزینه‌های ویرایش، تلفظ و عبارت‌های همان بخش از زیرنویس را دارد. عبارت‌ها از واژه‌نامه می‌آیند و خودتان یکی را انتخاب می‌کنید. در بخش مطالعه، مکث هنگام لمس را روشن کنید تا کارت باز بماند. واژه‌نامهٔ بزرگ آفلاین همراه برنامه است؛ اگر معنی پیدا نشد، دکمهٔ ترجمهٔ اینترنتی فقط همان واژه را به سرویس می‌فرستد. معنی شخصی شما اولویت دارد. نتیجه‌های اخیر موقتاً در حافظه می‌مانند؛ خطا امکان تلاش دوباره دارد و جست‌وجوی در حال انجام را می‌توانید لغو کنید.")
-    HelpCard("جست‌وجوی واژه و عبارت",
-        "از کتابخانه، گزینه‌های پلیر یا منوی کارت معنی، واژه‌نامه را باز کنید. کلمه یا ابتدای عبارت انگلیسی را بنویسید؛ با انتخاب نتیجه، معنی کامل و تلفظ در دسترس است. برای معنی دقیق‌تر، بیشتر تایپ کنید. می‌توانید معنی شخصی اضافه یا اصلاح کنید؛ این کار با ذخیرهٔ واژه در دفترچه متفاوت است.")
-    HelpCard("زیرنویس دوزبانه",
-        "از منوی زیرنویس، فایل انگلیسی و فارسی را جدا انتخاب کنید. در بخش زیرنویسِ تنظیمات، نمایش، تأخیر، کدگذاری و ظاهر را تغییر دهید. اگر متن ناخواناست، ابتدا کدگذاری خودکار و سپس کدگذاری مناسب فایل را امتحان کنید.")
-    HelpCard("تکرار و شنیدن",
-        "A را در شروع و B را دست‌کم نیم‌ثانیه بعد ثبت کنید تا بازه تکرار شود. لغو تکرار یا پرش دستی، آن را تمام می‌کند. دیالوگ قبلی/بعدی و مکث پایان جمله برای فایل زیرنویس جداگانه‌اند.")
-    HelpCard("ادامهٔ تماشا",
-        "در کتابخانه، فیلم‌های اخیر جای توقف جدا دارند. کارت ادامهٔ تماشا یا خود فیلم را بزنید؛ برای شروع دوباره، از منوی سه‌نقطهٔ فیلم «پخش از ابتدا» را انتخاب کنید. نوار پیشرفت فقط وقتی زمان فیلم مشخص باشد نمایش داده می‌شود.")
-    HelpCard("دفترچه و تمرین",
-        "واژه را از کارت معنی ذخیره کنید؛ سپس «واژه‌ها» را باز کنید. جست‌وجو، انتخاب فیلم، مرور، آمار و خروجی CSV و Anki در دفترچه‌اند. تلفظ به صدای آفلاین انگلیسی نصب‌شده روی گوشی نیاز دارد.")
-    HelpCard("نگه‌داری داده‌ها",
-        "از دفترچه، واژه‌نامهٔ شخصی را مدیریت یا فایل آن را وارد کنید. پشتیبان یادگیری، کارت‌ها و پیشرفت مرور را نگه می‌دارد؛ ویدیوها و مجوز فایل‌های دستگاه داخل آن نیستند.")
+    PinesIdentityBanner()
+    Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
+    HelpCard("Player controls",
+        "Tap the video to show or hide controls. Fullscreen rotates the player. Double-tap left or right to seek $skipSeconds seconds. Swipe vertically on the left for brightness or on the right for volume. Use Lock to lock controls and orientation.")
+    HelpCard("English subtitles",
+        "The player automatically selects an embedded English text track when available. Use Subtitles to choose a track or external file, hide the text, or turn the track off. Previously opened videos keep their saved selection.")
+    HelpCard("Matching subtitle files",
+        "Open the video from an accessible folder. In automatic mode, a single readable match such as Episode.en.srt opens automatically. Choose unlabeled files or ties from Subtitles. The player searches only that folder and honors your previous selection.")
+    HelpCard("Tap to translate",
+        "Tap an English word for a Persian meaning over the video. The card stays for about three seconds after the result arrives and respects accessibility timeouts. For phrases or a card that stays open, use Study settings. The card menu offers pronunciation and editing. Offline lookup checks your definitions first. Online translation sends the selected term only when you ask for it.")
+    HelpCard("Search the dictionary",
+        "Open Dictionary from Files, playback options, or a word card. Enter an English word or prefix, then tap a result for its meaning and pronunciation. Add or edit personal definitions from the result.")
+    HelpCard("Dual subtitles",
+        "Choose English and Persian files separately in Subtitles. Use playback settings to change visibility, delay, encoding, and style. If text looks wrong, try Auto encoding first.")
+    HelpCard("Repeat and listen",
+        "Set A at the start and B at least half a second later. Clear the loop or seek manually to end it. Dialogue navigation and pause after dialogue use an external subtitle file.")
+    HelpCard("Continue watching",
+        "Open Recent in Files to resume each video at its saved position. Choose Play from beginning in a video's menu to start over. Progress appears when duration is known.")
+    HelpCard("Flashcards and review",
+        "Save a word from its card and open Flashcards from the bottom bar. Tap a word to reveal its meaning. Flashcards also offers review, statistics, and CSV or Anki export. Pronunciation uses your device's offline English voice.")
+    HelpCard("Backups and personal definitions",
+        "Use the Flashcards menu to manage personal definitions or back up cards and review progress. Grant folder access again on a new installation.")
 }
 
 @Composable

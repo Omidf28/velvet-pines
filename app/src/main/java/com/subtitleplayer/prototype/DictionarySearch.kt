@@ -22,18 +22,18 @@ internal fun mergeDictionarySearch(
     val merged = mutableMapOf<String, DictionarySearchEntry>()
     for ((term, meaning) in indexed) {
         if (!term.startsWith(prefix)) continue
-        val resolved = immediateDictionaryMeaning(term, personal) ?: DictionaryResult(meaning, "واژه‌نامهٔ آفلاین")
+        val resolved = immediateDictionaryMeaning(term, personal) ?: DictionaryResult(meaning, "Offline dictionary")
         merged[term] = DictionarySearchEntry(term, resolved.meaning!!, resolved.source)
     }
     for ((term, meaning) in commonWordMeanings) {
         if (term.startsWith(prefix)) merged[term] = DictionarySearchEntry(term,
-            personal[term] ?: WordMeaning(term, meaning), if (term in personal) "واژه‌نامهٔ شخصی" else "واژه‌نامهٔ آفلاین")
+            personal[term] ?: WordMeaning(term, meaning), if (term in personal) "Personal dictionary" else "Offline dictionary")
     }
     immediateDictionaryMeaning(prefix, personal)?.let {
         merged[prefix] = DictionarySearchEntry(prefix, it.meaning!!, it.source)
     }
     personal.entries.asSequence().filter { it.key.startsWith(prefix) }.sortedBy { it.key }.take(limit + 1).forEach {
-        merged[it.key] = DictionarySearchEntry(it.key, it.value, "واژه‌نامهٔ شخصی")
+        merged[it.key] = DictionarySearchEntry(it.key, it.value, "Personal dictionary")
     }
     val sorted = merged.values.sortedBy { it.term }
     return DictionarySearchResult(sorted.take(limit), sorted.size > limit)

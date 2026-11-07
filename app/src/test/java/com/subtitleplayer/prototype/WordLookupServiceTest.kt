@@ -38,7 +38,7 @@ class WordLookupServiceTest {
         val service = WordLookupService({ missing() }, { key, _ -> calls++; meaning(key) })
         val result = service.resolve("absent", emptyMap(), WordLookupRequest.Online)
         assertEquals(result.meaning, service.resolve("ABSENT", emptyMap()).meaning)
-        assertTrue(service.resolve("absent", emptyMap()).source.contains("حافظهٔ موقت"))
+        assertEquals("Machine translation · MyMemory · Cached", service.resolve("absent", emptyMap()).source)
         assertEquals(result.meaning, service.resolve("absent", emptyMap(), WordLookupRequest.Online).meaning)
         assertEquals(1, calls)
     }

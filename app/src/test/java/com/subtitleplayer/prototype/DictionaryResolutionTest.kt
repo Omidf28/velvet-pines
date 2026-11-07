@@ -21,7 +21,7 @@ class DictionaryResolutionTest {
         val result = indexedDictionaryMeaning("running") { if (it == "run") WordMeaning(it, "دویدن") else null }
         assertEquals("running", result.meaning?.headword)
         assertTrue(result.meaning!!.persian.contains("run: دویدن"))
-        assertTrue(result.source.contains("احتمالی"))
+        assertEquals("Possible base form · Offline", result.source)
         assertNull(indexedDictionaryMeaning("running") { null }.meaning)
     }
     @Test fun ambiguousStemsRemainVisibleAndBounded() {

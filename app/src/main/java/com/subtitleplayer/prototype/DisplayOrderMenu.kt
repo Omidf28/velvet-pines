@@ -19,7 +19,7 @@ internal fun DisplayOrderMenu(selectedKey: String, selectedLabel: String, option
     var expanded by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         TextButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("ترتیب: $selectedLabel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Sort: $selectedLabel", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
             options.forEach { (key, label) ->

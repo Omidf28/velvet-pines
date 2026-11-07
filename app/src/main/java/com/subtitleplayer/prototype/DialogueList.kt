@@ -69,16 +69,16 @@ internal fun DialogueList(
         }
     }
 
-    PlayerOverlayPanel("دیالوگ‌ها", onDismiss = { keyboard?.hide(); onDismiss() }) {
+    PlayerOverlayPanel("Dialogues", onDismiss = { keyboard?.hide(); onDismiss() }) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            label = { Text("جست‌وجوی جمله یا کلمه") },
+            label = { Text("Search lines or words") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
             trailingIcon = {
-                if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("پاک") }
+                if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Clear") }
             },
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr)
@@ -91,10 +91,10 @@ internal fun DialogueList(
         ) {
             item {
                 Text(when {
-                    results == null -> "در حال جست‌وجو…"
-                    dialogues.isEmpty() -> "دیالوگی در بازهٔ این ویدیو وجود ندارد."
-                    results.isEmpty() -> "دیالوگی مطابق جست‌وجو پیدا نشد."
-                    else -> "نمایش ${results.size} از ${dialogues.size} دیالوگ"
+                    results == null -> "Searching…"
+                    dialogues.isEmpty() -> "No dialogue in this part of the video."
+                    results.isEmpty() -> "No matching dialogue."
+                    else -> "Showing ${results.size} of ${dialogues.size} lines"
                 }, style = MaterialTheme.typography.bodySmall)
             }
             items(results.orEmpty()) { dialogue ->
@@ -103,7 +103,7 @@ internal fun DialogueList(
                     containerColor = if (dialogue == current) colors.secondaryContainer else colors.surfaceVariant
                 )) {
                     Column(Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "رفتن به دیالوگ") {
+                        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Go to dialogue") {
                             keyboard?.hide()
                             onSeek(dialogue)
                         }.padding(horizontal = 10.dp, vertical = 8.dp)) {
@@ -112,11 +112,11 @@ internal fun DialogueList(
                                 style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr))
                         }
                         FlowRow(Modifier.padding(horizontal = 4.dp)) {
-                            TextButton(onClick = { keyboard?.hide(); onReplay(dialogue) }) { Text("بازپخش یک‌بار") }
+                            TextButton(onClick = { keyboard?.hide(); onReplay(dialogue) }) { Text("Replay once") }
                             TextButton(
                                 enabled = dialogue.endMs - dialogue.startMs >= minimumPlaybackLoopMs,
                                 onClick = { keyboard?.hide(); onLoop(dialogue) }
-                            ) { Text("تکرار پیوسته") }
+                            ) { Text("Loop dialogue") }
                         }
                     }
                 }
@@ -126,6 +126,6 @@ internal fun DialogueList(
             keyboard?.hide()
             if (key.isNotEmpty()) query = ""
             else scope.launch { listState.animateScrollToItem(currentIndex + 1) }
-        }) { Text("دیالوگ فعلی") }
+        }) { Text("Current dialogue") }
     }
 }

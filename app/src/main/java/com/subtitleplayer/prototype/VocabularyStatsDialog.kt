@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.text.DateFormat
+import java.util.Locale
 import java.util.Date
 
 @Composable
@@ -28,38 +29,38 @@ internal fun VocabularyStatsDialog(words: List<SavedWord>, now: Long, onDismiss:
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("آمار دفترچه") },
+        title = { Text("Flashcard statistics") },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StatsRow("کارت‌های ذخیره‌شده", words.size.toString())
-                StatsRow("واژه / عبارت متفاوت", unique.toString())
-                StatsRow("کارت‌های جدید", newCount.toString())
-                StatsRow("کارت‌های مرورشده", (words.size - newCount).toString())
-                StatsRow("آمادهٔ مرور، شامل جدیدها", due.toString())
-                StatsRow("منتظر موعد بعدی", (words.size - due).toString())
-                StatsRow("پاسخ‌های مرور کارت‌های فعلی", answers.toString())
+                StatsRow("Saved cards", words.size.toString())
+                StatsRow("Unique words and phrases", unique.toString())
+                StatsRow("New cards", newCount.toString())
+                StatsRow("Reviewed cards", (words.size - newCount).toString())
+                StatsRow("Due, including new cards", due.toString())
+                StatsRow("Scheduled for later", (words.size - due).toString())
+                StatsRow("Review answers for current cards", answers.toString())
                 next?.let {
                     Text(
-                        "نزدیک‌ترین موعد آینده: " +
-                            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)),
+                        "Next scheduled review: " +
+                            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.ENGLISH).format(Date(it)),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                Text("سطح کارت‌های مرورشده", style = MaterialTheme.typography.titleSmall)
-                listOf("شروع دوباره · ۱۰ دقیقه", "سطح ۱ · ۱ روز", "سطح ۲ · ۳ روز",
-                    "سطح ۳ · ۷ روز", "سطح ۴ · ۱۴ روز", "سطح ۵ · ۳۰ روز").forEachIndexed { level, label ->
+                Text("Reviewed cards by level", style = MaterialTheme.typography.titleSmall)
+                listOf("Restart · 10 minutes", "Level 1 · 1 day", "Level 2 · 3 days",
+                    "Level 3 · 7 days", "Level 4 · 14 days", "Level 5 · 30 days").forEachIndexed { level, label ->
                     StatsRow(label, (levels[level] ?: 0).toString())
                 }
                 Text(
-                    "آمار مربوط به کل دفترچه است و از جست‌وجو و فیلتر پیروی نمی‌کند. یک واژه در دیالوگ‌های متفاوت می‌تواند چند کارت داشته باشد. سطح مرور نشان‌دهندهٔ فاصلهٔ مرور است.",
+                    "Stats cover all flashcards. A word can have a card for each dialogue. Review levels determine the interval between reviews.",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
 

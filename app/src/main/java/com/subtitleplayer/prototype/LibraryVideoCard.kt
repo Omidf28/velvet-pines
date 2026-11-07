@@ -19,14 +19,14 @@ import java.util.Locale
 /** File artwork is deliberately generic; it does not pretend to be a frame from the video. */
 @Composable
 private fun LibraryArtwork(name: String) {
-    Box(Modifier.size(width = 48.dp, height = 54.dp).background(
-        Brush.linearGradient(listOf(PinesPalette.Curtain, PinesPalette.Card, Color(0xFF18231C))),
-        RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(18.dp)) {
+    Box(Modifier.size(48.dp).background(
+        Brush.linearGradient(listOf(PinesPalette.AccentContainer, PinesPalette.Card)),
+        RoundedCornerShape(10.dp))) {
+        Canvas(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(16.dp)) {
             drawPath(Path().apply {
                 moveTo(size.width * 0.2f, 0f); lineTo(size.width, size.height / 2)
                 lineTo(size.width * 0.2f, size.height); close()
-            }, PinesPalette.Cream)
+            }, PinesPalette.Accent)
         }
         Text(name.substringAfterLast('.', "VIDEO").take(6).uppercase(Locale.ROOT),
             Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp), color = PinesPalette.Muted,
@@ -37,6 +37,7 @@ private fun LibraryArtwork(name: String) {
 @Composable
 internal fun LibraryVideoCard(
     video: LibraryVideo,
+    showParentPath: Boolean,
     onOpen: () -> Unit,
     onRestart: () -> Unit
 ) {
@@ -49,28 +50,30 @@ internal fun LibraryVideoCard(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(video.name, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleSmall.copy(textDirection = TextDirection.ContentOrLtr))
-                video.parentPath?.let {
+                if (showParentPath) video.parentPath?.let {
                     Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, color = PinesPalette.Muted,
                         style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.ContentOrLtr))
                 }
                 val bookmark = video.bookmark
                 val label = when {
-                    bookmark?.completed == true -> "تماشا شد · پخش دوباره"
-                    bookmark?.resumable == true -> "ادامه از " + formatTime(bookmark.resumePositionMs)
-                    else -> "پخش"
+                    bookmark?.completed == true -> "Watched · Replay"
+                    bookmark?.resumable == true -> "Resume at " + formatTime(bookmark.resumePositionMs)
+                    else -> null
                 }
-                Text(label, color = if (bookmark?.completed == true) PinesPalette.Forest else PinesPalette.Muted,
-                    style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (label != null) {
+                    Text(label, color = if (bookmark?.completed == true) PinesPalette.Success else PinesPalette.Muted,
+                        style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 bookmark?.progress?.let { fraction ->
                     LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().height(3.dp),
-                        color = PinesPalette.Rose, trackColor = PinesPalette.Curtain.copy(alpha = 0.5f))
+                        color = PinesPalette.Accent, trackColor = PinesPalette.AccentContainer.copy(alpha = 0.5f))
                 }
             }
             if (video.bookmark?.resumable == true) {
                 Box {
-                    PlayerIconButton(PlayerGlyph.More, "گزینه‌های ${video.name}", onClick = { menuOpen = true })
+                    PlayerIconButton(PlayerGlyph.More, "Options for ${video.name}", onClick = { menuOpen = true })
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(text = { Text("پخش از ابتدا") }, onClick = {
+                        DropdownMenuItem(text = { Text("Play from beginning") }, onClick = {
                             menuOpen = false
                             onRestart()
                         })
@@ -84,21 +87,21 @@ internal fun LibraryVideoCard(
 @Composable
 internal fun ContinueWatchingCard(video: LibraryVideo, onOpen: () -> Unit) {
     val bookmark = video.bookmark ?: return
-    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = PinesPalette.Curtain.copy(alpha = 0.70f))) {
+    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth().glassPanel(MaterialTheme.shapes.large),
+        shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = Color.Transparent)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("ادامهٔ تماشا", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
+            Text("Continue watching", color = PinesPalette.Accent, style = MaterialTheme.typography.labelLarge)
             Text(video.name, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.ContentOrLtr))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("ادامه از", color = PinesPalette.Cream, style = MaterialTheme.typography.bodySmall)
+                Text("Resume at", color = PinesPalette.Ink, style = MaterialTheme.typography.bodySmall)
                 Text(formatTime(bookmark.resumePositionMs) +
                     if (bookmark.durationMs > 0) " / " + formatTime(bookmark.durationMs) else "",
-                    color = PinesPalette.Cream, style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr))
+                    color = PinesPalette.Ink, style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr))
             }
             bookmark.progress?.let { fraction ->
                 LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth(),
-                    color = PinesPalette.Rose, trackColor = PinesPalette.Night.copy(alpha = 0.45f))
+                    color = PinesPalette.Accent, trackColor = PinesPalette.Night.copy(alpha = 0.45f))
             }
         }
     }

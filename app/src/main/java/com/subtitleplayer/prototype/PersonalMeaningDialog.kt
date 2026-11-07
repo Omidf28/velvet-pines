@@ -59,51 +59,51 @@ internal fun PersonalMeaningDialog(
     }
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text("معنی شخصی: $term") },
+        title = { Text("Personal definition: $term") },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("این معنی برای همین واژه یا عبارت در همهٔ ویدیوها استفاده می‌شود.")
+                Text("This definition applies to this term across all videos.")
                 OutlinedTextField(
                     value = headword,
                     onValueChange = { headword = it },
-                    label = { Text("شکل پایه یا عبارت انگلیسی") },
+                    label = { Text("Base form or English phrase") },
                     singleLine = true,
                     enabled = !saving,
                     isError = !headwordValid,
-                    supportingText = { Text("حداکثر ۸ واژه و ۸۰ نویسهٔ انگلیسی") },
+                    supportingText = { Text("Up to 8 words and 80 English characters") },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr)
                 )
                 OutlinedTextField(
                     value = definition,
                     onValueChange = { definition = it },
-                    label = { Text("معنی فارسی") },
+                    label = { Text("Persian meaning") },
                     enabled = !saving,
                     minLines = 2,
                     maxLines = 5,
                     isError = definition.isNotEmpty() && meaning == null,
-                    supportingText = { Text("معنی دلخواه، حداکثر ۱۰۰۰ نویسه") },
+                    supportingText = { Text("Up to 1,000 characters") },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl)
                 )
                 if (hasPersonalMeaning) {
                     TextButton(enabled = !saving, onClick = { persist(true) }) {
-                        Text("برداشتن معنی شخصی")
+                        Text("Remove personal definition")
                     }
                 }
-                if (saving) Text("در حال ذخیره…")
-                if (failed) Text("ذخیره انجام نشد. دوباره تلاش کنید.")
+                if (saving) Text("Saving…")
+                if (failed) Text("Could not save. Try again.")
             }
         },
         confirmButton = {
             TextButton(
                 enabled = !saving && key != null && headwordValid && meaning != null,
                 onClick = { persist(false) }
-            ) { Text("ذخیرهٔ معنی") }
+            ) { Text("Save definition") }
         },
         dismissButton = {
-            TextButton(enabled = !saving, onClick = onDismiss) { Text("لغو") }
+            TextButton(enabled = !saving, onClick = onDismiss) { Text("Cancel") }
         }
     )
 }

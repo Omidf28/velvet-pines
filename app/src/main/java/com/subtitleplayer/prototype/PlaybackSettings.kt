@@ -62,7 +62,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private enum class SettingsSection(val label: String) {
-    Playback("پخش"), Subtitles("زیرنویس"), Study("مطالعه"), Help("راهنما")
+    Playback("Play"), Subtitles("Subtitles"), Study("Study"), Help("Help")
 }
 
 internal val seekStepChoices = listOf(5, 10, 30)
@@ -112,7 +112,7 @@ internal fun PlaybackSettings(
     var section by rememberSaveable { mutableStateOf(SettingsSection.Playback) }
     val scrollState = rememberScrollState()
     LaunchedEffect(section) { scrollState.scrollTo(0) }
-    PlayerOverlayPanel("تنظیمات پخش", onDismiss) {
+    PlayerOverlayPanel("Playback settings", onDismiss) {
         Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
@@ -133,20 +133,20 @@ internal fun PlaybackSettings(
                 when (section) {
                     SettingsSection.Playback -> {
                         Text(
-                            sleepRemainingMs?.let { "توقف پخش تا " + formatTime((it + 999) / 1000 * 1000) + " دیگر" }
-                                ?: "تایمر توقف پخش: خاموش",
+                            sleepRemainingMs?.let { "Sleep timer: " + formatTime((it + 999) / 1000 * 1000) + " remaining" }
+                                ?: "Sleep timer: off",
                             style = MaterialTheme.typography.titleSmall
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(1, 15, 30, 60).forEach { minutes ->
-                                TextButton(onClick = { onSleepTimer(minutes) }) { Text("$minutes دقیقه") }
+                                TextButton(onClick = { onSleepTimer(minutes) }) { Text("$minutes min") }
                             }
                             if (sleepRemainingMs != null) {
-                                TextButton(onClick = { onSleepTimer(null) }) { Text("لغو تایمر") }
+                                TextButton(onClick = { onSleepTimer(null) }) { Text("Cancel timer") }
                             }
                         }
 
-                        Text("حالت نمایش تصویر", style = MaterialTheme.typography.titleSmall)
+                        Text("Video scaling", style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             VideoScaleMode.entries.forEach { mode ->
                                 FilterChip(
@@ -158,47 +158,47 @@ internal fun PlaybackSettings(
                         }
                         Text(videoScaleMode.description, style = MaterialTheme.typography.bodySmall)
 
-                        Text("مقدار پرش عقب و جلو", style = MaterialTheme.typography.titleSmall)
+                        Text("Seek interval", style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             seekStepChoices.forEach { seconds ->
                                 FilterChip(
                                     selected = skipSeconds == seconds,
                                     onClick = { onSkipSeconds(seconds) },
-                                    label = { Text("$seconds ثانیه") }
+                                    label = { Text("$seconds sec") }
                                 )
                             }
                         }
 
-                        Text("سرعت پخش: ×$speed", style = MaterialTheme.typography.titleSmall)
+                        Text("Playback speed: ${speed}×", style = MaterialTheme.typography.titleSmall)
                         Slider(
                             value = speedChoices.indexOf(speed).coerceAtLeast(0).toFloat(),
                             onValueChange = { onSpeed(speedChoices[it.roundToInt()]) },
                             valueRange = 0f..speedChoices.lastIndex.toFloat(),
                             steps = speedChoices.size - 2,
                             modifier = Modifier.semantics {
-                                contentDescription = "سرعت پخش"
-                                stateDescription = "$speed برابر"
+                                contentDescription = "Playback speed"
+                                stateDescription = "${speed}×"
                             }
                         )
 
-                        Text("ترک صدا", style = MaterialTheme.typography.titleSmall)
+                        Text("Audio track", style = MaterialTheme.typography.titleSmall)
                         AudioTracks(tracks, onAudioTrack)
                     }
                     SettingsSection.Subtitles -> {
-                        SubtitleEncodingChoices("کدگذاری انگلیسی", englishEncoding, onEnglishEncoding)
-                        SubtitleEncodingChoices("کدگذاری فارسی", persianEncoding, onPersianEncoding)
+                        SubtitleEncodingChoices("English encoding", englishEncoding, onEnglishEncoding)
+                        SubtitleEncodingChoices("Persian encoding", persianEncoding, onPersianEncoding)
                         Text(
-                            "انتخاب دستی برای فایل بدون BOM است. در صورت ناخوانابودن متن، کدگذاری را تغییر دهید یا به خودکار برگردید.",
+                            "Manual encoding applies to files without a byte-order mark. If text looks wrong, change encoding or return to Auto.",
                             style = MaterialTheme.typography.bodySmall
                         )
-                        SubtitleVisibility("نمایش زیرنویس انگلیسی", englishSubtitlesVisible, onEnglishSubtitlesVisible)
-                        SubtitleVisibility("نمایش زیرنویس فارسی", persianSubtitlesVisible, onPersianSubtitlesVisible)
+                        SubtitleVisibility("Show English subtitles", englishSubtitlesVisible, onEnglishSubtitlesVisible)
+                        SubtitleVisibility("Show Persian subtitles", persianSubtitlesVisible, onPersianSubtitlesVisible)
                         Text(
-                            "پنهان‌کردن، فایل و تنظیم تأخیر را حفظ می‌کند. برای تمرین شنیداری هر دو را خاموش کنید.",
+                            "Hiding a track keeps its file and delay. Hide both for listening practice.",
                             style = MaterialTheme.typography.bodySmall
                         )
 
-                        Text("رنگ متن انگلیسی", style = MaterialTheme.typography.titleSmall)
+                        Text("English text color", style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             SubtitleTextTone.entries.forEach { tone ->
                                 FilterChip(
@@ -209,7 +209,7 @@ internal fun PlaybackSettings(
                             }
                         }
                         Text(
-                            "تیرگی پس‌زمینهٔ هر دو زیرنویس: ${(subtitleBackgroundOpacity * 100).roundToInt()}٪",
+                            "Subtitle background opacity: ${(subtitleBackgroundOpacity * 100).roundToInt()}%",
                             style = MaterialTheme.typography.titleSmall
                         )
                         Slider(
@@ -217,8 +217,8 @@ internal fun PlaybackSettings(
                             onValueChange = onSubtitleBackgroundOpacity,
                             valueRange = 0f..1f,
                             modifier = Modifier.semantics {
-                                contentDescription = "تیرگی پس‌زمینهٔ زیرنویس"
-                                stateDescription = "${(subtitleBackgroundOpacity * 100).roundToInt()} درصد"
+                                contentDescription = "Subtitle background opacity"
+                                stateDescription = "${(subtitleBackgroundOpacity * 100).roundToInt()} percent"
                             }
                         )
                         Text(
@@ -228,43 +228,43 @@ internal fun PlaybackSettings(
                             color = Color(subtitleTextTone.argb),
                             style = MaterialTheme.typography.titleMedium
                         )
-                        TextButton(onClick = onSubtitleStyleReset) { Text("رنگ و پس‌زمینهٔ پیش‌فرض") }
+                        TextButton(onClick = onSubtitleStyleReset) { Text("Reset colors") }
 
-                        Text("اندازهٔ زیرنویس: $subtitleSize", style = MaterialTheme.typography.titleSmall)
+                        Text("Subtitle size: $subtitleSize", style = MaterialTheme.typography.titleSmall)
                         Slider(
                             value = subtitleSize.toFloat(),
                             onValueChange = { onSubtitleSize(it.roundToInt()) },
                             valueRange = 16f..32f,
                             steps = 15,
                             modifier = Modifier.semantics {
-                                contentDescription = "اندازهٔ زیرنویس"
+                                contentDescription = "Subtitle size"
                                 stateDescription = "$subtitleSize"
                             }
                         )
 
                         if (subtitleDelayMs != null) {
-                            SubtitleDelay("انگلیسی", subtitleDelayMs, onSubtitleDelay)
+                            SubtitleDelay("English", subtitleDelayMs, onSubtitleDelay)
                         }
                         if (translationDelayMs != null) {
-                            SubtitleDelay("فارسی", translationDelayMs, onTranslationDelay)
+                            SubtitleDelay("Persian", translationDelayMs, onTranslationDelay)
                         }
 
                     }
                     SettingsSection.Study -> {
-                        Text("انتخاب از زیرنویس", style = MaterialTheme.typography.titleSmall)
+                        Text("Subtitle selection", style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             SubtitleLookupMode.entries.forEach { mode ->
                                 FilterChip(selected = mode == subtitleLookupMode,
                                     onClick = { onSubtitleLookupMode(mode) }, label = { Text(mode.label) })
                             }
                         }
-                        Text("در حالت واژه، فقط همان کلمه انتخاب می‌شود. حالت عبارت، ترکیب‌های شناخته‌شده و عبارت‌های واژه‌نامهٔ شخصی را یکجا انتخاب می‌کند.",
+                        Text("Word mode selects one word. Phrase mode also recognizes phrases in the offline and personal dictionaries.",
                             style = MaterialTheme.typography.bodySmall)
-                        SubtitleVisibility("مکث هنگام لمس واژه", pauseOnWordTap, onPauseOnWordTap)
+                        SubtitleVisibility("Pause on word tap", pauseOnWordTap, onPauseOnWordTap)
 
-                        SubtitleVisibility("مکث پس از هر دیالوگ", pauseAfterDialogue, onPauseAfterDialogue)
+                        SubtitleVisibility("Pause after each dialogue", pauseAfterDialogue, onPauseAfterDialogue)
                         Text(
-                            "برای زیرنویس انگلیسی جداگانه؛ پس از پایان جمله با دکمهٔ پخش ادامه دهید. تکرار A–B و تکرار دیالوگ اولویت دارند.",
+                            "Applies to external English subtitles. Press Play after each line to continue. A–B and dialogue loops take priority.",
                             style = MaterialTheme.typography.bodySmall
                         )
 
@@ -296,7 +296,7 @@ internal fun PlayerOverlayPanel(title: String, onDismiss: () -> Unit, content: @
                     .fillMaxHeight(if (landscape) 1f else 0.88f)
                     .safeDrawingPadding().imePadding().pointerInput(Unit) { },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = if (landscape) 0.dp else 20.dp),
-                color = PinesPalette.Night,
+                color = MaterialTheme.colorScheme.surfaceContainer,
                 tonalElevation = 4.dp
             ) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -304,12 +304,12 @@ internal fun PlayerOverlayPanel(title: String, onDismiss: () -> Unit, content: @
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(title, style = MaterialTheme.typography.titleMedium)
-                            Text("VELVET PINES", color = PinesPalette.Rose,
+                            Text("Velvet Pines", color = PinesPalette.Accent,
                                 style = MaterialTheme.typography.labelSmall)
                         }
-                        TextButton(onClick = onDismiss) { Text("بستن") }
+                        TextButton(onClick = onDismiss) { Text("Close") }
                     }
-                    HorizontalDivider(color = PinesPalette.Curtain)
+                    HorizontalDivider(color = PinesPalette.AccentContainer)
                     content()
                 }
             }
@@ -320,17 +320,17 @@ internal fun PlayerOverlayPanel(title: String, onDismiss: () -> Unit, content: @
 @Composable
 private fun SubtitleDelay(language: String, delayMs: Long, onDelay: (Long) -> Unit) {
     val delayLabel = String.format(Locale.ROOT, "%+.2f", delayMs / 1000.0)
-    Text("تأخیر زیرنویس $language: $delayLabel ثانیه", style = MaterialTheme.typography.titleSmall)
+    Text("$language subtitle delay: $delayLabel s", style = MaterialTheme.typography.titleSmall)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(
             enabled = delayMs > -maxDelayMs,
             onClick = { onDelay((delayMs - delayStepMs).coerceAtLeast(-maxDelayMs)) }
-        ) { Text("زودتر") }
-        TextButton(enabled = delayMs != 0L, onClick = { onDelay(0) }) { Text("صفر") }
+        ) { Text("Earlier") }
+        TextButton(enabled = delayMs != 0L, onClick = { onDelay(0) }) { Text("Reset") }
         TextButton(
             enabled = delayMs < maxDelayMs,
             onClick = { onDelay((delayMs + delayStepMs).coerceAtMost(maxDelayMs)) }
-        ) { Text("دیرتر") }
+        ) { Text("Later") }
     }
 }
 
@@ -340,7 +340,7 @@ private fun AudioTracks(tracks: Tracks, onAudioTrack: (TrackSelectionOverride) -
         (0 until group.length).filter(group::isTrackSupported).map { index -> group to index }
     }
     if (options.isEmpty()) {
-        Text("ترک صدای قابل پخش در دسترس نیست.")
+        Text("No playable audio tracks.")
         return
     }
 
@@ -362,7 +362,7 @@ private fun AudioTracks(tracks: Tracks, onAudioTrack: (TrackSelectionOverride) -
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(selected = selected, onClick = null)
-                Text(if (name == null) "ترک ${number + 1}" else "${number + 1}. $name")
+                Text(if (name == null) "Track ${number + 1}" else "${number + 1}. $name")
             }
         }
     }

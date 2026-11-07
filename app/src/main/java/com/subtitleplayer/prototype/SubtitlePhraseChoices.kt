@@ -21,7 +21,7 @@ internal fun SubtitlePhraseChoices(
 
     var open by remember(selection) { mutableStateOf(false) }
     TextButton(onClick = { open = !open }) {
-        Text(if (open) "بستن فهرست عبارت‌ها" else "عبارت‌های این بخش از زیرنویس", color = PinesPalette.Cream)
+        Text(if (open) "Hide phrases" else "Phrases in this subtitle", color = PinesPalette.Ink)
     }
     if (!open) return
 
@@ -45,17 +45,17 @@ internal fun SubtitlePhraseChoices(
 
     val found = matches
     val status = when {
-        found == null -> "در حال بررسی واژه‌نامه…"
-        failed -> "بخشی از واژه‌نامه خوانده نشد."
-        found.isEmpty() -> "عبارت مطابقی در واژه‌نامه پیدا نشد."
-        else -> "عبارت‌های پیدا‌شده در واژه‌نامه"
+        found == null -> "Checking dictionary…"
+        failed -> "Could not read part of the dictionary."
+        found.isEmpty() -> "No matching phrases found."
+        else -> "Dictionary matches"
     }
     Text(status, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
-    if (failed) TextButton(onClick = { retry++ }) { Text("تلاش دوباره") }
+    if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
     if (found != null) {
         candidates.filter { normalizeDictionaryTerm(it.text) in found }.forEach { term ->
             TextButton(onClick = { onSelect(term) }) {
-                Text(term.text, color = PinesPalette.Rose,
+                Text(term.text, color = PinesPalette.Accent,
                     style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr))
             }
         }

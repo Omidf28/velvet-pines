@@ -1,7 +1,7 @@
 package com.subtitleplayer.prototype
 
 internal enum class SubtitleLookupMode(val label: String) {
-    Words("واژه"), Phrases("عبارت‌های شناخته‌شده")
+    Words("Words"), Phrases("Known phrases")
 }
 
 internal fun subtitleLookupModeFrom(value: String?): SubtitleLookupMode =

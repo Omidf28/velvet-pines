@@ -88,7 +88,7 @@ internal fun writeFavoriteFolderShortcuts(shortcuts: List<LibraryFolderShortcut>
 
 internal fun fallbackFolderName(tree: Uri): String =
     DocumentsContract.getTreeDocumentId(tree).substringAfterLast('/').substringAfterLast(':')
-        .ifBlank { "پوشهٔ ذخیره‌سازی" }
+        .ifBlank { "Storage folder" }
 
 internal fun readFolderName(resolver: ContentResolver, tree: Uri): String? {
     val document = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))

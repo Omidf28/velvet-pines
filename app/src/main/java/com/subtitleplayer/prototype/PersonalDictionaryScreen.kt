@@ -34,7 +34,7 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
     var busy by remember { mutableStateOf(false) }
     BackHandler { if (!busy) onBack() }
     var message by remember { mutableStateOf<String?>(null) }
-    fun fail() { message = "عملیات انجام نشد. قالب فایل، دسترسی و فضای ذخیره را بررسی کنید." }
+    fun fail() { message = "Could not finish. Check the file format, access, and available storage." }
     val importFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             busy = true
@@ -55,7 +55,7 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
         val snapshot = exporting
         exporting = null
         if (uri != null) {
-            if (snapshot == null) message = "دوباره خروجی بگیرید." else {
+            if (snapshot == null) message = "Export again." else {
                 busy = true
                 scope.launch {
                     try {
@@ -63,7 +63,7 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
                             val stream = context.contentResolver.openOutputStream(uri, "wt") ?: throw IOException("Unavailable file")
                             stream.bufferedWriter(Charsets.UTF_8).use { writeDictionary(snapshot, it) }
                         }
-                        message = "خروجی ${snapshot.size} معنی شخصی ذخیره شد."
+                        message = "Exported ${snapshot.size} personal definitions."
                     } catch (_: IOException) { fail() }
                     catch (_: SecurityException) { fail() }
                     finally { busy = false }
@@ -83,8 +83,8 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
         val replacements = imported.count { it.wordKey in currentKeys }
         AlertDialog(
             onDismissRequest = { if (!busy) pending = null },
-            title = { Text("ورود ${imported.size} معنی شخصی") },
-            text = { Text("$replacements معنی موجود جایگزین می‌شود. بقیه اضافه می‌شوند؛ هیچ مدخل دیگری حذف نمی‌شود. در کلیدهای تکراری فایل، آخرین ردیف استفاده شده است.") },
+            title = { Text("Import ${imported.size} personal definitions") },
+            text = { Text("This replaces $replacements existing definitions and adds the rest. For duplicate keys in the file, the last row is used.") },
             confirmButton = {
                 TextButton(enabled = !busy && entries != null, onClick = {
                     busy = true
@@ -92,13 +92,13 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
                         try {
                             dao.merge(imported)
                             pending = null
-                            message = "واژه‌نامه وارد شد."
+                            message = "Dictionary imported."
                         } catch (_: SQLiteException) { fail() }
                         finally { busy = false }
                     }
-                }) { Text("وارد کردن") }
+                }) { Text("Import") }
             },
-            dismissButton = { TextButton(enabled = !busy, onClick = { pending = null }) { Text("لغو") } }
+            dismissButton = { TextButton(enabled = !busy, onClick = { pending = null }) { Text("Cancel") } }
         )
     }
     val visible = remember(entries, query) {
@@ -112,8 +112,8 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                Text("واژه‌نامهٔ شخصی", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                TextButton(enabled = !busy, onClick = onBack) { Text("بازگشت") }
+                Text("Personal dictionary", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                TextButton(enabled = !busy, onClick = onBack) { Text("Back") }
             }
             LazyColumn(
                 Modifier.weight(1f), contentPadding = PaddingValues(12.dp),
@@ -121,30 +121,30 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
             ) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("معنی‌های این بخش برای همهٔ فیلم‌ها هستند؛ دفترچه و پیشرفت مرور مستقل‌اند.")
-                        OutlinedTextField(query, { query = it }, label = { Text("جست‌وجو در واژه‌نامه") }, singleLine = true)
-                        OutlinedTextField(term, { term = it }, label = { Text("واژه یا عبارت انگلیسی تازه") }, singleLine = true,
+                        Text("These definitions apply across videos. Flashcards and review progress are managed separately.")
+                        OutlinedTextField(query, { query = it }, label = { Text("Search dictionary") }, singleLine = true)
+                        OutlinedTextField(term, { term = it }, label = { Text("New English word or phrase") }, singleLine = true,
                             textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))
                         TextButton(enabled = !busy && entries != null && normalizeDictionaryTerm(term) != null, onClick = {
                             val key = normalizeDictionaryTerm(term) ?: return@TextButton
                             selected = entries.orEmpty().firstOrNull { it.wordKey == key }
                                 ?: PersonalDictionaryEntry(key, key, "")
-                        }) { Text("افزودن / ویرایش") }
+                        }) { Text("Add or edit") }
                         Row {
                             TextButton(enabled = !busy && entries != null && pending == null, onClick = {
                                 try { importFile.launch(arrayOf("*/*")) }
                                 catch (_: android.content.ActivityNotFoundException) { fail() }
-                            }) { Text("ورود فایل") }
+                            }) { Text("Import file") }
                             TextButton(enabled = !busy && !entries.isNullOrEmpty() && pending == null, onClick = {
                                 exporting = entries.orEmpty().toList()
                                 try { exportFile.launch("velvet-pines-dictionary.tsv") }
                                 catch (_: android.content.ActivityNotFoundException) { exporting = null; fail() }
-                            }) { Text("خروجی کامل") }
+                            }) { Text("Export all") }
                         }
-                        Text("فایل UTF-8 با ستون‌های word، headword و meaning جداشده با Tab؛ ابتدا از خروجی یا نمونهٔ راهنما استفاده کنید.")
-                        if (busy) Text("در حال انجام…")
+                        Text("Use a UTF-8 TSV with word, headword, and meaning columns. Start with an export or the sample in the guide.")
+                        if (busy) Text("Working…")
                         message?.let { Text(it) }
-                        Text(if (entries == null) "در حال خواندن…" else "${visible.size} نتیجه از ${entries.orEmpty().size}")
+                        Text(if (entries == null) "Loading…" else "${visible.size} of ${entries.orEmpty().size} results")
                     }
                 }
                 items(visible, key = { it.wordKey }) { entry ->
@@ -153,7 +153,7 @@ internal fun PersonalDictionaryScreen(dao: PersonalDictionaryDao, onBack: () -> 
                             Text(entry.wordKey + " → " + entry.headword,
                                 style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
                             Text(entry.meaning, style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl))
-                            TextButton(enabled = !busy, onClick = { selected = entry }) { Text("ویرایش / برداشتن معنی") }
+                            TextButton(enabled = !busy, onClick = { selected = entry }) { Text("Edit or remove definition") }
                         }
                     }
                 }

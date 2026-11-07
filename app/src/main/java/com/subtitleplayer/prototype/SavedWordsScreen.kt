@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.ui.semantics.semantics
@@ -36,10 +35,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -93,7 +95,7 @@ internal fun SavedWordsScreen(
             exporting = false
         } else if (snapshot == null) {
             exporting = false
-            Toast.makeText(context, "دوباره خروجی بگیرید؛ دادهٔ این نوبت بازیابی نشد.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Export again. This export could not be recovered.", Toast.LENGTH_LONG).show()
         } else {
             scope.launch {
                 try {
@@ -105,11 +107,11 @@ internal fun SavedWordsScreen(
                             else writeVocabularyCsv(snapshot, it)
                         }
                     }
-                    Toast.makeText(context, "خروجی ${snapshot.size} واژه ذخیره شد.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Exported ${snapshot.size} words.", Toast.LENGTH_LONG).show()
                 } catch (_: IOException) {
-                    Toast.makeText(context, "ذخیره کامل نشد؛ فایل خروجی را دوباره بسازید.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Could not save the export. Create it again.", Toast.LENGTH_LONG).show()
                 } catch (_: SecurityException) {
-                    Toast.makeText(context, "دسترسی نوشتن فایل ممکن نبود.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Could not write the file.", Toast.LENGTH_LONG).show()
                 } finally {
                     exporting = false
                 }
@@ -165,7 +167,7 @@ internal fun SavedWordsScreen(
     val selectedSourceIndex = sources.indexOfFirst { it.key == selectedSource }
     val sourceLabel = sources.getOrNull(selectedSourceIndex)?.let {
         "${selectedSourceIndex + 1}. ${it.value.first().sourceName} (${it.value.size})"
-    } ?: "همهٔ فیلم‌ها"
+    } ?: "All videos"
     val visibleWords = remember(orderedWords, query, filter, now, selectedSource) {
         val search = normalizeVocabularySearch(query.trim())
         orderedWords.filter { entry ->
@@ -192,8 +194,8 @@ internal fun SavedWordsScreen(
     deletionCandidate?.let { entry ->
         AlertDialog(
             onDismissRequest = { if (!deleting) deletionCandidate = null },
-            title = { Text("حذف ${entry.word}؟") },
-            text = { Text("این مدخل و پیشرفت مرورش از دفترچه حذف می‌شود. معنی شخصی واژه باقی می‌ماند.") },
+            title = { Text("Delete ${entry.word}?") },
+            text = { Text("This removes the card and its review progress. Your personal definition is kept.") },
             confirmButton = {
                 TextButton(enabled = !deleting, onClick = {
                     deleting = true
@@ -204,27 +206,27 @@ internal fun SavedWordsScreen(
                             deletionCandidate = null
                             if (removed == 1) {
                                 val result = snackbar.showSnackbar(
-                                    message = "«${entry.word}» حذف شد",
-                                    actionLabel = "بازگرداندن",
+                                    message = "Deleted “${entry.word}”",
+                                    actionLabel = "Undo",
                                     withDismissAction = true,
                                     duration = SnackbarDuration.Long
                                 )
                                 if (result == SnackbarResult.ActionPerformed) {
                                     if (dao.insertWord(entry) == -1L) {
-                                        Toast.makeText(context, "واژهٔ مشابه موجود است؛ دادهٔ فعلی حفظ شد.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "A matching word already exists. The existing entry was kept.", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
                         } catch (_: SQLiteException) {
-                            Toast.makeText(context, "عملیات کامل نشد. دفترچه را بررسی و دوباره تلاش کنید.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Could not finish. Check Flashcards and try again.", Toast.LENGTH_LONG).show()
                         } finally {
                             deleting = false
                         }
                     }
-                }) { Text("حذف") }
+                }) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(enabled = !deleting, onClick = { deletionCandidate = null }) { Text("لغو") }
+                TextButton(enabled = !deleting, onClick = { deletionCandidate = null }) { Text("Cancel") }
             }
         )
     }
@@ -248,46 +250,46 @@ internal fun SavedWordsScreen(
         } catch (_: android.content.ActivityNotFoundException) {
             exporting = false
             exportRows = null
-            Toast.makeText(context, "فایل‌گزین برای ذخیره در دسترس نیست.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "The file picker is unavailable.", Toast.LENGTH_LONG).show()
         }
     }
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding().imePadding()) {
+    Box(Modifier.fillMaxSize().pinesAtmosphere().safeDrawingPadding().imePadding()) {
         Column(Modifier.fillMaxSize()) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("فلش‌کارت‌ها", style = MaterialTheme.typography.titleLarge)
+                    Text("Flashcards", style = MaterialTheme.typography.titleLarge)
                     if (loadedWords != null) {
-                        Text("${loadedWords.size} واژهٔ ذخیره‌شده",
+                        Text("${loadedWords.size} saved words",
                             color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                if (onBack != null) TextButton(onClick = onBack) { Text("بازگشت") }
+                if (onBack != null) TextButton(onClick = onBack) { Text("Back") }
                 Box {
-                    PlayerIconButton(PlayerGlyph.More, "ابزارهای فلش‌کارت‌ها", onClick = { toolsOpen = true })
+                    PlayerIconButton(PlayerGlyph.More, "Flashcard options", onClick = { toolsOpen = true })
                     DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
-                        DropdownMenuItem(text = { Text("آمار مرور") }, enabled = loadedWords != null, onClick = {
+                        DropdownMenuItem(text = { Text("Review stats") }, enabled = loadedWords != null, onClick = {
                             toolsOpen = false
                             keyboard?.hide()
                             pronunciation.stop()
                             showStats = true
                         })
-                        DropdownMenuItem(text = { Text("واژه‌نامهٔ شخصی") }, onClick = {
+                        DropdownMenuItem(text = { Text("Personal dictionary") }, onClick = {
                             toolsOpen = false
                             keyboard?.hide()
                             managingDictionary = true
                         })
-                        DropdownMenuItem(text = { Text("پشتیبان‌گیری و بازیابی") }, onClick = {
+                        DropdownMenuItem(text = { Text("Backup and restore") }, onClick = {
                             toolsOpen = false
                             keyboard?.hide()
                             managingBackup = true
                         })
                         for (format in VocabularyExportFormat.entries) {
                             DropdownMenuItem(
-                                text = { Text(if (format == VocabularyExportFormat.Anki) "خروجی Anki از نتایج" else "خروجی CSV از نتایج") },
+                                text = { Text(if (format == VocabularyExportFormat.Anki) "Export results to Anki" else "Export results as CSV") },
                                 enabled = visibleWords.isNotEmpty() && !exporting,
                                 onClick = { toolsOpen = false; export(format) }
                             )
@@ -308,15 +310,15 @@ internal fun SavedWordsScreen(
                             Button(
                                 enabled = !exporting,
                                 onClick = { keyboard?.hide(); reviewingSource = null; reviewing = true }
-                            ) { Text("مرور ${dueCount} فلش‌کارت آماده") }
+                            ) { Text("Review ${dueCount} due cards") }
                         }
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            label = { Text("جست‌وجوی واژه یا معنی") },
+                            label = { Text("Search words or meanings") },
                             singleLine = true,
                             trailingIcon = {
-                                if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("پاک") }
+                                if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Clear") }
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -325,9 +327,9 @@ internal fun SavedWordsScreen(
                             filtersOpen = !filtersOpen
                         }) {
                             Text(when {
-                                filtersOpen -> "بستن فیلترها"
-                                selectedSource != null || filter != VocabularyFilter.All -> "فیلتر و ترتیب · فیلتر فعال"
-                                else -> "فیلتر و ترتیب"
+                                filtersOpen -> "Hide filters"
+                                selectedSource != null || filter != VocabularyFilter.All -> "Filter and sort · Active"
+                                else -> "Filter and sort"
                             })
                         }
                         if (filtersOpen) {
@@ -359,7 +361,7 @@ internal fun SavedWordsScreen(
                                         onDismissRequest = { sourceMenuOpen = false },
                                         modifier = Modifier.heightIn(max = 320.dp)
                                     ) {
-                                        DropdownMenuItem(text = { Text("همهٔ فیلم‌ها") }, onClick = {
+                                        DropdownMenuItem(text = { Text("All videos") }, onClick = {
                                             selectedSource = null
                                             sourceMenuOpen = false
                                         })
@@ -378,28 +380,28 @@ internal fun SavedWordsScreen(
                                 keyboard?.hide()
                                 reviewingSource = selectedSource
                                 reviewing = true
-                            }) { Text("مرور فیلم انتخاب‌شده ($sourceDueCount)") }
+                            }) { Text("Review selected video ($sourceDueCount)") }
                         }
-                        Text("برای دیدن معنی روی واژه بزنید.", color = PinesPalette.Muted,
+                        Text("Tap a word to reveal its meaning.", color = PinesPalette.Muted,
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 when {
                     loadedWords.isNullOrEmpty() -> item(key = "empty") {
                         Text(
-                            if (loadedWords == null) "در حال خواندن واژه‌ها…"
-                            else "روی یک واژه در زیرنویس بزنید و «ذخیره» را انتخاب کنید.",
+                            if (loadedWords == null) "Loading words…"
+                            else "Tap a word in the subtitles and choose Save.",
                             Modifier.padding(vertical = 24.dp)
                         )
                     }
                     visibleWords.isEmpty() -> item(key = "no-results") {
                         Column {
-                            Text("واژه‌ای مطابق جست‌وجو و فیلتر پیدا نشد.")
+                            Text("No words match your search and filters.")
                             TextButton(onClick = {
                                 query = ""
                                 filterName = VocabularyFilter.All.name
                                 selectedSource = null
-                            }) { Text("نمایش همهٔ واژه‌ها") }
+                            }) { Text("Show all words") }
                         }
                     }
                     else -> items(visibleWords, key = SavedWord::id) { entry ->
@@ -434,57 +436,65 @@ private fun SavedWordCard(
     onOpenScene: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(Modifier.fillMaxWidth()) {
+    val shape = MaterialTheme.shapes.medium
+    Card(
+        Modifier.fillMaxWidth().then(if (expanded) Modifier.glassPanel(shape) else Modifier),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = if (expanded) Color.Transparent else PinesPalette.Card)
+    ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                .clickable(onClickLabel = if (expanded) "بستن جزئیات" else "نمایش معنی", onClick = onToggle)
-                .semantics { stateDescription = if (expanded) "باز" else "بسته" }
+                .clickable(onClickLabel = if (expanded) "Hide details" else "Show meaning", onClick = onToggle)
+                .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(entry.word, Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
-            Text(if (expanded) "−" else "+", color = PinesPalette.Rose)
+            Text(if (expanded) "−" else "+", color = PinesPalette.Accent)
         }
-        if (expanded) Column(
-            Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            if (!entry.word.equals(entry.headword, ignoreCase = true)) {
-                Text(entry.headword, color = PinesPalette.Muted,
-                    style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr))
+        if (expanded) {
+            HorizontalDivider(Modifier.padding(horizontal = 14.dp), color = PinesPalette.Border)
+            Column(
+                Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                if (!entry.word.equals(entry.headword, ignoreCase = true)) {
+                    Text(entry.headword, color = PinesPalette.Muted,
+                        style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr))
+                }
+                Text(
+                    entry.meaning,
+                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl)
+                )
+                Text(
+                    entry.dialogue,
+                    style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr)
+                )
+                Text(
+                    "${entry.sourceName} · ${formatTime(entry.positionMs)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    when {
+                        entry.reviewCount == 0 -> "New · Not reviewed"
+                        entry.reviewDueAt <= now -> "Due for review"
+                        else -> "Next review: " + DateFormat.getDateTimeInstance(
+                            DateFormat.SHORT, DateFormat.SHORT, Locale.ENGLISH
+                        ).format(Date(entry.reviewDueAt))
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
+                PronunciationControls(pronunciation, entry.word, entry.dialogue)
+                TextButton(enabled = actionsEnabled, onClick = onOpenScene) { Text("Go to scene") }
+                TextButton(enabled = actionsEnabled, onClick = onDelete) { Text("Remove from flashcards") }
             }
-            Text(
-                entry.meaning,
-                style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl)
-            )
-            Text(
-                entry.dialogue,
-                style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr)
-            )
-            Text(
-                "${entry.sourceName} · ${formatTime(entry.positionMs)}",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Text(
-                when {
-                    entry.reviewCount == 0 -> "جدید · هنوز مرور نشده"
-                    entry.reviewDueAt <= now -> "آمادهٔ مرور"
-                    else -> "مرور بعدی: " + DateFormat.getDateTimeInstance(
-                        DateFormat.SHORT, DateFormat.SHORT
-                    ).format(Date(entry.reviewDueAt))
-                },
-                style = MaterialTheme.typography.bodySmall
-            )
-            PronunciationControls(pronunciation, entry.word, entry.dialogue)
-            TextButton(enabled = actionsEnabled, onClick = onOpenScene) { Text("رفتن به صحنه") }
-            TextButton(enabled = actionsEnabled, onClick = onDelete) { Text("حذف از دفترچه") }
         }
     }
 }
 
 private enum class VocabularyFilter(val label: String) {
-    All("همه"), Due("آمادهٔ مرور"), New("جدید")
+    All("All"), Due("Due for review"), New("New")
 }
 
 private fun normalizeVocabularySearch(value: String): String =

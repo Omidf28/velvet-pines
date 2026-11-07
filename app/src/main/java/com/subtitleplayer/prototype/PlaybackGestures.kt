@@ -35,8 +35,8 @@ import kotlinx.coroutines.delay
 private const val minimumBrightness = 0.05f
 
 private enum class GestureControl(val label: String, val minimumLevel: Float) {
-    Brightness("روشنایی", minimumBrightness),
-    Volume("صدای ویدیو", 0f)
+    Brightness("Brightness", minimumBrightness),
+    Volume("Video volume", 0f)
 }
 
 private data class GestureLevel(val control: GestureControl, val percent: Int)
@@ -81,12 +81,12 @@ internal fun PlaybackGestureLayer(
 
     val tapTarget = modifier.semantics {
         if (enabled && onToggleControls != null) {
-            onClick(label = "نمایش یا پنهان کردن کنترل‌های پخش") { currentToggle?.invoke(); true }
+            onClick(label = "Show or hide playback controls") { currentToggle?.invoke(); true }
         }
         if (enabled && onSkip != null) {
             customActions = listOf(
-                CustomAccessibilityAction("$skipSeconds ثانیه عقب") { currentSkip?.invoke(-skipSeconds * 1_000L); true },
-                CustomAccessibilityAction("$skipSeconds ثانیه جلو") { currentSkip?.invoke(skipSeconds * 1_000L); true }
+                CustomAccessibilityAction("Back $skipSeconds seconds") { currentSkip?.invoke(-skipSeconds * 1_000L); true },
+                CustomAccessibilityAction("Forward $skipSeconds seconds") { currentSkip?.invoke(skipSeconds * 1_000L); true }
             )
         }
     }.pointerInput(enabled, onSkip != null, onToggleControls != null, skipSeconds) {
@@ -94,7 +94,7 @@ internal fun PlaybackGestureLayer(
         val doubleTap: ((androidx.compose.ui.geometry.Offset) -> Unit)? = if (onSkip == null) null else { point ->
             val forward = point.x >= size.width / 2f
             currentSkip?.invoke((if (forward) 1 else -1) * skipSeconds * 1_000L)
-            skipFeedback = if (forward) "$skipSeconds ثانیه جلو" else "$skipSeconds ثانیه عقب"
+            skipFeedback = if (forward) "Forward $skipSeconds seconds" else "Back $skipSeconds seconds"
             tapSequence++
         }
         detectTapGestures(
@@ -144,7 +144,7 @@ internal fun PlaybackGestureLayer(
         }
         feedback?.let { indicator ->
             Text(
-                "${indicator.control.label} ${indicator.percent}٪",
+                "${indicator.control.label} ${indicator.percent}%",
                 Modifier.align(Alignment.TopCenter).padding(top = 18.dp)
                     .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 14.dp, vertical = 8.dp),

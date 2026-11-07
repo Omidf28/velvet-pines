@@ -33,32 +33,32 @@ internal fun PronunciationControls(
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         TextButton(enabled = !speech.initializing, onClick = { pronounce(word) }) {
-            Text(if (speech.initializing) "آماده‌سازی تلفظ…" else "تلفظ", color = contentColor)
+            Text(if (speech.initializing) "Preparing pronunciation…" else "Pronounce", color = contentColor)
         }
         TextButton(enabled = !speech.initializing, onClick = { pronounce(word, true) }) {
-            Text("آهسته", color = contentColor)
+            Text("Slow", color = contentColor)
         }
         if (dialogue != null) {
             TextButton(enabled = !speech.initializing, onClick = { pronounce(dialogue) }) {
-                Text("خواندن جمله", color = contentColor)
+                Text("Read sentence", color = contentColor)
             }
         }
         if (speech.speaking) {
-            TextButton(onClick = speech::stop) { Text("توقف صدا", color = contentColor) }
+            TextButton(onClick = speech::stop) { Text("Stop speech", color = contentColor) }
         }
     }
     if (showHelp) {
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            title = { Text("راه‌اندازی تلفظ انگلیسی") },
+            title = { Text("Set up English pronunciation") },
             text = {
-                Text("در تنظیمات گفتار گوشی، یک موتور تبدیل متن به گفتار و صدای آفلاین English را فعال یا دانلود کنید، سپس به برنامه برگردید. تلفظ این برنامه به صدای آفلاین نیاز دارد.")
+                Text("Enable a text-to-speech engine and download an offline English voice in your device's speech settings, then return to the app.")
             },
             confirmButton = {
-                TextButton(onClick = { showHelp = false; speech.openSettings() }) { Text("تنظیمات گفتار") }
+                TextButton(onClick = { showHelp = false; speech.openSettings() }) { Text("Speech settings") }
             },
             dismissButton = {
-                TextButton(onClick = { showHelp = false; speech.refresh() }) { Text("بررسی دوباره") }
+                TextButton(onClick = { showHelp = false; speech.refresh() }) { Text("Check again") }
             }
         )
     }

@@ -41,12 +41,12 @@ internal fun compareNaturalNames(left: String, right: String): Int {
 }
 
 internal enum class LibraryDisplayOrder(val label: String) {
-    Default("پیش‌فرض"), NameAscending("نام ↑"), NameDescending("نام ↓")
+    Default("Default"), NameAscending("Name A–Z"), NameDescending("Name Z–A")
 }
 
 internal enum class WordDisplayOrder(val label: String) {
-    Newest("جدیدترین ذخیره"), Oldest("قدیمی‌ترین ذخیره"),
-    Alphabetical("نام واژه"), Due("موعد مرور زودتر")
+    Newest("Newest first"), Oldest("Oldest first"),
+    Alphabetical("Word A–Z"), Due("Review due first")
 }
 
 internal fun orderedSavedWords(words: List<SavedWord>, order: WordDisplayOrder): List<SavedWord> = when (order) {

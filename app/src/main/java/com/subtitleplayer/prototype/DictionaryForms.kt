@@ -49,20 +49,20 @@ internal val commonWordMeanings = mapOf(
 internal data class DictionaryResult(val meaning: WordMeaning?, val source: String, val failure: LookupFailure? = null)
 
 internal fun immediateDictionaryMeaning(key: String, personal: Map<String, WordMeaning>): DictionaryResult? {
-    personal[key]?.let { return DictionaryResult(it, "واژه‌نامهٔ شخصی") }
-    commonWordMeanings[key]?.let { return DictionaryResult(WordMeaning(key, it), "واژه‌نامهٔ آفلاین") }
-    defaultTermMeaning(key)?.let { return DictionaryResult(it, "واژه‌نامهٔ آفلاین") }
+    personal[key]?.let { return DictionaryResult(it, "Personal dictionary") }
+    commonWordMeanings[key]?.let { return DictionaryResult(WordMeaning(key, it), "Offline dictionary") }
+    defaultTermMeaning(key)?.let { return DictionaryResult(it, "Offline dictionary") }
     return null
 }
 
 internal fun indexedDictionaryMeaning(key: String, find: (String) -> WordMeaning?): DictionaryResult {
-    find(key)?.let { return DictionaryResult(it, "واژه‌نامهٔ آفلاین") }
+    find(key)?.let { return DictionaryResult(it, "Offline dictionary") }
     val candidates = dictionaryBaseForms(key).mapNotNull(find).take(3)
     if (candidates.isNotEmpty()) {
         val definition = candidates.joinToString("\n") { "${it.headword}: ${it.persian}" }.take(1000)
-        return DictionaryResult(WordMeaning(key, definition), "صورت پایهٔ احتمالی · آفلاین")
+        return DictionaryResult(WordMeaning(key, definition), "Possible base form · Offline")
     }
-    return DictionaryResult(null, "در واژه‌نامهٔ آفلاین پیدا نشد")
+    return DictionaryResult(null, "No match in the offline dictionary")
 }
 
 internal fun validOnlineDefinition(value: String): Boolean =

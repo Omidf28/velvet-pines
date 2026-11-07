@@ -88,8 +88,8 @@ internal fun WordReviewScreen(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (source == null) "مرور واژه‌ها" else "مرور واژه‌های این منبع", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            TextButton(onClick = onBack) { Text("بازگشت") }
+            Text(if (source == null) "Review flashcards" else "Review this video's flashcards", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            TextButton(onClick = onBack) { Text("Back") }
         }
         Column(
             Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -97,19 +97,19 @@ internal fun WordReviewScreen(
         ) {
             when {
                 loadFailed -> {
-                    Text("خواندن واژه‌ها ممکن نبود.")
-                    Button(onClick = { reload++ }) { Text("تلاش دوباره") }
+                    Text("Could not load flashcards.")
+                    Button(onClick = { reload++ }) { Text("Try again") }
                 }
-                session == null -> Text("در حال آماده‌کردن مرور…")
+                session == null -> Text("Preparing review…")
                 entry == null -> {
-                    Text(if (index == 0) "فعلاً واژه‌ای برای مرور نرسیده است." else "این نوبت مرور تمام شد.")
-                    if (index > 0) Text("$index پاسخ ذخیره شد.")
-                    Text("هر نوبت حداکثر ۵۰ واژه دارد. برای بررسی واژه‌های باقی‌مانده یا مرورهای تازه، دوباره بررسی کنید.")
-                    Button(onClick = { reload++ }) { Text("بررسی دوباره") }
+                    Text(if (index == 0) "No cards are due right now." else "Review complete.")
+                    if (index > 0) Text("Answers saved: $index")
+                    Text("Review sessions contain up to 50 cards. Check again for remaining or newly due cards.")
+                    Button(onClick = { reload++ }) { Text("Check again") }
                 }
                 else -> {
-                    Text("کارت ${index + 1} از ${session.size}")
-                    Text("معنی را به یاد بیاورید، سپس پاسخ را ببینید.")
+                    Text("Card ${index + 1} of ${session.size}")
+                    Text("Recall the meaning, then reveal the answer.")
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
@@ -129,21 +129,21 @@ internal fun WordReviewScreen(
                     }
                     PronunciationControls(pronunciation, entry.word, entry.dialogue)
                     if (!answerVisible) {
-                        Button(onClick = { answerVisible = true }) { Text("نمایش معنی") }
+                        Button(onClick = { answerVisible = true }) { Text("Show meaning") }
                     } else {
-                        Text("یادم نبود: مرور دوباره در ۱۰ دقیقه")
-                        Text("بلد بودم: مرور بعدی در ${planReview(entry.reviewLevel, true, 0).intervalMs / 86_400_000L} روز")
+                        Text("Again: review in 10 minutes")
+                        Text("Got it: review in ${planReview(entry.reviewLevel, true, 0).intervalMs / 86_400_000L} days")
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Button(enabled = !saving, onClick = { rate(false) }, modifier = Modifier.weight(1f)) {
-                                Text("یادم نبود")
+                                Text("Again")
                             }
                             Button(enabled = !saving, onClick = { rate(true) }, modifier = Modifier.weight(1f)) {
-                                Text("بلد بودم")
+                                Text("Got it")
                             }
                         }
                     }
-                    if (saving) Text("در حال ذخیرهٔ پاسخ…")
-                    if (saveFailed) Text("پاسخ ذخیره نشد. دوباره یکی از گزینه‌ها را بزنید.")
+                    if (saving) Text("Saving answer…")
+                    if (saveFailed) Text("Could not save your answer. Choose an option again.")
                 }
             }
         }

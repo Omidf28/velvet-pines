@@ -61,8 +61,8 @@ internal fun SmbBrowserScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("پوشه‌های SMB", style = MaterialTheme.typography.titleLarge)
-            TextButton(onClick = onBack) { Text("بازگشت به کتابخانه") }
+            Text("SMB folders", style = MaterialTheme.typography.titleLarge)
+            TextButton(onClick = onBack) { Text("Back to Files") }
         }
         Text(
             folder.share + if (folder.path.isEmpty()) "" else " / " + folder.path.replace('\\', '/'),
@@ -71,17 +71,17 @@ internal fun SmbBrowserScreen(
         )
         Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(enabled = folder.path.isNotEmpty(), onClick = { folder = folder.parent() }) {
-                Text("پوشهٔ بالاتر")
+                Text("Parent folder")
             }
-            TextButton(onClick = { refresh++ }) { Text("تازه‌سازی") }
+            TextButton(onClick = { refresh++ }) { Text("Refresh") }
         }
         if (failed || loaded == null || loaded.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
                 Text(
                     when {
-                        failed -> "خواندن پوشه ممکن نبود. آدرس و اطلاعات ورود را بررسی کنید یا دوباره تازه‌سازی کنید."
-                        loaded == null -> "در حال خواندن پوشه…"
-                        else -> "پوشه یا ویدیویی پیدا نشد."
+                        failed -> "Could not read the folder. Check the address and credentials, then try again."
+                        loaded == null -> "Loading folder…"
+                        else -> "No folders or videos found."
                     }
                 )
             }
@@ -102,7 +102,7 @@ internal fun SmbBrowserScreen(
                     ) {
                         Column(Modifier.padding(14.dp)) {
                             Text(entry.name)
-                            Text(if (entry.directory) "پوشه" else "ویدیو", style = MaterialTheme.typography.labelSmall)
+                            Text(if (entry.directory) "Folder" else "Video", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }

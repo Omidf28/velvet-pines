@@ -4,11 +4,11 @@
 
 Velvet Pines integrates media playback with interactive English subtitles, Persian word definitions, and a persistent vocabulary notebook. Learners can select a word or phrase during playback, view its definition for approximately three seconds, and save it with the original dialogue and playback timestamp for subsequent review.
 
-The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3, and Room. Its dark visual identity combines burgundy, charcoal, forest green, and coffee tones with restrained curtain and woodland motifs.
+The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The English interface uses a charcoal palette, indigo accents, and translucent panels. Files and Flashcards are available from the bottom navigation.
 
 ## Project Status
 
-**Current version:** `0.7.0-beta.2` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.3` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -128,7 +128,7 @@ The latest recorded validation includes:
 | JVM unit tests | 221 passed |
 | SQLite migration and review checks | 14 passed (previous schema validation; schema unchanged) |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
-| Android Lint | 0 errors, 29 warnings |
+| Android Lint | 0 errors, 30 warnings |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
 

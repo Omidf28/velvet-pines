@@ -25,7 +25,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
     var pending by remember { mutableStateOf<LearningBackup?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     BackHandler { if (!busy) onBack() }
-    fun fail() { message = "عملیات کامل نشد. فایل و دسترسی ذخیره‌سازی را بررسی کنید." }
+    fun fail() { message = "Could not finish. Check the file and storage access." }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) {
             busy = true
@@ -36,7 +36,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
                         val stream = context.contentResolver.openOutputStream(uri, "wt") ?: throw IOException("Unavailable output")
                         stream.use { writeLearningBackup(snapshot, it) }
                     }
-                    message = "پشتیبان ${snapshot.words.size} کارت و ${snapshot.dictionary.size} معنی شخصی ذخیره شد."
+                    message = "Backed up ${snapshot.words.size} cards and ${snapshot.dictionary.size} personal definitions."
                 } catch (_: IOException) { fail() }
                 catch (_: SecurityException) { fail() }
                 catch (_: SQLiteException) { fail() }
@@ -64,8 +64,8 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
     pending?.let { backup ->
         AlertDialog(
             onDismissRequest = { if (!busy) pending = null },
-            title = { Text("بازیابی داده‌های یادگیری") },
-            text = { Text("${backup.words.size} کارت و ${backup.dictionary.size} معنی شخصی در فایل است. موارد تازه اضافه می‌شوند؛ در تکراری‌ها اطلاعات فعلی دستگاه حفظ می‌شود. هیچ مدخلی حذف نمی‌شود.") },
+            title = { Text("Restore learning data") },
+            text = { Text("The backup contains ${backup.words.size} cards and ${backup.dictionary.size} personal definitions. New entries will be added. Existing entries are kept when there is a duplicate.") },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = {
                     busy = true
@@ -73,13 +73,13 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
                         try {
                             val count = dao.restore(backup)
                             pending = null
-                            message = "$count مورد تازه بازیابی شد؛ موارد تکراری حفظ شدند."
+                            message = "Restored $count new entries. Existing entries were kept."
                         } catch (_: SQLiteException) { fail() }
                         finally { busy = false }
                     }
-                }) { Text("بازیابی") }
+                }) { Text("Restore") }
             },
-            dismissButton = { TextButton(enabled = !busy, onClick = { pending = null }) { Text("لغو") } }
+            dismissButton = { TextButton(enabled = !busy, onClick = { pending = null }) { Text("Cancel") } }
         )
     }
     Surface(Modifier.fillMaxSize()) {
@@ -87,21 +87,21 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
             Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("پشتیبان داده‌های یادگیری", style = MaterialTheme.typography.titleLarge)
-            Text("دفترچه، معنی شخصی، دیالوگ، نام منبع و پیشرفت مرور در یک فایل نگه‌داری می‌شوند. فایل شامل متن داده‌هاست و رمزگذاری نمی‌شود.")
-            Text("فایل ویدیو، صدا، مجوز دسترسی فایل‌ها، صف و تنظیمات پلیر در پشتیبان نیستند. نشانی آنلاین و رمز شبکه در دادهٔ عادی برنامه ذخیره نمی‌شوند.")
+            Text("Learning backup", style = MaterialTheme.typography.titleLarge)
+            Text("The backup includes saved words, personal definitions, dialogue, source names, and review progress in an unencrypted file.")
+            Text("Videos, audio, file permissions, and player settings are excluded. Stream URLs and network passwords are not saved by the app.")
             Button(enabled = !busy && pending == null, onClick = {
                 try { export.launch("velvet-pines-learning.spbackup") }
                 catch (_: android.content.ActivityNotFoundException) { fail() }
-            }) { Text("ساخت پشتیبان") }
+            }) { Text("Create backup") }
             Button(enabled = !busy && pending == null, onClick = {
                 try { import.launch(arrayOf("*/*")) }
                 catch (_: android.content.ActivityNotFoundException) { fail() }
-            }) { Text("انتخاب فایل برای بازیابی") }
-            Text("حداکثر فایل ۳۲ MiB و هر بخش ۲۰ هزار مدخل است. فایل خراب یا نسخهٔ ناشناخته پیش از تغییر دیتابیس رد می‌شود. بازیابی یک تراکنش است.")
-            if (busy) Text("در حال انجام…")
+            }) { Text("Choose backup file") }
+            Text("Limit: 32 MiB and 20,000 entries per section. The app validates the backup before restoring it in one transaction.")
+            if (busy) Text("Working…")
             message?.let { Text(it) }
-            TextButton(enabled = !busy, onClick = onBack) { Text("بازگشت") }
+            TextButton(enabled = !busy, onClick = onBack) { Text("Back") }
         }
     }
 }

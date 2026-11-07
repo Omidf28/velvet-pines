@@ -26,7 +26,7 @@ class DictionarySearchTest {
         val result = mergeDictionarySearch("the", listOf("the" to WordMeaning("the", "منبع")), mapOf("the" to own))
         val exact = result.entries.first { it.term == "the" }
         assertEquals(own, exact.meaning)
-        assertEquals("واژه‌نامهٔ شخصی", exact.source)
+        assertEquals("Personal dictionary", exact.source)
         assertEquals(1, result.entries.count { it.term == "the" })
     }
     @Test fun personalOnlyPhrasesAndCuratedExactEntriesAreIncluded() {

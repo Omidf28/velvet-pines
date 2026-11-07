@@ -67,42 +67,42 @@ internal fun DictionarySearchPanel(
     DisposableEffect(speech) { onDispose { speech.stop() } }
     fun close() { keyboard?.hide(); speech.stop(); onDismiss() }
     fun select(term: String) { keyboard?.hide(); speech.stop(); selected = term }
-    PlayerOverlayPanel("واژه‌نامهٔ انگلیسی–فارسی", onDismiss = ::close) {
+    PlayerOverlayPanel("English–Persian dictionary", onDismiss = ::close) {
         val term = selected
         if (term == null) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it.take(160) },
-                label = { Text("کلمه یا عبارت انگلیسی") },
+                label = { Text("English word or phrase") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("پاک") } }),
+                trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("Clear") } }),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr)
             )
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item(key = "status") {
                     Text(when {
-                        query.isBlank() -> "واژه یا ابتدای یک عبارت را بنویس؛ جست‌وجو کاملاً آفلاین است."
-                        prefix == null -> "با حروف انگلیسی جست‌وجو کن؛ حداکثر ۸ واژه و ۸۰ نویسه."
-                        searching -> "در حال جست‌وجو…"
-                        failed -> "واژه‌نامه خوانده نشد. فضای ذخیره را بررسی کن و دوباره تلاش کن."
-                        results.entries.isEmpty() -> "مدخلی با این شروع پیدا نشد؛ می‌توانی معنی شخصی اضافه کنی."
-                        results.hasMore -> "${results.entries.size} نتیجهٔ اول؛ برای نتایج دقیق‌تر بیشتر بنویس."
-                        else -> "${results.entries.size} نتیجه"
+                        query.isBlank() -> "Enter a word or the start of a phrase to search offline."
+                        prefix == null -> "Use English letters. Up to 8 words and 80 characters."
+                        searching -> "Searching…"
+                        failed -> "Could not read the dictionary. Check available storage and try again."
+                        results.entries.isEmpty() -> "No matches for this search. You can add a personal definition."
+                        results.hasMore -> "First ${results.entries.size} results. Type more to narrow the search."
+                        else -> "${results.entries.size} results"
                     }, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
-                    if (failed) TextButton(onClick = { retry++ }) { Text("تلاش دوباره") }
+                    if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
                     if (exactKey != null) TextButton(onClick = { select(exactKey) }) {
-                        Text("نمایش معنی «$exactKey»", maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("Show meaning for “$exactKey”", maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (!searching && !failed) items(results.entries, key = { it.term }) { entry ->
                     Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "نمایش معنی کامل") { select(entry.term) }
+                        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Show full meaning") { select(entry.term) }
                             .padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(entry.term, color = PinesPalette.Rose,
+                            Text(entry.term, color = PinesPalette.Accent,
                                 style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
                             Text(entry.meaning.persian, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Rtl))
@@ -113,26 +113,26 @@ internal fun DictionarySearchPanel(
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(term, Modifier.weight(1f), color = PinesPalette.Rose,
+                Text(term, Modifier.weight(1f), color = PinesPalette.Accent,
                     style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
-                TextButton(onClick = { speech.stop(); selected = null }) { Text("نتایج") }
+                TextButton(onClick = { speech.stop(); selected = null }) { Text("Results") }
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     val result = detail
-                    Text(if (detailFailed) "خواندن معنی انجام نشد؛ دوباره تلاش کن."
-                        else if (result == null) "در حال خواندن معنی…"
-                        else result.meaning?.persian ?: "معنی آفلاین پیدا نشد؛ می‌توانی معنی شخصی اضافه کنی.",
-                        style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl))
+                    Text(if (detailFailed) "Could not load the meaning. Try again."
+                        else if (result == null) "Loading meaning…"
+                        else result.meaning?.persian ?: "No offline meaning found. You can add a personal definition.",
+                        style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.ContentOrLtr))
                     result?.let { Text(it.source, color = PinesPalette.Muted, style = MaterialTheme.typography.labelSmall) }
-                    if (detailFailed) TextButton(onClick = { retry++ }) { Text("تلاش دوباره") }
+                    if (detailFailed) TextButton(onClick = { retry++ }) { Text("Try again") }
                 }
                 item {
-                    PronunciationControls(speech, term, contentColor = PinesPalette.Rose, beforeSpeak = beforeSpeak)
+                    PronunciationControls(speech, term, contentColor = PinesPalette.Accent, beforeSpeak = beforeSpeak)
                     TextButton(enabled = personalReady && (detail != null || detailFailed), onClick = {
                         speech.stop(); editing = true
-                    }) { Text(if (term in personal) "ویرایش معنی شخصی" else "افزودن معنی شخصی") }
-                    Text("معنی شخصی در همهٔ فیلم‌ها اولویت دارد. ذخیره در دفترچه با جمله و زمان، از کارت روی فیلم انجام می‌شود.",
+                    }) { Text(if (term in personal) "Edit personal definition" else "Add personal definition") }
+                    Text("Personal definitions take priority across videos. To save a word with its line and timestamp, use the card in the player.",
                         color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                 }
             }

@@ -30,8 +30,8 @@ android {
         applicationId = "com.subtitleplayer.prototype"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.7.0-beta.2"
+        versionCode = 18
+        versionName = "0.7.0-beta.3"
     }
 
     if (configureReleaseSigning) {

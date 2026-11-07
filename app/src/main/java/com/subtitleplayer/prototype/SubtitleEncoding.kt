@@ -9,7 +9,7 @@ import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 
 internal enum class SubtitleTextEncoding(val label: String, val charsetName: String?) {
-    Auto("خودکار", null), Utf8("UTF-8", "UTF-8"),
+    Auto("Auto", null), Utf8("UTF-8", "UTF-8"),
     Windows1256("Windows-1256", "windows-1256"), Windows1252("Windows-1252", "windows-1252")
 }
 

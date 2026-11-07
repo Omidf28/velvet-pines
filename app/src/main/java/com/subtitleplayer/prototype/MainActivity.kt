@@ -1,6 +1,7 @@
 package com.subtitleplayer.prototype
 
 import android.app.PictureInPictureParams
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ActivityInfo
@@ -120,7 +121,7 @@ private val demoVideo = Uri.parse("asset:///demo.mp4")
 private val demoSubtitles = Uri.parse("asset:///demo.srt")
 private val demoTranslation = Uri.parse("asset:///demo.fa.vtt")
 private val background = PinesPalette.Night
-private val accent = PinesPalette.Rose
+private val accent = PinesPalette.Accent
 private val Uri.isOnlineVideo: Boolean get() = scheme == "https" || scheme == "rtsp" || scheme == "smb"
 private fun Uri.savedWordSourceId(): String = if (isOnlineVideo) remoteVideoId(toString()) else toString()
 
@@ -202,7 +203,7 @@ class MainActivity : ComponentActivity() {
         replayEndMs = null
         pronunciation.stop()
         player.pause()
-        Toast.makeText(this, "زمان تایمر تمام شد؛ پخش مکث شد.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Sleep timer ended. Playback paused.", Toast.LENGTH_LONG).show()
         return true
     }
 
@@ -227,6 +228,11 @@ class MainActivity : ComponentActivity() {
         WordLookupService({ packagedDictionary.resolve(it, emptyMap()) }, ::translateSelectedTerm)
     }
     private val personalDictionary by lazy { SavedWordsDatabase.get(applicationContext).dictionary() }
+
+    override fun attachBaseContext(newBase: Context) {
+        val english = Configuration().apply { setLocale(Locale.ENGLISH) }
+        super.attachBaseContext(newBase.createConfigurationContext(english))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -400,7 +406,7 @@ class MainActivity : ComponentActivity() {
         if (entered) {
             pictureInPicture = true
         } else {
-            Toast.makeText(this, "باز کردن پنجرهٔ تصویر در تصویر ممکن نبود.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Could not open picture-in-picture.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -782,11 +788,11 @@ class MainActivity : ComponentActivity() {
             favoriteFolders = favoriteFolders - existing
         } else {
             if (!persistentReadUris().coversReadAccess(folder.tree)) {
-                Toast.makeText(this, "برای افزودن پوشه، دوباره دسترسی آن را انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Grant access again to add this folder.", Toast.LENGTH_SHORT).show()
                 return
             }
             if (favoriteFolders.size >= favoriteFolderLimit) {
-                Toast.makeText(this, "حداکثر $favoriteFolderLimit پوشهٔ محبوب می‌توانید ذخیره کنید.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "You can save up to $favoriteFolderLimit favorite folders.", Toast.LENGTH_SHORT).show()
                 return
             }
             favoriteFolders = favoriteFolders + folder
@@ -824,7 +830,7 @@ class MainActivity : ComponentActivity() {
         if (uri.scheme != "content" || !persistentReadUris().coversReadAccess(uri)) return
         val bookmark = currentProgress(uri) ?: return
         val old = knownLibraryVideo(uri)
-        val entry = LibraryVideo(uri, old?.name ?: "ویدیو",
+        val entry = LibraryVideo(uri, old?.name ?: "Video",
             parentPath = if (videoParentDirectory != null) videoParentPath else old?.parentPath,
             parentDirectory = videoParentDirectory ?: old?.parentDirectory, bookmark = bookmark)
         val updated = addRecentVideo(recentVideos, entry)
@@ -836,7 +842,7 @@ class MainActivity : ComponentActivity() {
     private fun openLibraryVideo(video: LibraryVideo, startOver: Boolean = false) {
         val uri = video.uri
         if (!persistentReadUris().coversReadAccess(uri)) {
-            Toast.makeText(this, "برای دسترسی دوباره، فایل یا پوشه را انتخاب کنید.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Select the file or folder again to restore access.", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -893,8 +899,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun readVideoName(uri: Uri): String? {
-        if (uri == demoVideo) return "ویدیوی نمونه"
-        if (uri.isOnlineVideo) return "ویدیوی آنلاین"
+        if (uri == demoVideo) return "Sample video"
+        if (uri.isOnlineVideo) return "Online video"
         val column = OpenableColumns.DISPLAY_NAME
         return try {
             contentResolver.query(uri, arrayOf(column), null, null, null)?.use { cursor ->
@@ -921,13 +927,13 @@ class MainActivity : ComponentActivity() {
                 (current.scheme == "content" && source.scheme == "content" &&
                     videoSubtitleKey(current) == videoSubtitleKey(source))
             )
-        if (entry.positionMs < 0) return unavailable("زمان این صحنه معتبر نیست.")
+        if (entry.positionMs < 0) return unavailable("This scene has an invalid timestamp.")
         if (sameSource && videoReady && !playbackError) {
             if (!player.isCurrentMediaItemSeekable || player.duration <= 0) {
-                return unavailable("رفتن به زمان ذخیره‌شده در این ویدیو در دسترس نیست.")
+                return unavailable("This video does not support seeking to the saved position.")
             }
             if (entry.positionMs >= player.duration) {
-                return unavailable("زمان ذخیره‌شده خارج از بازهٔ این ویدیو است.")
+                return unavailable("The saved timestamp is outside this video.")
             }
             player.pause()
             seekWithinVideo(entry.positionMs)
@@ -935,10 +941,10 @@ class MainActivity : ComponentActivity() {
         }
 
         if (entry.sourceUri.startsWith("remote:")) {
-            return unavailable("برای دیدن این صحنه، همان ویدیوی آنلاین را باز کنید و پس از آماده‌شدن دوباره تلاش کنید.")
+            return unavailable("Reopen the same online video and try again once it is ready.")
         }
         if (source != demoVideo && (source.scheme != "content" || !persistentReadUris().coversReadAccess(source))) {
-            return unavailable("برای دسترسی دوباره به صحنه، ویدیو را از فایل یا پوشه باز کنید.")
+            return unavailable("Reopen the video from Files to restore access to this scene.")
         }
         openVideo(source, positionMs = entry.positionMs, autoplay = false)
         return true
@@ -962,7 +968,7 @@ class MainActivity : ComponentActivity() {
             lookup.saveState = WordSaveState.Saved
         } catch (_: SQLiteException) {
             lookup.saveState = WordSaveState.Ready
-            Toast.makeText(this, "ذخیرهٔ واژه انجام نشد", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Could not save the word.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1050,7 +1056,7 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(videoUri) {
             val source = videoUri ?: return@LaunchedEffect
-            sourceName = withContext(Dispatchers.IO) { readVideoName(source) } ?: "ویدیوی محلی"
+            sourceName = withContext(Dispatchers.IO) { readVideoName(source) } ?: "Local video"
         }
         LaunchedEffect(videoUri, videoReady, sourceName, videoParentDirectory, videoParentPath) {
             val uri = videoUri ?: return@LaunchedEffect
@@ -1115,7 +1121,7 @@ class MainActivity : ComponentActivity() {
             val folder = parseLibraryFolderUri(uri?.toString())
             if (folder != null) {
                 if (keepReadAccess(folder)) selectLibraryFolder(folder)
-                else Toast.makeText(this, "ذخیرهٔ دسترسی به این پوشه ممکن نبود.", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this, "Could not save access to this folder.", Toast.LENGTH_SHORT).show()
             }
         }
         val selectSubtitle = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -1248,7 +1254,7 @@ class MainActivity : ComponentActivity() {
                 onOpenFavorite = { folder ->
                     if (persistentReadUris().coversReadAccess(folder.tree)) selectLibraryFolder(folder.tree, folder.path)
                     else {
-                        Toast.makeText(this, "دسترسی پوشه را دوباره انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Grant access to this folder again.", Toast.LENGTH_SHORT).show()
                         selectFolder.launch(null)
                     }
                 },
@@ -1338,32 +1344,32 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         CircularProgressIndicator(Modifier.size(32.dp), color = accent)
-                        Text("در حال بارگذاری…", color = Color.White)
+                        Text("Loading…", color = Color.White)
                     }
                 }
                 if (!pictureInPicture && (videoUri == null || playbackError || englishTrack.failed || persianTrack.failed)) {
                     val failedOnline = playbackError && videoUri?.isOnlineVideo == true
                     val message = when {
                         failedOnline && videoUri?.scheme == "smb" ->
-                            "پخش فایل شبکه ممکن نبود. مسیر فایل و دسترسی به اشتراک را بررسی کنید."
-                        failedOnline -> "پخش لینک ممکن نبود. اتصال اینترنت، آدرس و نوع پخش را بررسی کنید."
-                        playbackError -> "پخش این فایل ممکن نیست. ویدیو را دوباره انتخاب کنید."
-                        englishTrack.failed -> "زیرنویس انگلیسی خوانده نشد. فایل متنی SRT یا WebVTT معتبر و حداکثر ۸ مگابایت انتخاب کنید."
-                        persianTrack.failed -> "زیرنویس فارسی خوانده نشد. فایل متنی SRT یا WebVTT معتبر و حداکثر ۸ مگابایت انتخاب کنید."
-                        else -> "نمونه را باز کنید یا ویدیو و زیرنویس خودتان را انتخاب کنید."
+                            "Could not play the network file. Check the path and share permissions."
+                        failedOnline -> "Could not play the stream. Check your connection, URL, and stream type."
+                        playbackError -> "Could not play this file. Select the video again."
+                        englishTrack.failed -> "Could not read the English subtitles. Choose a valid SRT or WebVTT file up to 8 MB."
+                        persianTrack.failed -> "Could not read the Persian subtitles. Choose a valid SRT or WebVTT file up to 8 MB."
+                        else -> "Play the sample or choose your own video and subtitles."
                     }
                     Column(
                         Modifier.align(Alignment.Center).padding(20.dp)
                             .background(background, RoundedCornerShape(12.dp)).padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        if (videoUri == null) PinesIdentityBanner(compact = true)
-                        Text(message, color = PinesPalette.Cream, textAlign = TextAlign.Center)
+                        if (videoUri == null) PinesIdentityBanner()
+                        Text(message, color = PinesPalette.Ink, textAlign = TextAlign.Center)
                         if (videoUri == null) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                TextButton(onClick = { openDemoVideo() }) { Text("نمونه") }
-                                TextButton(onClick = { showLibrary = true }) { Text("انتخاب فیلم") }
-                                TextButton(onClick = { showHelp = true }) { Text("راهنما") }
+                                TextButton(onClick = { openDemoVideo() }) { Text("Sample") }
+                                TextButton(onClick = { showLibrary = true }) { Text("Choose video") }
+                                TextButton(onClick = { showHelp = true }) { Text("Help") }
                             }
                         }
                         if (failedOnline && !controlsLocked) {
@@ -1373,7 +1379,7 @@ class MainActivity : ComponentActivity() {
                                 if (player.isCurrentMediaItemLive) player.seekToDefaultPosition()
                                 player.prepare()
                                 player.play()
-                            }) { Text("تلاش دوباره") }
+                            }) { Text("Try again") }
                         }
                     }
                 }
@@ -1420,7 +1426,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             } else null,
                                             source = source,
-                                            sourceName = sourceName ?: "ویدیوی محلی",
+                                            sourceName = sourceName ?: "Local video",
                                             studyAction = studyAction
                                         )
                                     }
@@ -1436,11 +1442,11 @@ class MainActivity : ComponentActivity() {
                                             Color.Black.copy(alpha = 0.75f), RoundedCornerShape(24.dp)
                                         )
                                         TextButton(onClick = { listeningMode = false }, modifier = buttonBackground) {
-                                            Text("نمایش زیرنویس", color = PinesPalette.Cream)
+                                            Text("Show subtitles", color = PinesPalette.Ink)
                                         }
                                         if (quickReplayAvailable) {
                                             TextButton(onClick = ::replayCurrentDialogue, modifier = buttonBackground) {
-                                                Text("بازپخش دیالوگ", color = PinesPalette.Cream)
+                                                Text("Replay dialogue", color = PinesPalette.Ink)
                                             }
                                         }
                                     }
@@ -1518,7 +1524,7 @@ class MainActivity : ComponentActivity() {
                         (frame.positionMs.toFloat() / frame.durationMs).coerceIn(0f, 1f) else 0f
                     val shownPosition = if (dragPosition >= 0) (dragPosition * frame.durationMs).toLong() else frame.positionMs
                     PlayerOverlay(
-                        title = sourceName ?: "ویدیو",
+                        title = sourceName ?: "Video",
                         playing = frame.playing,
                         canPlay = !playbackError,
                         canSeek = canSeek,
@@ -1563,51 +1569,51 @@ class MainActivity : ComponentActivity() {
                         },
                         topActions = {
                             Box {
-                                PlayerIconButton(PlayerGlyph.Subtitles, "زیرنویس", onClick = { showSubtitleMenu = true })
+                                PlayerIconButton(PlayerGlyph.Subtitles, "Subtitles", onClick = { showSubtitleMenu = true })
                                 DropdownMenu(expanded = showSubtitleMenu, onDismissRequest = { showSubtitleMenu = false }) {
                                     val available = embeddedOptions.any { it.key == embeddedTrackKey }
                                     val status = when {
-                                        !englishSubtitlesVisible -> "نمایش زیرنویس انگلیسی پنهان است"
-                                        subtitleUri != null -> "زیرنویس انگلیسی: فایل جداگانه"
-                                        playbackError -> "پخش فیلم خطا دارد؛ اطلاعات ترک داخلی در دسترس نیست"
-                                        embeddedSelection.automaticEnglish && available -> "انگلیسی داخلی: انتخاب خودکار"
-                                        embeddedSelection.automaticEnglish && !videoReady && !playbackError -> "در انتظار اطلاعات زیرنویس فیلم…"
-                                        embeddedSelection.automaticEnglish -> "زیرنویس انگلیسی داخلی پیدا نشد؛ فایل SRT یا VTT انتخاب کنید"
-                                        embeddedTrackKey != null && !available -> "ترک ذخیره‌شده فعلاً در دسترس نیست"
-                                        available -> "زیرنویس داخلی: انتخاب دستی"
-                                        else -> "زیرنویس اصلی خاموش است"
+                                        !englishSubtitlesVisible -> "English subtitles hidden"
+                                        subtitleUri != null -> "English subtitles: external file"
+                                        playbackError -> "Playback error. Embedded tracks are unavailable."
+                                        embeddedSelection.automaticEnglish && available -> "Embedded English: automatic"
+                                        embeddedSelection.automaticEnglish && !videoReady && !playbackError -> "Waiting for subtitle track information…"
+                                        embeddedSelection.automaticEnglish -> "No embedded English track found. Choose an SRT or VTT file."
+                                        embeddedTrackKey != null && !available -> "The saved track is unavailable."
+                                        available -> "Embedded subtitles: manual selection"
+                                        else -> "Primary subtitles off"
                                     }
                                     DropdownMenuItem(enabled = false,
                                         text = { Text(status, maxLines = 3) }, onClick = { })
                                     DropdownMenuItem(text = {
-                                        Text((if (embeddedSelection.automaticEnglish) "✓ " else "") + "انتخاب خودکار انگلیسی داخلی")
+                                        Text((if (embeddedSelection.automaticEnglish) "✓ " else "") + "Auto-select embedded English")
                                     }, onClick = {
                                         showSubtitleMenu = false
                                         lookup = null
                                         chooseAutomaticEnglishSubtitle()
                                     })
-                                    DropdownMenuItem(text = { Text(if (englishSubtitlesVisible) "پنهان کردن انگلیسی" else "نمایش انگلیسی") }, onClick = {
+                                    DropdownMenuItem(text = { Text(if (englishSubtitlesVisible) "Hide English" else "Show English") }, onClick = {
                                         showSubtitleMenu = false
                                         lookup = null
                                         englishSubtitlesVisible = !englishSubtitlesVisible
                                         history.edit().putBoolean("englishSubtitlesVisible", englishSubtitlesVisible).apply()
                                     })
-                                    DropdownMenuItem(text = { Text("انتخاب زیرنویس انگلیسی") }, onClick = {
+                                    DropdownMenuItem(text = { Text("Choose English subtitles") }, onClick = {
                                         showSubtitleMenu = false
                                         selectSubtitle.launch(arrayOf("*/*"))
                                     })
                                     if (videoParentDirectory != null) {
-                                        HorizontalDivider(color = PinesPalette.Curtain)
+                                        HorizontalDivider(color = PinesPalette.AccentContainer)
                                         DropdownMenuItem(enabled = sidecarStatus != SidecarScanStatus.Loading,
-                                            text = { Text("جست‌وجوی زیرنویس کنار فیلم") }, onClick = {
+                                            text = { Text("Find matching subtitle files") }, onClick = {
                                                 lookup = null
                                                 startSidecarDiscovery(allowAutomatic = false)
                                             })
                                         val nearbyStatus = when (sidecarStatus) {
-                                            SidecarScanStatus.Loading -> "در حال بررسی پوشه…"
-                                            SidecarScanStatus.Failed -> "پوشه قابل خواندن نبود؛ دوباره تلاش کنید"
-                                            SidecarScanStatus.Unreadable -> "فایل هم‌نام قابل خواندن نبود؛ انتخاب دستی در دسترس است"
-                                            SidecarScanStatus.Ready -> if (sidecarMatches.matches.isEmpty()) "زیرنویس انگلیسی یا بی‌برچسب هم‌نام پیدا نشد" else null
+                                            SidecarScanStatus.Loading -> "Scanning folder…"
+                                            SidecarScanStatus.Failed -> "Could not read the folder. Try again."
+                                            SidecarScanStatus.Unreadable -> "Could not read the matching file. You can choose a file manually."
+                                            SidecarScanStatus.Ready -> if (sidecarMatches.matches.isEmpty()) "No matching English or unlabeled subtitles found." else null
                                             SidecarScanStatus.Idle -> null
                                         }
                                         nearbyStatus?.let { message ->
@@ -1615,7 +1621,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         sidecarMatches.matches.forEach { nearby ->
                                             DropdownMenuItem(text = {
-                                                Text(nearby.file.name + if (!nearby.english) " · زبان نامشخص" else if (nearby.forced) " · اجباری" else "",
+                                                Text(nearby.file.name + if (!nearby.english) " · Unknown language" else if (nearby.forced) " · Forced" else "",
                                                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             }, onClick = {
                                                 showSubtitleMenu = false
@@ -1623,7 +1629,7 @@ class MainActivity : ComponentActivity() {
                                                 chooseNearbySubtitle(nearby)
                                             })
                                         }
-                                        HorizontalDivider(color = PinesPalette.Curtain)
+                                        HorizontalDivider(color = PinesPalette.AccentContainer)
                                     }
                                     embeddedOptions.forEachIndexed { index, option ->
                                         DropdownMenuItem(
@@ -1639,18 +1645,18 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                     if (embeddedSelection.automaticEnglish || embeddedTrackKey != null || subtitleUri != null) {
-                                        DropdownMenuItem(text = { Text("خاموش کردن زیرنویس اصلی") }, onClick = {
+                                        DropdownMenuItem(text = { Text("Turn off primary subtitles") }, onClick = {
                                             showSubtitleMenu = false
                                             lookup = null
                                             chooseEmbeddedSubtitle(null)
                                         })
                                     }
-                                    DropdownMenuItem(text = { Text("انتخاب زیرنویس فارسی") }, onClick = {
+                                    DropdownMenuItem(text = { Text("Choose Persian subtitles") }, onClick = {
                                         showSubtitleMenu = false
                                         selectTranslation.launch(arrayOf("*/*"))
                                     })
                                     if (translationUri != null) {
-                                        DropdownMenuItem(text = { Text("برداشتن زیرنویس فارسی") }, onClick = {
+                                        DropdownMenuItem(text = { Text("Remove Persian subtitles") }, onClick = {
                                             showSubtitleMenu = false
                                             translationUri = null
                                             translationDelayMs = 0
@@ -1659,18 +1665,18 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            PlayerIconButton(PlayerGlyph.Settings, "تنظیمات", onClick = { showSettings = true })
+                            PlayerIconButton(PlayerGlyph.Settings, "Settings", onClick = { showSettings = true })
                             Box {
-                                PlayerIconButton(PlayerGlyph.More, "گزینه‌های پخش", onClick = { showPlayerMenu = true })
+                                PlayerIconButton(PlayerGlyph.More, "Playback options", onClick = { showPlayerMenu = true })
                                 DropdownMenu(expanded = showPlayerMenu, onDismissRequest = { showPlayerMenu = false }) {
-                                    DropdownMenuItem(text = { Text("کتابخانه") }, onClick = { showPlayerMenu = false; lookup = null; showLibrary = true })
-                                    DropdownMenuItem(text = { Text("دفترچهٔ واژه‌ها") }, onClick = { showPlayerMenu = false; lookup = null; showWords = true })
-                                    DropdownMenuItem(text = { Text("جست‌وجو در واژه‌نامه") }, onClick = {
+                                    DropdownMenuItem(text = { Text("Files") }, onClick = { showPlayerMenu = false; lookup = null; showLibrary = true })
+                                    DropdownMenuItem(text = { Text("Flashcards") }, onClick = { showPlayerMenu = false; lookup = null; showWords = true })
+                                    DropdownMenuItem(text = { Text("Search dictionary") }, onClick = {
                                         showPlayerMenu = false; dictionarySeed = ""; showDictionary = true
                                     })
                                     if (hasVisibleSubtitles || listeningMode) {
                                         DropdownMenuItem(
-                                            text = { Text(if (listeningMode) "نمایش زیرنویس" else "تمرین شنیداری بدون متن") },
+                                            text = { Text(if (listeningMode) "Show subtitles" else "Listen without subtitles") },
                                             onClick = {
                                                 showPlayerMenu = false
                                                 lookup = null
@@ -1679,30 +1685,30 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                     if (quickReplayAvailable) {
-                                        DropdownMenuItem(text = { Text("بازپخش دیالوگ") }, onClick = {
+                                        DropdownMenuItem(text = { Text("Replay dialogue") }, onClick = {
                                             showPlayerMenu = false
                                             replayCurrentDialogue()
                                         })
                                     }
                                     if (canSeek && dialogueRanges.isNotEmpty()) {
-                                        DropdownMenuItem(text = { Text("جست‌وجوی دیالوگ‌ها") }, onClick = {
+                                        DropdownMenuItem(text = { Text("Search dialogues") }, onClick = {
                                             showPlayerMenu = false
                                             lookup = null
                                             showDialogues = true
                                         })
                                     }
                                     if (abLoop != null) {
-                                        DropdownMenuItem(text = { Text("لغو تکرار") }, onClick = {
+                                        DropdownMenuItem(text = { Text("Clear loop") }, onClick = {
                                             showPlayerMenu = false
                                             clearAbLoop()
                                         })
                                     }
-                                    DropdownMenuItem(text = { Text("ابزارهای مطالعه و تکرار") }, onClick = { showPlayerMenu = false; showPlaybackTools = true })
+                                    DropdownMenuItem(text = { Text("Study and repeat") }, onClick = { showPlayerMenu = false; showPlaybackTools = true })
                                     if (supportsPictureInPicture && videoReady && !playbackError) {
-                                        DropdownMenuItem(text = { Text("تصویر در تصویر") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
+                                        DropdownMenuItem(text = { Text("Picture-in-picture") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
                                     }
-                                    DropdownMenuItem(text = { Text("راهنما") }, onClick = { showPlayerMenu = false; showHelp = true })
-                                    DropdownMenuItem(text = { Text("پخش نمونه") }, onClick = { showPlayerMenu = false; lookup = null; openDemoVideo() })
+                                    DropdownMenuItem(text = { Text("Help") }, onClick = { showPlayerMenu = false; showHelp = true })
+                                    DropdownMenuItem(text = { Text("Play sample") }, onClick = { showPlayerMenu = false; lookup = null; openDemoVideo() })
                                 }
                             }
                         },
@@ -1713,7 +1719,7 @@ class MainActivity : ComponentActivity() {
                     TextButton(onClick = { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ },
                         modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(12.dp)
                             .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(24.dp))) {
-                        Text("باز کردن قفل", color = Color.White)
+                        Text("Unlock controls", color = Color.White)
                     }
                 }
             }
@@ -1722,7 +1728,7 @@ class MainActivity : ComponentActivity() {
         if (showPlaybackTools && !pictureInPicture && !controlsLocked) {
             ModalBottomSheet(onDismissRequest = { showPlaybackTools = false }) {
                 Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-                    Text("ابزارهای مطالعه", style = MaterialTheme.typography.titleMedium)
+                    Text("Study tools", style = MaterialTheme.typography.titleMedium)
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1733,18 +1739,18 @@ class MainActivity : ComponentActivity() {
                         replayEndMs = null
                         abLoop = null
                         loopStartMs = player.currentPosition.coerceAtLeast(0)
-                    }) { Text(loopStartMs?.let { "A: " + formatTime(it) } ?: "ثبت A") }
+                    }) { Text(loopStartMs?.let { "A: " + formatTime(it) } ?: "Set A") }
                     TextButton(enabled = canSeek && loopStartMs != null && !player.isCurrentMediaItemLive, onClick = {
                         val loop = playbackLoop(loopStartMs ?: 0, player.currentPosition, player.duration)
                         if (loop == null) {
-                            Toast.makeText(this@MainActivity, "B باید دست‌کم نیم‌ثانیه بعد از A باشد.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "Set B at least half a second after A.", Toast.LENGTH_SHORT).show()
                         } else {
                             lookup = null
                             startAbLoop(loop)
                         }
-                    }) { Text(abLoop?.let { "B: " + formatTime(it.endMs) } ?: "ثبت B") }
+                    }) { Text(abLoop?.let { "B: " + formatTime(it.endMs) } ?: "Set B") }
                     TextButton(enabled = loopStartMs != null || abLoop != null, onClick = { clearAbLoop() }) {
-                        Text("لغو تکرار")
+                        Text("Clear loop")
                     }
                 }
                 FlowRow(
@@ -1756,14 +1762,14 @@ class MainActivity : ComponentActivity() {
                         adjacentDialogue(navigationDialogues, player.currentPosition, false)?.let {
                             seekWithinVideo(it.startMs)
                         }
-                    }) { Text("شروع / قبلی") }
+                    }) { Text("Start / Previous") }
                     TextButton(enabled = canSeek && nextDialogue != null, onClick = {
                         lookup = null
                         adjacentDialogue(navigationDialogues, player.currentPosition, true)?.let {
                             seekWithinVideo(it.startMs)
                         }
-                    }) { Text("دیالوگ بعدی") }
-                    TextButton(onClick = { showSettings = true }) { Text("تنظیمات") }
+                    }) { Text("Next dialogue") }
+                    TextButton(onClick = { showSettings = true }) { Text("Settings") }
                     TextButton(
                         enabled = canSeek && dialogueRanges.isNotEmpty(),
                         onClick = {
@@ -1771,7 +1777,7 @@ class MainActivity : ComponentActivity() {
                             showPlaybackTools = false
                             showDialogues = true
                         }
-                    ) { Text("دیالوگ‌ها") }
+                    ) { Text("Dialogues") }
 
                 }
                 }
@@ -1808,7 +1814,7 @@ class MainActivity : ComponentActivity() {
                         playbackLoop(dialogue.startMs, dialogue.endMs, player.duration)
                     } else null
                     if (loop == null) {
-                        Toast.makeText(this@MainActivity, "تکرار این بازه در دسترس نیست.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Could not loop this range.", Toast.LENGTH_SHORT).show()
                     } else {
                         showDialogues = false
                         controlsVisible = true
@@ -2035,7 +2041,7 @@ private fun TappableSubtitle(
                 )
             }
             selectedRange?.let { range ->
-                addStyle(SpanStyle(background = PinesPalette.Curtain, color = PinesPalette.Cream),
+                addStyle(SpanStyle(background = PinesPalette.AccentContainer, color = PinesPalette.Ink),
                     start = range.first, end = range.last + 1)
             }
         }
@@ -2091,60 +2097,60 @@ private fun MeaningCard(
         lookup.word else "${lookup.word} → ${meaning.headword}"
     Column(
         Modifier.widthIn(max = 520.dp).heightIn(max = 190.dp)
-            .background(PinesPalette.Card.copy(alpha = 0.97f), RoundedCornerShape(16.dp))
+            .glassPanel(MaterialTheme.shapes.large, overVideo = true)
             .verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.weight(1f)) {
-                Text(label, color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge,
+                Text(label, color = PinesPalette.Accent, style = MaterialTheme.typography.labelLarge,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if (lookup.loading) "در حال جست‌وجوی معنی…" else meaning?.persian ?: lookup.meaningSource,
-                    color = PinesPalette.Cream, maxLines = if (lookup.expanded) 8 else 2,
+                Text(if (lookup.loading) "Looking up meaning…" else meaning?.persian ?: lookup.meaningSource,
+                    color = PinesPalette.Ink, maxLines = if (lookup.expanded) 8 else 2,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl))
+                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.ContentOrLtr))
             }
             if (lookup.loading) {
-                TextButton(onClick = onDismiss) { Text("لغو", color = PinesPalette.Cream) }
+                TextButton(onClick = onDismiss) { Text("Cancel", color = PinesPalette.Ink) }
             } else if (meaning != null) {
                 TextButton(enabled = lookup.saveState == WordSaveState.Ready, onClick = onSave) {
                     Text(when (lookup.saveState) {
-                        WordSaveState.Ready -> "ذخیره"
+                        WordSaveState.Ready -> "Save"
                         WordSaveState.Saving -> "…"
-                        WordSaveState.Saved -> "ذخیره شد"
-                    }, color = PinesPalette.Cream)
+                        WordSaveState.Saved -> "Saved"
+                    }, color = PinesPalette.Ink)
                 }
             }
-            PlayerIconButton(PlayerGlyph.More, "گزینه‌های واژه", onClick = { lookup.expanded = !lookup.expanded })
+            PlayerIconButton(PlayerGlyph.More, "Word options", onClick = { lookup.expanded = !lookup.expanded })
         }
         if (!lookup.loading && meaning != null) {
-            Text(lookup.meaningSource, color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
+            Text(lookup.meaningSource, color = PinesPalette.Accent, style = MaterialTheme.typography.labelSmall)
         }
         if (!lookup.loading && meaning == null) {
             if (lookup.failure == LookupFailure.OfflineUnavailable) {
-                TextButton(onClick = onRetry) { Text("تلاش دوبارهٔ آفلاین", color = PinesPalette.Cream) }
+                TextButton(onClick = onRetry) { Text("Retry offline lookup", color = PinesPalette.Ink) }
             }
             TextButton(onClick = onOnline) {
                 Text(if (lookup.failure != null && lookup.failure != LookupFailure.OfflineUnavailable)
-                    "تلاش دوبارهٔ آنلاین" else "ترجمهٔ اینترنتی این واژه", color = PinesPalette.Cream)
+                    "Retry online translation" else "Translate online", color = PinesPalette.Ink)
             }
-            Text("فقط واژهٔ انتخاب‌شده به MyMemory فرستاده می‌شود؛ نیازمند اینترنت و دارای سهمیهٔ روزانه.",
-                color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
+            Text("Only the selected term is sent to MyMemory. This requires internet access and is subject to a daily quota.",
+                color = PinesPalette.Accent, style = MaterialTheme.typography.labelSmall)
         }
         if (lookup.expanded) {
             if (onReplay != null) {
-                TextButton(onClick = onReplay) { Text("بازپخش این دیالوگ", color = PinesPalette.Cream) }
+                TextButton(onClick = onReplay) { Text("Replay this dialogue", color = PinesPalette.Ink) }
             }
             phraseChoices()
-            TextButton(onClick = onDictionary) { Text("جست‌وجو در واژه‌نامه", color = PinesPalette.Cream) }
+            TextButton(onClick = onDictionary) { Text("Search dictionary", color = PinesPalette.Ink) }
             TextButton(enabled = canEditMeaning && !lookup.loading, onClick = onEditMeaning) {
-                Text(if (meaning == null) "افزودن معنی" else "ویرایش معنی", color = PinesPalette.Cream)
+                Text(if (meaning == null) "Add definition" else "Edit definition", color = PinesPalette.Ink)
             }
-            PronunciationControls(pronunciation, lookup.word, contentColor = PinesPalette.Rose, beforeSpeak = beforeSpeak)
-            TextButton(onClick = onDismiss) { Text("بستن", color = PinesPalette.Cream) }
+            PronunciationControls(pronunciation, lookup.word, contentColor = PinesPalette.Accent, beforeSpeak = beforeSpeak)
+            TextButton(onClick = onDismiss) { Text("Close", color = PinesPalette.Ink) }
         }
         lookup.studyAction?.let { action ->
             TextButton(onClick = onStudyAction) {
-                Text(if (action == StudyAction.Resume) "ادامهٔ پخش" else "بستن", color = PinesPalette.Cream)
+                Text(if (action == StudyAction.Resume) "Resume playback" else "Close", color = PinesPalette.Ink)
             }
         }
     }

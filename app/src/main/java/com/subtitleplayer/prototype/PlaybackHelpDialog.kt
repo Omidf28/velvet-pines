@@ -16,13 +16,13 @@ import androidx.compose.ui.unit.dp
 internal fun PlaybackHelpDialog(skipSeconds: Int, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("راهنمای Velvet Pines") },
+        title = { Text("Velvet Pines Help") },
         text = {
             Column(
                 Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) { PlaybackHelp(skipSeconds) }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }

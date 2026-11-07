@@ -13,7 +13,7 @@ internal class PackagedDictionary(context: Context) {
     private val context = context.applicationContext
 
     fun resolve(term: String, personal: Map<String, WordMeaning>): DictionaryResult {
-        val key = normalizeDictionaryTerm(term) ?: return DictionaryResult(null, "این واژه قابل جست‌وجو نیست")
+        val key = normalizeDictionaryTerm(term) ?: return DictionaryResult(null, "This term cannot be looked up")
         immediateDictionaryMeaning(key, personal)?.let { return it }
         val file = prepare()
         SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->

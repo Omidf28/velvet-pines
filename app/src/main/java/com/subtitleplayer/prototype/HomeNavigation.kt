@@ -1,11 +1,14 @@
 package com.subtitleplayer.prototype
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,31 +16,45 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun HomeNavigation(showingWords: Boolean, onFiles: () -> Unit, onWords: () -> Unit) {
-    NavigationBar(windowInsets = WindowInsets(0, 0, 0, 0)) {
+    val colors = NavigationBarItemDefaults.colors(
+        selectedIconColor = PinesPalette.Accent,
+        selectedTextColor = PinesPalette.Ink,
+        indicatorColor = PinesPalette.AccentContainer,
+        unselectedIconColor = PinesPalette.Muted,
+        unselectedTextColor = PinesPalette.Muted
+    )
+    NavigationBar(
+        modifier = Modifier.border(1.dp, PinesPalette.Border),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        windowInsets = WindowInsets(0, 0, 0, 0)
+    ) {
         NavigationBarItem(
             selected = !showingWords,
             onClick = onFiles,
             icon = { HomeNavigationIcon(folder = true) },
-            label = { Text("فایل‌ها") }
+            label = { Text("Files") },
+            colors = colors
         )
         NavigationBarItem(
             selected = showingWords,
             onClick = onWords,
             icon = { HomeNavigationIcon(folder = false) },
-            label = { Text("فلش‌کارت‌ها") }
+            label = { Text("Flashcards") },
+            colors = colors
         )
     }
 }
 
 @Composable
-internal fun HomeNavigationIcon(folder: Boolean) {
-    val ink = MaterialTheme.colorScheme.onSurfaceVariant
+internal fun HomeNavigationIcon(folder: Boolean, ink: Color = LocalContentColor.current) {
     Canvas(Modifier.size(24.dp)) {
         val u = size.width / 24f
         val stroke = Stroke(1.7f * u, join = StrokeJoin.Round)

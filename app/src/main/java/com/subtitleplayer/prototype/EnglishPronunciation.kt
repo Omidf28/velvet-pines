@@ -86,19 +86,19 @@ internal class EnglishPronunciation(context: Context) {
         val value = text.trim()
         if (value.isEmpty()) return
         if (value.length > TextToSpeech.getMaxSpeechInputLength()) {
-            message("این جمله برای تلفظ بیش از حد طولانی است.")
+            message("This sentence is too long to read aloud.")
             return
         }
         val voice = localVoice()
         if (voice == null) {
             ready = false
-            message("ابتدا صدای آفلاین انگلیسی را در تنظیمات گفتار گوشی نصب کنید.")
+            message("Install an offline English voice in your device's speech settings.")
             return
         }
         val tts = engine ?: return
         if (tts.setVoice(voice) != TextToSpeech.SUCCESS ||
             tts.setSpeechRate(if (slow) 0.75f else 1f) != TextToSpeech.SUCCESS) {
-            message("آماده‌کردن تلفظ ممکن نبود.")
+            message("Could not prepare pronunciation.")
             return
         }
         beforeSpeak()
@@ -115,7 +115,7 @@ internal class EnglishPronunciation(context: Context) {
             if (!closed && id != null && utterance == id) {
                 utterance = null
                 speaking = false
-                if (error) message("پخش تلفظ ممکن نبود. صدای انگلیسی گوشی را بررسی کنید.")
+                if (error) message("Could not play pronunciation. Check your device's English voice.")
             }
         }
     }
@@ -140,12 +140,12 @@ internal class EnglishPronunciation(context: Context) {
             try {
                 context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             } catch (_: ActivityNotFoundException) {
-                message("تنظیمات گفتار را از تنظیمات گوشی باز کنید.")
+                message("Open speech settings from your device settings.")
             } catch (_: SecurityException) {
-                message("تنظیمات گفتار را از تنظیمات گوشی باز کنید.")
+                message("Open speech settings from your device settings.")
             }
         } catch (_: SecurityException) {
-            message("تنظیمات گفتار را از تنظیمات گوشی باز کنید.")
+            message("Open speech settings from your device settings.")
         }
     }
 

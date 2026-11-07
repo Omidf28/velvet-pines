@@ -22,8 +22,8 @@ internal data class EmbeddedSubtitleTrack(val group: Tracks.Group, val index: In
             Locale.forLanguageTag(it).getDisplayLanguage(Locale.forLanguageTag("fa"))
         }
         val name = format.label?.takeIf(String::isNotBlank) ?: language?.takeIf(String::isNotBlank)
-        val forced = if (candidate.forced) " · اجباری" else ""
-        return (if (name == null) "زیرنویس داخلی $number" else "زیرنویس داخلی $number · $name") + forced
+        val forced = if (candidate.forced) " · Forced" else ""
+        return (if (name == null) "Embedded subtitle $number" else "Embedded subtitle $number · $name") + forced
     }
 }
 
