@@ -23,7 +23,7 @@ internal data class LibraryFolderShortcut(val tree: Uri, val path: List<LibraryS
 
 internal data class LibraryFolderListing(val folders: List<LibrarySubfolder>, val videos: List<LibraryVideo>)
 internal const val recentVideoLimit = 20
-internal const val playbackQueueLimit = 100
+internal const val legacyQueueEntryLimit = 100
 internal const val favoriteFolderLimit = 20
 private val videoExtensions = setOf("mp4", "m4v", "mkv", "webm", "mov", "avi", "3gp", "ts", "mpeg", "mpg")
 

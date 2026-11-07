@@ -32,7 +32,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class LibraryTab(val label: String) { Folder("پوشه"), Recent("اخیرها"), Queue("صف پخش") }
+internal enum class LibraryTab(val label: String) { Folder("پوشه"), Recent("اخیرها") }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,11 +43,8 @@ internal fun VideoLibraryScreen(
     onFolderPathChange: (List<LibrarySubfolder>) -> Unit,
     favoriteFolders: List<LibraryFolderShortcut>,
     recent: List<LibraryVideo>,
-    queue: List<LibraryVideo>,
-    onEnqueue: (LibraryVideo) -> Unit,
-    onMoveQueued: (Uri, Int) -> Unit,
-    onRemoveQueued: (Uri) -> Unit,
-    onPlayQueue: () -> Unit,
+    tab: LibraryTab,
+    onTabChange: (LibraryTab) -> Unit,
     onChooseFolder: () -> Unit,
     onOpenFavorite: (LibraryFolderShortcut) -> Unit,
     onToggleFavorite: (LibraryFolderShortcut) -> Unit,
@@ -74,9 +71,6 @@ internal fun VideoLibraryScreen(
     var showLinkDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var smbBrowse by remember { mutableStateOf<SmbBrowseRequest?>(null) }
-    var tab by rememberSaveable {
-        mutableStateOf(if (folderPath.isNotEmpty() || recent.isEmpty()) LibraryTab.Folder else LibraryTab.Recent)
-    }
     var includeSubfolders by remember(folder, folderRevision) { mutableStateOf(false) }
     var folderListing by remember(folder, folderRevision, folderPath, includeSubfolders) {
         mutableStateOf<LibraryFolderListing?>(null)
@@ -139,16 +133,16 @@ internal fun VideoLibraryScreen(
     fun chooseFolder() {
         keyboard?.hide()
         query = ""
-        tab = LibraryTab.Folder
+        onTabChange(LibraryTab.Folder)
         onChooseFolder()
     }
     fun folderName(uri: Uri): String = folderNames[uri] ?: fallbackFolderName(uri)
     val currentFolder = folder?.let { LibraryFolderShortcut(it, folderPath) }
     val currentIsFavorite = currentFolder != null && favoriteFolders.any { it.sameFolder(currentFolder) }
     val favoriteAction = if (currentIsFavorite) "حذف از محبوب‌ها" else "افزودن به محبوب‌ها"
-    val bookmarksByKey = remember(recent, queue) {
+    val bookmarksByKey = remember(recent) {
         buildMap<String, PlaybackBookmark> {
-            (queue.asReversed() + recent.asReversed()).forEach { video ->
+            recent.asReversed().forEach { video ->
                 video.bookmark?.let { put(videoSubtitleKey(video.uri), it) }
             }
         }
@@ -159,7 +153,6 @@ internal fun VideoLibraryScreen(
             video.copy(bookmark = video.bookmark ?: bookmarksByKey[videoSubtitleKey(video.uri)])
         }
     }
-    val queuedKeys = remember(queue) { queue.map { videoSubtitleKey(it.uri) }.toSet() }
     val orderedVideos = remember(videos, order) {
         val comparator = Comparator<LibraryVideo> { a, b ->
             val name = compareNaturalNames(a.name, b.name)
@@ -207,143 +200,139 @@ internal fun VideoLibraryScreen(
             }
             PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = PinesPalette.Night) {
                 LibraryTab.entries.forEach { option ->
-                    Tab(selected = tab == option, onClick = { tab = option }, text = {
-                        Text(option.label + if (option == LibraryTab.Queue && queue.isNotEmpty()) " (${queue.size})" else "",
+                    Tab(selected = tab == option, onClick = { onTabChange(option) }, text = {
+                        Text(option.label,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     })
                 }
             }
         }
-        if (tab == LibraryTab.Queue) {
-            PlaybackQueueList(queue, onMoveQueued, onRemoveQueued, onPlayQueue, Modifier.weight(1f))
-        } else {
-            if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).onFocusChanged { searchFocused = it.isFocused },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                label = { Text(if (showRecent) "جست‌وجوی فیلم" else "جست‌وجو در این مسیر") },
-                trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("پاک") } }))
-            LazyColumn(state = libraryListState, modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!searchEditing && showRecent) item(key = "library-actions") {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onChooseFile) { Text("باز کردن فایل") }
-                        OutlinedButton(onClick = ::chooseFolder) { Text("انتخاب پوشه") }
-                        if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
-                    }
+        if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).onFocusChanged { searchFocused = it.isFocused },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+            label = { Text(if (showRecent) "جست‌وجوی فیلم" else "جست‌وجو در این مسیر") },
+            trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("پاک") } }))
+        LazyColumn(state = libraryListState, modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (!searchEditing && showRecent) item(key = "library-actions") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onChooseFile) { Text("باز کردن فایل") }
+                    OutlinedButton(onClick = ::chooseFolder) { Text("انتخاب پوشه") }
+                    if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
                 }
-                if (!searchEditing && !showRecent && folderPath.isEmpty()) item(key = "current-folder") {
-                    Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card)) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("پوشهٔ فعلی", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
-                            Text(folder?.let(::folderName) ?: "یک پوشهٔ ویدیو انتخاب کنید",
-                                style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = ::chooseFolder) {
-                                    Text(if (folder == null) "انتخاب پوشه" else "تغییر پوشه")
+            }
+            if (!searchEditing && !showRecent && folderPath.isEmpty()) item(key = "current-folder") {
+                Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("پوشهٔ فعلی", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
+                        Text(folder?.let(::folderName) ?: "یک پوشهٔ ویدیو انتخاب کنید",
+                            style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = ::chooseFolder) {
+                                Text(if (folder == null) "انتخاب پوشه" else "تغییر پوشه")
+                            }
+                            if (currentFolder != null) {
+                                OutlinedButton(onClick = { onToggleFavorite(currentFolder) }) {
+                                    Text(favoriteAction)
                                 }
-                                if (currentFolder != null) {
-                                    OutlinedButton(onClick = { onToggleFavorite(currentFolder) }) {
-                                        Text(favoriteAction)
-                                    }
-                                } else {
-                                    TextButton(onClick = onChooseFile) { Text("باز کردن فایل") }
-                                    if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
-                                }
+                            } else {
+                                TextButton(onClick = onChooseFile) { Text("باز کردن فایل") }
+                                if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
                             }
                         }
                     }
                 }
-                if (continuation != null && !searchEditing) item(key = "continue-watching") {
-                    ContinueWatchingCard(continuation, onOpen = { keyboard?.hide(); onOpen(continuation) })
-                }
-                if (!searchEditing && !showRecent && folder != null) item(key = "folder-navigation") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (folderPath.isNotEmpty()) {
-                            Text("مسیر پوشه", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
-                            Text((listOf(folderName(folder)) + folderPath.map { it.name }).joinToString(" / "),
-                                style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { navigateTo(folderPath.dropLast(1)) }) { Text("پوشهٔ بالاتر") }
-                                TextButton(onClick = { navigateTo(emptyList()) }) { Text("پوشهٔ اصلی") }
-                                if (currentFolder != null) {
-                                    TextButton(onClick = { onToggleFavorite(currentFolder) }) { Text(favoriteAction) }
-                                }
+            }
+            if (continuation != null && !searchEditing) item(key = "continue-watching") {
+                ContinueWatchingCard(continuation, onOpen = { keyboard?.hide(); onOpen(continuation) })
+            }
+            if (!searchEditing && !showRecent && folder != null) item(key = "folder-navigation") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (folderPath.isNotEmpty()) {
+                        Text("مسیر پوشه", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
+                        Text((listOf(folderName(folder)) + folderPath.map { it.name }).joinToString(" / "),
+                            style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { navigateTo(folderPath.dropLast(1)) }) { Text("پوشهٔ بالاتر") }
+                            TextButton(onClick = { navigateTo(emptyList()) }) { Text("پوشهٔ اصلی") }
+                            if (currentFolder != null) {
+                                TextButton(onClick = { onToggleFavorite(currentFolder) }) { Text(favoriteAction) }
                             }
                         }
-                        FilterChip(
-                            selected = includeSubfolders,
-                            onClick = { includeSubfolders = !includeSubfolders },
-                            label = { Text("ویدیوهای زیرپوشه‌ها هم نمایش داده شوند") }
-                        )
                     }
-                }
-                if (!searchEditing && !showRecent) item(key = "favorite-folders") {
-                    FavoriteFoldersSection(
-                        folders = favoriteFolders.sortedBy { it.path.lastOrNull()?.name ?: folderName(it.tree) },
-                        selected = currentFolder,
-                        folderName = ::folderName,
-                        onOpen = { shortcut ->
-                            keyboard?.hide()
-                            query = ""
-                            onOpenFavorite(shortcut)
-                        },
-                        onRemove = onToggleFavorite
+                    FilterChip(
+                        selected = includeSubfolders,
+                        onClick = { includeSubfolders = !includeSubfolders },
+                        label = { Text("ویدیوهای زیرپوشه‌ها هم نمایش داده شوند") }
                     )
                 }
-                if (!showRecent && visibleFolders.isNotEmpty()) {
-                    item(key = "subfolder-heading") { Text("زیرپوشه‌ها", style = MaterialTheme.typography.titleSmall) }
-                    items(visibleFolders, key = { "folder:" + it.documentId }) { subfolder ->
-                        OutlinedCard(
-                            onClick = { navigateTo(folderPath + subfolder) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                Text(subfolder.name, style = MaterialTheme.typography.titleSmall,
-                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text("باز کردن پوشه", style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
-                            }
+            }
+            if (!searchEditing && !showRecent) item(key = "favorite-folders") {
+                FavoriteFoldersSection(
+                    folders = favoriteFolders.sortedBy { it.path.lastOrNull()?.name ?: folderName(it.tree) },
+                    selected = currentFolder,
+                    folderName = ::folderName,
+                    onOpen = { shortcut ->
+                        keyboard?.hide()
+                        query = ""
+                        onOpenFavorite(shortcut)
+                    },
+                    onRemove = onToggleFavorite
+                )
+            }
+            if (!showRecent && visibleFolders.isNotEmpty()) {
+                item(key = "subfolder-heading") { Text("زیرپوشه‌ها", style = MaterialTheme.typography.titleSmall) }
+                items(visibleFolders, key = { "folder:" + it.documentId }) { subfolder ->
+                    OutlinedCard(
+                        onClick = { navigateTo(folderPath + subfolder) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Text(subfolder.name, style = MaterialTheme.typography.titleSmall,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("باز کردن پوشه", style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
                         }
                     }
                 }
-                if (!searchEditing && (showRecent || folder != null)) item(key = "library-order") {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text(if (showRecent) "تماشای اخیر" else "ویدیوهای پوشه", style = MaterialTheme.typography.titleSmall)
-                            Text("${filtered.size} ویدیو", color = PinesPalette.Muted, style = MaterialTheme.typography.labelMedium)
-                        }
-                        Box(Modifier.weight(1f)) {
-                            DisplayOrderMenu(order.name,
-                                if (order == LibraryDisplayOrder.Default && showRecent) "اخیرترین تماشا" else order.label,
-                                LibraryDisplayOrder.entries.map { it.name to it.label },
-                                onSelect = { orderName = it; orderPrefs.edit().putString("library", it).apply() })
-                        }
-                        if (!showRecent && folder != null) TextButton(enabled = folderListing != null || folderError, onClick = { refresh++ }) { Text("تازه‌سازی") }
+            }
+            if (!searchEditing && (showRecent || folder != null)) item(key = "library-order") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text(if (showRecent) "تماشای اخیر" else "ویدیوهای پوشه", style = MaterialTheme.typography.titleSmall)
+                        Text("${filtered.size} ویدیو", color = PinesPalette.Muted, style = MaterialTheme.typography.labelMedium)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        DisplayOrderMenu(order.name,
+                            if (order == LibraryDisplayOrder.Default && showRecent) "اخیرترین تماشا" else order.label,
+                            LibraryDisplayOrder.entries.map { it.name to it.label },
+                            onSelect = { orderName = it; orderPrefs.edit().putString("library", it).apply() })
+                    }
+                    if (!showRecent && folder != null) TextButton(enabled = folderListing != null || folderError, onClick = { refresh++ }) { Text("تازه‌سازی") }
+                }
+            }
+            val message = when {
+                !showRecent && folder == null -> null
+                !showRecent && folderError -> "پوشه خوانده نشد. دوباره تلاش کن یا دسترسی پوشه را انتخاب کن."
+                !showRecent && folderListing == null -> "در حال بررسی پوشه…"
+                search.isNotEmpty() && filtered.isEmpty() -> "ویدیویی با این جست‌وجو پیدا نشد."
+                showRecent && filtered.isEmpty() -> "پس از تماشای اولین فیلم، ادامهٔ تماشا و فیلم‌های اخیر اینجا نمایش داده می‌شوند."
+                filtered.isEmpty() -> "در این پوشه ویدیویی پیدا نشد."
+                else -> null
+            }
+            if (message != null) item(key = "library-message") {
+                Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (!showRecent && folder != null && folderListing == null && !folderError)
+                            CircularProgressIndicator(Modifier.size(24.dp), color = PinesPalette.Rose)
+                        Text(message, color = PinesPalette.Muted)
+                        if (!showRecent && folderError) TextButton(onClick = { refresh++ }) { Text("تلاش دوباره") }
                     }
                 }
-                val message = when {
-                    !showRecent && folder == null -> null
-                    !showRecent && folderError -> "پوشه خوانده نشد. دوباره تلاش کن یا دسترسی پوشه را انتخاب کن."
-                    !showRecent && folderListing == null -> "در حال بررسی پوشه…"
-                    search.isNotEmpty() && filtered.isEmpty() -> "ویدیویی با این جست‌وجو پیدا نشد."
-                    showRecent && filtered.isEmpty() -> "پس از تماشای اولین فیلم، ادامهٔ تماشا و فیلم‌های اخیر اینجا نمایش داده می‌شوند."
-                    filtered.isEmpty() -> "در این پوشه ویدیویی پیدا نشد."
-                    else -> null
-                }
-                if (message != null) item(key = "library-message") {
-                    Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (!showRecent && folder != null && folderListing == null && !folderError)
-                                CircularProgressIndicator(Modifier.size(24.dp), color = PinesPalette.Rose)
-                            Text(message, color = PinesPalette.Muted)
-                            if (!showRecent && folderError) TextButton(onClick = { refresh++ }) { Text("تلاش دوباره") }
-                        }
-                    }
-                } else {
-                    items(filtered, key = { it.uri.toString() }) { video ->
-                        LibraryVideoCard(video, queued = videoSubtitleKey(video.uri) in queuedKeys,
-                            onOpen = { keyboard?.hide(); onOpen(video) }, onRestart = { keyboard?.hide(); onRestart(video) }, onEnqueue = { onEnqueue(video) })
-                    }
+            } else {
+                items(filtered, key = { it.uri.toString() }) { video ->
+                    LibraryVideoCard(video,
+                        onOpen = { keyboard?.hide(); onOpen(video) }, onRestart = { keyboard?.hide(); onRestart(video) })
                 }
             }
         }
@@ -496,48 +485,4 @@ private fun VideoLinkDialog(
             }
         }
     )
-}
-
-@Composable
-private fun PlaybackQueueList(
-    queue: List<LibraryVideo>,
-    onMove: (Uri, Int) -> Unit,
-    onRemove: (Uri) -> Unit,
-    onPlay: () -> Unit,
-    modifier: Modifier
-) {
-    if (queue.isEmpty()) {
-        Box(modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-            Text("از بخش پوشه یا اخیر، ویدیو به صف اضافه کنید.")
-        }
-        return
-    }
-
-    Column(modifier.fillMaxWidth()) {
-        Button(onClick = onPlay, modifier = Modifier.padding(horizontal = 12.dp)) { Text("پخش صف") }
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            itemsIndexed(queue, key = { _, video -> video.uri.toString() }) { index, video ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text(
-                            "${index + 1}. ${video.name}",
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(enabled = index > 0, onClick = { onMove(video.uri, -1) }) { Text("بالا") }
-                            TextButton(enabled = index < queue.lastIndex, onClick = { onMove(video.uri, 1) }) {
-                                Text("پایین")
-                            }
-                            TextButton(onClick = { onRemove(video.uri) }) { Text("حذف") }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

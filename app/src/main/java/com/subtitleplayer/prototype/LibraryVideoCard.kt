@@ -37,10 +37,8 @@ private fun LibraryArtwork(name: String) {
 @Composable
 internal fun LibraryVideoCard(
     video: LibraryVideo,
-    queued: Boolean,
     onOpen: () -> Unit,
-    onRestart: () -> Unit,
-    onEnqueue: () -> Unit
+    onRestart: () -> Unit
 ) {
     var menuOpen by remember(video.uri) { mutableStateOf(false) }
     Card(onClick = onOpen, modifier = Modifier.fillMaxWidth(),
@@ -57,9 +55,9 @@ internal fun LibraryVideoCard(
                 }
                 val bookmark = video.bookmark
                 val label = when {
-                    bookmark?.completed == true -> "تماشا شد"
+                    bookmark?.completed == true -> "تماشا شد · پخش دوباره"
                     bookmark?.resumable == true -> "ادامه از " + formatTime(bookmark.resumePositionMs)
-                    else -> "آمادهٔ پخش"
+                    else -> "پخش"
                 }
                 Text(label, color = if (bookmark?.completed == true) PinesPalette.Forest else PinesPalette.Muted,
                     style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -68,14 +66,15 @@ internal fun LibraryVideoCard(
                         color = PinesPalette.Rose, trackColor = PinesPalette.Curtain.copy(alpha = 0.5f))
                 }
             }
-            Box {
-                PlayerIconButton(PlayerGlyph.More, "گزینه‌های ${video.name}", onClick = { menuOpen = true })
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text(if (video.bookmark?.resumable == true) "ادامهٔ تماشا" else "پخش") },
-                        onClick = { menuOpen = false; onOpen() })
-                    DropdownMenuItem(text = { Text("پخش از ابتدا") }, onClick = { menuOpen = false; onRestart() })
-                    DropdownMenuItem(enabled = !queued, text = { Text(if (queued) "در صف پخش" else "افزودن به صف") },
-                        onClick = { menuOpen = false; onEnqueue() })
+            if (video.bookmark?.resumable == true) {
+                Box {
+                    PlayerIconButton(PlayerGlyph.More, "گزینه‌های ${video.name}", onClick = { menuOpen = true })
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(text = { Text("پخش از ابتدا") }, onClick = {
+                            menuOpen = false
+                            onRestart()
+                        })
+                    }
                 }
             }
         }

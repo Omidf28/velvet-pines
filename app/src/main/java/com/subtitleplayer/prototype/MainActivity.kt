@@ -158,7 +158,7 @@ class MainActivity : ComponentActivity() {
     private var libraryPath by mutableStateOf<List<LibrarySubfolder>>(emptyList())
     private var libraryFolderRevision by mutableIntStateOf(0)
     private var recentVideos by mutableStateOf(emptyList<LibraryVideo>())
-    private var playbackQueue by mutableStateOf(emptyList<LibraryVideo>())
+    private var legacyQueuedVideos: List<LibraryVideo> = emptyList()
     private var foreground by mutableStateOf(false)
     private var pictureInPicture by mutableStateOf(false)
     private val supportsPictureInPicture by lazy {
@@ -257,7 +257,7 @@ class MainActivity : ComponentActivity() {
         val readable = persistentReadUris()
         recentVideos = readVideoEntries(history.getString("recentVideos", null), recentVideoLimit)
             .filter { readable.coversReadAccess(it.uri) }
-        playbackQueue = readVideoEntries(history.getString("playbackQueue", null), playbackQueueLimit)
+        legacyQueuedVideos = readVideoEntries(history.getString("playbackQueue", null), legacyQueueEntryLimit)
             .filter { readable.coversReadAccess(it.uri) }
         showLibrary = savedInstanceState?.getBoolean("showLibrary") == true
 
@@ -309,20 +309,6 @@ class MainActivity : ComponentActivity() {
                         abLoop == null && replayEndMs == null && autoPauseEnds.lastOrNull() == player.duration
                     ) player.pause()
                     if (playbackState == Player.STATE_READY) videoReady = true
-                    if (playbackState == Player.STATE_ENDED && !player.isCurrentMediaItemLive &&
-                        player.playWhenReady && replayEndMs == null && abLoop == null && playbackQueue.isNotEmpty()
-                    ) {
-                        val endedSource = videoUri
-                        window.decorView.post {
-                            expireSleepTimer()
-                            if (foreground && !showLibrary && videoUri == endedSource &&
-                                player.playbackState == Player.STATE_ENDED && player.playWhenReady &&
-                                replayEndMs == null && abLoop == null
-                            ) {
-                                playNextQueuedVideo()
-                            }
-                        }
-                    }
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -542,8 +528,8 @@ class MainActivity : ComponentActivity() {
         val retained = listOfNotNull(
             videoUri, subtitleUri, translationUri, libraryFolder, videoParentDirectory,
             history.getString("video", null)?.let(Uri::parse)
-        ) + recentVideos.map(LibraryVideo::uri) + playbackQueue.map(LibraryVideo::uri) +
-            recentVideos.mapNotNull(LibraryVideo::parentDirectory) + playbackQueue.mapNotNull(LibraryVideo::parentDirectory) +
+        ) + recentVideos.map(LibraryVideo::uri) + legacyQueuedVideos.map(LibraryVideo::uri) +
+            recentVideos.mapNotNull(LibraryVideo::parentDirectory) + legacyQueuedVideos.mapNotNull(LibraryVideo::parentDirectory) +
             subtitleProfiles.flatMap { listOfNotNull(it.video, it.subtitles.english, it.subtitles.persian) }
         val retainedGrants = (retained + favoriteFolders.map { it.tree }).flatMap { listOf(it, libraryGrantUri(it)) }.toSet()
         for (grant in grants) {
@@ -683,7 +669,7 @@ class MainActivity : ComponentActivity() {
     private fun knownParentFor(uri: Uri): Uri? {
         if (uri == videoUri && videoParentDirectory != null) return videoParentDirectory
         val key = videoSubtitleKey(uri)
-        return (recentVideos + playbackQueue).firstOrNull {
+        return (recentVideos + legacyQueuedVideos).firstOrNull {
             videoSubtitleKey(it.uri) == key && it.parentDirectory != null
         }?.parentDirectory
     }
@@ -811,7 +797,7 @@ class MainActivity : ComponentActivity() {
 
     private fun knownLibraryVideo(uri: Uri): LibraryVideo? {
         val key = videoSubtitleKey(uri)
-        val matches = (recentVideos + playbackQueue).filter { videoSubtitleKey(it.uri) == key }
+        val matches = (recentVideos + legacyQueuedVideos).filter { videoSubtitleKey(it.uri) == key }
         val first = matches.firstOrNull() ?: return null
         return if (first.bookmark != null) first else first.copy(bookmark = matches.firstNotNullOfOrNull { it.bookmark })
     }
@@ -836,49 +822,6 @@ class MainActivity : ComponentActivity() {
             history.edit().putString("recentVideos", writeVideoEntries(recentVideos)).apply()
         }
     }
-    private fun updatePlaybackQueue(entries: List<LibraryVideo>) {
-        playbackQueue = entries
-        history.edit().putString("playbackQueue", writeVideoEntries(entries)).apply()
-    }
-
-    private fun enqueueVideo(video: LibraryVideo) {
-        if (playbackQueue.any { videoSubtitleKey(it.uri) == videoSubtitleKey(video.uri) }) return
-        if (playbackQueue.size >= playbackQueueLimit) {
-            Toast.makeText(this, "صف پخش پر است.", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (!persistentReadUris().coversReadAccess(video.uri)) {
-            Toast.makeText(this, "برای دسترسی دوباره، فایل یا پوشه را انتخاب کنید.", Toast.LENGTH_SHORT).show()
-            return
-        }
-        updatePlaybackQueue(playbackQueue + video)
-    }
-
-    private fun moveQueuedVideo(uri: Uri, offset: Int) {
-        val index = playbackQueue.indexOfFirst { it.uri == uri }
-        val target = index + offset
-        if (index < 0 || target !in playbackQueue.indices) return
-        val ordered = playbackQueue.toMutableList()
-        val video = ordered.removeAt(index)
-        ordered.add(target, video)
-        updatePlaybackQueue(ordered)
-    }
-
-    private fun playNextQueuedVideo() {
-        if (playbackQueue.isEmpty()) return
-        val readable = persistentReadUris()
-        val nextIndex = playbackQueue.indexOfFirst { readable.coversReadAccess(it.uri) }
-        if (nextIndex < 0) {
-            updatePlaybackQueue(emptyList())
-            Toast.makeText(this, "فایل‌های صف دیگر قابل دسترسی نیستند.", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val next = playbackQueue[nextIndex]
-        showLibrary = false
-        openVideo(next.uri, parentDirectory = next.parentDirectory, parentPath = next.parentPath)
-        updatePlaybackQueue(playbackQueue.drop(nextIndex + 1))
-    }
-
     private fun openLibraryVideo(video: LibraryVideo, startOver: Boolean = false) {
         val uri = video.uri
         if (!persistentReadUris().coversReadAccess(uri)) {
@@ -1055,6 +998,9 @@ class MainActivity : ComponentActivity() {
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
         var showWords by rememberSaveable { mutableStateOf(false) }
+        var libraryTab by remember {
+            mutableStateOf(if (libraryFolder != null || recentVideos.isEmpty()) LibraryTab.Folder else LibraryTab.Recent)
+        }
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
@@ -1275,11 +1221,8 @@ class MainActivity : ComponentActivity() {
                 onFolderPathChange = { libraryPath = it },
                 favoriteFolders = favoriteFolders,
                 recent = recentVideos,
-                queue = playbackQueue,
-                onEnqueue = ::enqueueVideo,
-                onMoveQueued = ::moveQueuedVideo,
-                onRemoveQueued = { uri -> updatePlaybackQueue(playbackQueue.filterNot { it.uri == uri }) },
-                onPlayQueue = ::playNextQueuedVideo,
+                tab = libraryTab,
+                onTabChange = { libraryTab = it },
                 onChooseFolder = { selectFolder.launch(libraryFolder) },
                 onOpenFavorite = { folder ->
                     if (persistentReadUris().coversReadAccess(folder.tree)) selectLibraryFolder(folder.tree, folder.path)

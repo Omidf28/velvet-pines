@@ -66,13 +66,13 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Re-enable automatic English from the menu. It should resume discovery; a selected external subtitle must take priority until the user explicitly switches away from it.
 - [ ] Hide and show English using the caption menu. This should preserve its source and profile mode; automatic selection should not silently undo the display preference.
 - [ ] Upgrade with existing manual/off profiles and verify that the absence of the new JSON field preserves the old behavior.
-- [ ] Switch quickly between two videos and between queued items. No subtitle text or track selection from the previous source should appear in the next one.
+- [ ] Switch quickly between two videos in the same folder. No subtitle text or track selection from the previous source should appear in the next one.
 - [ ] Verify adaptive stream track changes separately where compatible text tracks are exposed. This does not establish general protocol or codec compatibility.
 ## Nearby Subtitle Files
 
 - [ ] Generate the sidecar test kit, extract it into a fresh phone folder, and open that folder through the library. Verify the auto, ambiguous, and untagged cases separately.
 - [ ] Open identically named videos in different nested folders. Only subtitles from the actual known parent may be offered or attached.
-- [ ] Verify recent playback and queued entries after restarting the application; the known parent and retained subtitle choice should remain usable while their grants remain valid.
+- [ ] Verify recent playback after restarting the application. The known parent and subtitle choice should remain usable while their grants remain valid.
 - [ ] Open the same video using a single-file picker without known parent context. Do not assume parent access or search unrelated folders.
 - [ ] Make a manual/off/internal-only selection or select a word while discovery is slow. A late result must not overwrite the choice or dismiss the word card. Switch A → B → A during a slow query to check stale-result rejection.
 - [ ] Test malformed, empty, oversized, and inaccessible English-tagged files. Failed validation must leave the current source intact and must not pause, seek, or resize video playback.
@@ -91,8 +91,8 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Fill retained recent history, then open its oldest entry while recording an outgoing movie. The incoming checkpoint must survive that eviction boundary.
 - [ ] Open the same document through file and folder URIs, and different documents with identical filenames. Identity should share a checkpoint only for the same document; folder labels should distinguish duplicates after restart.
 - [ ] Exercise unknown-duration and nonseekable sources. Do not show an invented percentage or persist a nonseekable resume point.
-- [ ] Test search with the keyboard in portrait/landscape, large fonts, TalkBack, empty results, refresh/retry, and repeated Folder/Recent/Queue switches. Controls and results must remain reachable.
-- [ ] Verify queue insertion, duplicate identity checks, removal, ordering, autoplay, and bookmark fallback from retained queued metadata without modifying manual queue order.
+- [ ] Test search with the keyboard in portrait/landscape, large fonts, TalkBack, empty results, refresh/retry, and repeated Folder/Recent switches. Controls and results must remain reachable.
+- [ ] Play an episode directly from a folder and let it finish. Return to the same library tab and folder, then select the next episode. Verify playback and subtitle discovery use the selected file.
 ## Test Record
 
 Record device model, Android version, navigation mode, font scale, media codec, subtitle source, and reproduction steps for each failure. Include a screen recording when reporting incorrect resizing or touch behavior. No item is marked passed until observed on a device.

@@ -6,13 +6,13 @@ When no media source can be restored, the application opens its library instead 
 
 The header, tabs, and search are compact. Source actions, sorting, the continue-watching card, and media rows use the scrolling content area. While the search field owns the visible keyboard, secondary headers are hidden so results remain reachable in a short landscape viewport. Opening media explicitly hides the keyboard.
 
-Media rows show the filename, known folder label, playback state, and recorded progress when available. Their artwork is a generic branded file tile, not an extracted video thumbnail. The row menu provides playback, playback from the beginning, and queue insertion. Manual queue ordering remains unchanged.
+Media rows show the filename, known folder label, playback state, and recorded progress when available. Their artwork is a generic branded file tile, not an extracted video thumbnail. Tap a row to play or resume it. A resumable row also offers playback from the beginning. When an episode ends, return to the library and choose the next episode from the same folder.
 
 Folder scans start when the Folder tab is requested, reuse completed results within the current library screen, and provide refresh and retry actions. Recent browsing does not eagerly rescan the selected folder. File changes require a refresh; this is not a persistent media index or filesystem watcher.
 
 ## Bookmark Semantics
 
-Bookmarks are retained with recent entries and with queue entries that carry a cached bookmark. This follows the existing limits of 20 recent videos and 100 queued entries; it is not an unlimited watch-history database.
+Bookmarks are retained with up to 20 recent entries. Legacy queue records can supply a cached bookmark or folder context when reopening the same video.
 
 A checkpoint contains position in milliseconds, duration when known, and whether the previous playback reached the end. An unknown duration has no percentage indicator. A completed source replays from zero, and starting it again replaces its prior completion state. Closing during credits does not count as completion merely because the end is near.
 
@@ -22,7 +22,7 @@ Explicit start-from-beginning takes priority over a stored bookmark, including a
 
 ## Persistence and Compatibility
 
-Recent/queue JSON entries now optionally carry `positionMs`, `durationMs`, `completed`, and the display-only `parentPath`. Older entries without a position field remain valid and have no bookmark. The previous global last-position value is used as a fallback when restoring legacy last playback, while a known per-video checkpoint takes priority.
+Recent entries and legacy queue records can carry `positionMs`, `durationMs`, `completed`, and the display-only `parentPath`. Older entries without a position field remain valid and have no bookmark. The previous global last-position value is used as a fallback when restoring legacy last playback, while a known per-video checkpoint takes priority.
 
 Folder labels are displayed and searched as metadata; they are never used as filesystem paths or permission grants. Existing parent-directory URIs continue to define authorized nearby-subtitle access.
 

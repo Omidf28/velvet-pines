@@ -16,7 +16,7 @@ The project is an experimental implementation with local build and automated tes
 
 ### Media Playback
 
-- Local video playback through Android's Storage Access Framework, including folder browsing, recent media, and a reorderable playback queue.
+- Local video playback through Android's Storage Access Framework, with folder browsing and recent media. Select a video directly from either view.
 - A redesigned library with continue-watching cards, per-video checkpoints within retained history, recorded progress, folder labels, and explicit playback from the beginning.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
 - Video-first playback with automatic landscape immersion, overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.

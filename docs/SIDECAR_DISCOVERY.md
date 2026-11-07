@@ -2,7 +2,7 @@
 
 ## Scope and Access
 
-Open a video from a folder selected in the application library to enable nearby-file discovery. The library records the video's known SAF parent directory and carries it through recent media, the queue, and Activity restoration. Existing history entries without this optional context remain playable; opening the video through its folder supplies that context.
+Open a video from a folder selected in the application library to enable nearby-file discovery. The library records the video's known SAF parent directory and carries it through recent media and Activity restoration. Existing history entries without this optional context remain playable; opening the video through its folder supplies that context.
 
 Discovery queries only that granted parent and requires the video's document ID to appear among its children. It does not derive filesystem paths from document IDs or recursively search other folders. Selecting an individual video alone does not establish permission to list its parent. This follows Android's [user-selected directory access model](https://developer.android.com/training/data-storage/shared/documents-files) and [document-provider hierarchy](https://developer.android.com/guide/topics/providers/document-provider).
 
