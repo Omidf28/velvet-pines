@@ -18,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontFamily
@@ -83,6 +86,10 @@ internal fun VideoLibraryScreen(
     var orderName by rememberSaveable { mutableStateOf(orderPrefs.getString("library", LibraryDisplayOrder.Default.name)) }
     val order = LibraryDisplayOrder.entries.firstOrNull { it.name == orderName } ?: LibraryDisplayOrder.Default
     val query = browseState.query
+    var searchOpen by remember(browseState) { mutableStateOf(query.isNotEmpty()) }
+    var requestSearchFocus by remember(browseState) { mutableStateOf(false) }
+    val searchFocus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
     var searchFocused by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val searchEditing = searchFocused && WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -100,6 +107,21 @@ internal fun VideoLibraryScreen(
         libraryListState.requestScrollToItem(0)
     }
 
+    fun closeSearch() {
+        focusManager.clearFocus()
+        keyboard?.hide()
+        changeQuery("")
+        searchOpen = false
+        requestSearchFocus = false
+    }
+    LaunchedEffect(searchOpen, requestSearchFocus) {
+        if (searchOpen && requestSearchFocus) {
+            searchFocus.requestFocus()
+            keyboard?.show()
+            requestSearchFocus = false
+        }
+    }
+
     val browse = smbBrowse
     if (browse != null) {
         SmbBrowserScreen(browse, onOpen = onOpenLink, onBack = { smbBrowse = null })
@@ -112,6 +134,7 @@ internal fun VideoLibraryScreen(
     BackHandler(enabled = tab == LibraryTab.Folder && folderPath.isNotEmpty() && !searchEditing) {
         navigateTo(folderPath.dropLast(1))
     }
+    BackHandler(enabled = searchOpen && !searchEditing, onBack = ::closeSearch)
     LaunchedEffect(browseState, resolver, browseState.scanRevision) {
         if (folder == null || tab != LibraryTab.Folder || folderListing != null || folderError) return@LaunchedEffect
         try {
@@ -199,11 +222,46 @@ internal fun VideoLibraryScreen(
                         fontFamily = FontFamily.Serif, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("فایل‌ها", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (canReturnToPlayback) TextButton(onClick = onBack) { Text("بازگشت به فیلم") }
+                if (canReturnToPlayback) PlayerIconButton(PlayerGlyph.Play, "بازگشت به فیلم", onClick = onBack)
+                if (!searchOpen && (showRecent || folder != null)) {
+                    PlayerIconButton(PlayerGlyph.Search, "جست‌وجوی فایل", onClick = {
+                        searchOpen = true
+                        requestSearchFocus = true
+                    })
+                }
                 Box {
                     PlayerIconButton(PlayerGlyph.More, "منوی کتابخانه", onClick = { showLibraryMenu = true })
                     DropdownMenu(expanded = showLibraryMenu, onDismissRequest = { showLibraryMenu = false }) {
                         DropdownMenuItem(text = { Text("باز کردن فایل") }, onClick = { showLibraryMenu = false; onChooseFile() })
+                        DropdownMenuItem(text = { Text(if (folder == null) "انتخاب پوشه" else "تغییر پوشهٔ اصلی") },
+                            onClick = { showLibraryMenu = false; chooseFolder() })
+                        if (!showRecent && folder != null) {
+                            DropdownMenuItem(
+                                text = { Text("تازه‌سازی پوشه") },
+                                enabled = folderListing != null || folderError,
+                                onClick = { showLibraryMenu = false; browseState.refreshFolder() }
+                            )
+                            DropdownMenuItem(text = {
+                                Text(if (includeSubfolders) "فقط ویدیوهای این پوشه" else "نمایش ویدیوهای زیرپوشه‌ها")
+                            }, onClick = {
+                                showLibraryMenu = false
+                                onIncludeSubfoldersChange(!includeSubfolders)
+                                browseState.refreshFolder()
+                                libraryListState.requestScrollToItem(0)
+                            })
+                        }
+                        HorizontalDivider()
+                        for (option in LibraryDisplayOrder.entries) {
+                            val label = if (option == LibraryDisplayOrder.Default && showRecent) "اخیرترین تماشا" else option.label
+                            DropdownMenuItem(text = { Text((if (order == option) "✓ " else "") + label) },
+                                onClick = {
+                                    showLibraryMenu = false
+                                    if (orderName != option.name) libraryListState.requestScrollToItem(0)
+                                    orderName = option.name
+                                    orderPrefs.edit().putString("library", orderName).apply()
+                                })
+                        }
+                        HorizontalDivider()
                         DropdownMenuItem(text = { Text("لینک ویدیو") }, onClick = { showLibraryMenu = false; showLinkDialog = true })
                         DropdownMenuItem(text = { Text("پخش نمونه") }, onClick = { showLibraryMenu = false; onPlaySample() })
                         HorizontalDivider()
@@ -212,7 +270,7 @@ internal fun VideoLibraryScreen(
                     }
                 }
             }
-            PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = PinesPalette.Night) {
+            if (!searchOpen) PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = PinesPalette.Night) {
                 LibraryTab.entries.forEach { option ->
                     Tab(selected = tab == option, onClick = { onTabChange(option) }, text = {
                         Text(option.label,
@@ -221,22 +279,22 @@ internal fun VideoLibraryScreen(
                 }
             }
         }
-        if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = ::changeQuery, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).onFocusChanged { searchFocused = it.isFocused },
+        if (searchOpen) OutlinedTextField(value = query, onValueChange = ::changeQuery, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).focusRequester(searchFocus).onFocusChanged { searchFocused = it.isFocused },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
             label = { Text(if (showRecent) "جست‌وجوی فیلم" else "جست‌وجو در این مسیر") },
-            trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { changeQuery("") }) { Text("پاک") } }))
+            trailingIcon = { TextButton(onClick = ::closeSearch) { Text("بستن") } })
         LazyColumn(state = libraryListState, modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (!searchEditing && showRecent) item(key = "library-actions") {
+            if (!searchOpen && showRecent) item(key = "library-actions") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onChooseFile) { Text("باز کردن فایل") }
                     OutlinedButton(onClick = ::chooseFolder) { Text("انتخاب پوشه") }
                     if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
                 }
             }
-            if (!searchEditing && !showRecent && folderPath.isEmpty()) item(key = "current-folder") {
+            if (!searchOpen && !showRecent && folderPath.isEmpty()) item(key = "current-folder") {
                 Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("پوشهٔ فعلی", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
@@ -256,10 +314,10 @@ internal fun VideoLibraryScreen(
                     }
                 }
             }
-            if (continuation != null && !searchEditing) item(key = "continue-watching") {
+            if (continuation != null && !searchOpen) item(key = "continue-watching") {
                 ContinueWatchingCard(continuation, onOpen = { keyboard?.hide(); onOpen(continuation) })
             }
-            if (!searchEditing && !showRecent && folder != null) item(key = "folder-navigation") {
+            if (!searchOpen && !showRecent && folder != null && folderPath.isNotEmpty()) item(key = "folder-navigation") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (folderPath.isNotEmpty()) {
                         Text("مسیر پوشه", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
@@ -273,18 +331,9 @@ internal fun VideoLibraryScreen(
                             }
                         }
                     }
-                    FilterChip(
-                        selected = includeSubfolders,
-                        onClick = {
-                            onIncludeSubfoldersChange(!includeSubfolders)
-                            browseState.refreshFolder()
-                            libraryListState.requestScrollToItem(0)
-                        },
-                        label = { Text("ویدیوهای زیرپوشه‌ها هم نمایش داده شوند") }
-                    )
                 }
             }
-            if (!searchEditing && !showRecent) item(key = "favorite-folders") {
+            if (!searchOpen && !showRecent) item(key = "favorite-folders") {
                 FavoriteFoldersSection(
                     folders = favoriteFolders.sortedBy { it.path.lastOrNull()?.name ?: folderName(it.tree) },
                     selected = currentFolder,
@@ -312,24 +361,11 @@ internal fun VideoLibraryScreen(
                     }
                 }
             }
-            if (!searchEditing && (showRecent || folder != null)) item(key = "library-order") {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text(if (showRecent) "تماشای اخیر" else "ویدیوهای پوشه", style = MaterialTheme.typography.titleSmall)
-                        Text("${filtered.size} ویدیو", color = PinesPalette.Muted, style = MaterialTheme.typography.labelMedium)
-                    }
-                    Box(Modifier.weight(1f)) {
-                        DisplayOrderMenu(order.name,
-                            if (order == LibraryDisplayOrder.Default && showRecent) "اخیرترین تماشا" else order.label,
-                            LibraryDisplayOrder.entries.map { it.name to it.label },
-                            onSelect = {
-                                if (orderName != it) libraryListState.requestScrollToItem(0)
-                                orderName = it
-                                orderPrefs.edit().putString("library", it).apply()
-                            })
-                    }
-                    if (!showRecent && folder != null) TextButton(enabled = folderListing != null || folderError, onClick = browseState::refreshFolder) { Text("تازه‌سازی") }
-                }
+            if (filtered.isNotEmpty()) item(key = "video-heading") {
+                Text(
+                    if (showRecent) "تماشای اخیر" else "ویدیوها",
+                    style = MaterialTheme.typography.titleSmall
+                )
             }
             val message = when {
                 !showRecent && folder == null -> null

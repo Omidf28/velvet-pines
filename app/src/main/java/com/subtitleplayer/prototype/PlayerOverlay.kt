@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
-internal enum class PlayerGlyph { Back, Play, Pause, Previous, Next, Expand, Settings, More, Subtitles, Lock }
+internal enum class PlayerGlyph { Back, Play, Pause, Previous, Next, Expand, Settings, More, Subtitles, Lock, Search }
 
 @Composable
 internal fun PlayerIconButton(
@@ -68,6 +68,10 @@ internal fun PlayerIconButton(
                     line(3f,15f,3f,21f); line(3f,21f,9f,21f); line(15f,21f,21f,21f); line(21f,21f,21f,15f)
                 }
                 PlayerGlyph.More -> for (y in listOf(5f,12f,19f)) drawCircle(ink, 1.6f*unit, Offset(12*unit,y*unit))
+                PlayerGlyph.Search -> {
+                    drawCircle(ink, 5.5f * unit, Offset(10.5f * unit, 10.5f * unit), style = Stroke(1.8f * unit))
+                    line(15f, 15f, 21f, 21f)
+                }
                 PlayerGlyph.Subtitles -> {
                     drawRoundRect(ink, Offset(2*unit,4*unit), androidx.compose.ui.geometry.Size(20*unit,16*unit),
                         androidx.compose.ui.geometry.CornerRadius(2*unit), style=Stroke(1.6f*unit))

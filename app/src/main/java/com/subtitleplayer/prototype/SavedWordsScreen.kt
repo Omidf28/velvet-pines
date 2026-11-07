@@ -229,6 +229,7 @@ internal fun SavedWordsScreen(
         )
     }
     var toolsOpen by remember { mutableStateOf(false) }
+    var filtersOpen by rememberSaveable { mutableStateOf(false) }
     var expandedWordId by rememberSaveable { mutableStateOf<Long?>(null) }
     fun export(format: VocabularyExportFormat) {
         keyboard?.hide()
@@ -319,43 +320,55 @@ internal fun SavedWordsScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            VocabularyFilter.entries.forEach { option ->
-                                FilterChip(
-                                    selected = filter == option,
-                                    onClick = { filterName = option.name },
-                                    label = { Text(option.label) }
-                                )
-                            }
+                        TextButton(onClick = {
+                            keyboard?.hide()
+                            filtersOpen = !filtersOpen
+                        }) {
+                            Text(when {
+                                filtersOpen -> "بستن فیلترها"
+                                selectedSource != null || filter != VocabularyFilter.All -> "فیلتر و ترتیب · فیلتر فعال"
+                                else -> "فیلتر و ترتیب"
+                            })
                         }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            DisplayOrderMenu(
-                                wordOrder.name, wordOrder.label,
-                                WordDisplayOrder.entries.map { it.name to it.label },
-                                onSelect = {
-                                    keyboard?.hide()
-                                    orderName = it
-                                    orderPrefs.edit().putString("words", it).apply()
+                        if (filtersOpen) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                VocabularyFilter.entries.forEach { option ->
+                                    FilterChip(
+                                        selected = filter == option,
+                                        onClick = { filterName = option.name },
+                                        label = { Text(option.label) }
+                                    )
                                 }
-                            )
-                            Box {
-                                TextButton(onClick = { keyboard?.hide(); sourceMenuOpen = true }) {
-                                    Text(sourceLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                                DropdownMenu(
-                                    expanded = sourceMenuOpen,
-                                    onDismissRequest = { sourceMenuOpen = false },
-                                    modifier = Modifier.heightIn(max = 320.dp)
-                                ) {
-                                    DropdownMenuItem(text = { Text("همهٔ فیلم‌ها") }, onClick = {
-                                        selectedSource = null
-                                        sourceMenuOpen = false
-                                    })
-                                    sources.forEach { source ->
-                                        DropdownMenuItem(
-                                            text = { Text(source.value.first().sourceName) },
-                                            onClick = { selectedSource = source.key; sourceMenuOpen = false }
-                                        )
+                            }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DisplayOrderMenu(
+                                    wordOrder.name, wordOrder.label,
+                                    WordDisplayOrder.entries.map { it.name to it.label },
+                                    onSelect = {
+                                        keyboard?.hide()
+                                        orderName = it
+                                        orderPrefs.edit().putString("words", it).apply()
+                                    }
+                                )
+                                Box {
+                                    TextButton(onClick = { keyboard?.hide(); sourceMenuOpen = true }) {
+                                        Text(sourceLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    DropdownMenu(
+                                        expanded = sourceMenuOpen,
+                                        onDismissRequest = { sourceMenuOpen = false },
+                                        modifier = Modifier.heightIn(max = 320.dp)
+                                    ) {
+                                        DropdownMenuItem(text = { Text("همهٔ فیلم‌ها") }, onClick = {
+                                            selectedSource = null
+                                            sourceMenuOpen = false
+                                        })
+                                        sources.forEach { source ->
+                                            DropdownMenuItem(
+                                                text = { Text(source.value.first().sourceName) },
+                                                onClick = { selectedSource = source.key; sourceMenuOpen = false }
+                                            )
+                                        }
                                     }
                                 }
                             }
