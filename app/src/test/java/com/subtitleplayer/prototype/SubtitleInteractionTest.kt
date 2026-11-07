@@ -84,4 +84,28 @@ class SubtitleInteractionTest {
         assertEquals(listOf("We", "GAVE", "UP", "then", "left"), words.map { it.text })
         assertEquals("GAVE\tUP", text.substring(phrase.start, phrase.endExclusive))
     }
+
+    @Test fun phraseChoicesUseTheTappedOccurrenceAndStopAtSeparators() {
+        val cue = ActiveSubtitle("🎬 Go on, go\ton now.\nGo on again.", 1000)
+        val word = subtitleTerms(cue.text).filter { it.text.equals("go", ignoreCase = true) }[1]
+        val choices = subtitlePhraseCandidates(SubtitleSelection(cue, word.start, word.endExclusive))
+        assertEquals(listOf("go on now", "go on"), choices.map { it.text })
+        val phrase = choices.last()
+        assertEquals("go\ton", cue.text.substring(phrase.start, phrase.endExclusive))
+        assertEquals(word.start, phrase.start)
+    }
+
+    @Test fun phraseChoicesCanExtendAnExistingPhraseButNeverShrinkIt() {
+        val cue = ActiveSubtitle("We gave up hope.", 1000)
+        val term = subtitleTerms(cue.text, mode = SubtitleLookupMode.Phrases)[1]
+        val choices = subtitlePhraseCandidates(SubtitleSelection(cue, term.start, term.endExclusive))
+        assertEquals(listOf("We gave up hope", "We gave up", "gave up hope"), choices.map { it.text })
+    }
+
+    @Test fun phraseChoicesStayWithinTheBatchQueryLimit() {
+        val cue = ActiveSubtitle("a b c d e f g h i j k l m n o", 1000)
+        val term = subtitleTerms(cue.text)[7]
+        assertEquals(35, subtitlePhraseCandidates(SubtitleSelection(cue, term.start, term.endExclusive)).size)
+        assertEquals(emptyList<SubtitleTerm>(), subtitlePhraseCandidates(SubtitleSelection(cue, 0, 2)))
+    }
 }

@@ -1346,6 +1346,23 @@ class MainActivity : ComponentActivity() {
                                     pronunciation = pronunciation,
                                     onOnline = { selected.requests.online(); selected.requestRevision++; selected.loading = true },
                                     onRetry = { selected.requests.offline(); selected.requestRevision++; selected.loading = true },
+                                    phraseChoices = {
+                                        SubtitlePhraseChoices(selected.selection, personalMeanings, packagedDictionary) { term ->
+                                            if (lookup === selected) {
+                                                lookup = Lookup(
+                                                    word = term.text,
+                                                    meaning = null,
+                                                    dialogue = selected.dialogue,
+                                                    selection = selected.selection.copy(start = term.start, endExclusive = term.endExclusive),
+                                                    positionMs = selected.positionMs,
+                                                    subtitleStartMs = selected.subtitleStartMs,
+                                                    source = selected.source,
+                                                    sourceName = selected.sourceName,
+                                                    studyAction = selected.studyAction
+                                                )
+                                            }
+                                        }
+                                    },
                                     onDictionary = { dictionarySeed = selected.word; showDictionary = true },
                                     onDismiss = { lookup = null },
                                     canEditMeaning = personalEntries != null && selected.saveState != WordSaveState.Saving &&
@@ -1907,6 +1924,7 @@ private fun MeaningCard(
     pronunciation: EnglishPronunciation,
     onOnline: () -> Unit,
     onRetry: () -> Unit,
+    phraseChoices: @Composable () -> Unit,
     onDictionary: () -> Unit,
     onDismiss: () -> Unit,
     canEditMeaning: Boolean,
@@ -1960,6 +1978,7 @@ private fun MeaningCard(
                 color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall)
         }
         if (lookup.expanded) {
+            phraseChoices()
             TextButton(onClick = onDictionary) { Text("جست‌وجو در واژه‌نامه", color = PinesPalette.Cream) }
             TextButton(enabled = canEditMeaning && !lookup.loading, onClick = onEditMeaning) {
                 Text(if (meaning == null) "افزودن معنی" else "ویرایش معنی", color = PinesPalette.Cream)

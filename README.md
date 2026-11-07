@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.6.2-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.6.3-dev` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -31,6 +31,7 @@ The project is an experimental implementation with local build and automated tes
 - Automatic embedded English selection for new, unprofiled videos, with metadata-based ranking and explicit manual/off choices retained in local video profiles. External subtitles take priority.
 - Nearby SRT/WebVTT discovery within a granted library folder: an unambiguous tagged English match can attach automatically; ambiguous and untagged files are offered for manual selection.
 - Word-level selection by default, with an optional recognized-phrase mode persisted in study settings.
+- The word card can list dictionary phrases containing the selected text and open their definitions with the original subtitle context.
 - Cue-specific selection highlighting and compact definition cards over the video; cards are measured separately above the subtitles so opening one does not shift subtitle text. Editing and pronunciation remain available through the card menu.
 - Dialogue navigation, sentence repetition, and optional pause at the end of a subtitle cue.
 
@@ -103,7 +104,7 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 216 passed |
+| JVM unit tests | 219 passed |
 | SQLite migration and review checks | 14 passed (previous schema validation; schema unchanged) |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | 0 errors; 28 warnings |

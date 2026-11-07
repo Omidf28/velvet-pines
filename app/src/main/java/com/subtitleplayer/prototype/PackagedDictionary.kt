@@ -43,6 +43,17 @@ internal class PackagedDictionary(context: Context) {
         return mergeDictionarySearch(prefix, indexed, personal)
     }
 
+    /** Check the bounded candidate set with one primary-key query. Call on IO. */
+    fun matchingPhrases(keys: Set<String>): Set<String> {
+        if (keys.isEmpty()) return emptySet()
+        require(keys.size <= 35)
+        val placeholders = keys.joinToString(",") { "?" }
+        return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery("SELECT term FROM lexicon WHERE term IN ($placeholders)", keys.toTypedArray()).use { cursor ->
+                buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) }
+            }
+        }
+    }
     private fun prepare(): File = synchronized(installLock) {
         val manifest = context.assets.open("lexicon/manifest.json").bufferedReader().use { JSONObject(it.readText()) }
         val hash = manifest.getString("databaseSha256")

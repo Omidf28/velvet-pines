@@ -9,8 +9,17 @@ See [0.6.2 lookup reliability](LOOKUP_RELIABILITY.md) for temporary caches, expl
 The APK includes an English–Persian SQLite dictionary with **230,921 indexed entries**:
 **97,026 single-token entries** and **133,895 multiword entries**. These are dictionary
 keys, not a measured percentage of film dialogue or a guarantee of distinct linguistic
-headwords. The existing phrase-selection mode still recognizes its curated phrases;
-the larger phrase index does not turn on automatic arbitrary phrase selection.
+headwords. The phrase-selection mode recognizes curated phrases. The expanded word card can search the larger phrase index.
+
+In 0.6.3-dev, tap a word, open the three-dot menu, and choose the subtitle phrase list.
+It checks exact adjacent phrases containing the selected text on its original subtitle
+line. Choosing a result opens its meaning and lets you save it with the original
+dialogue and timestamp. The list uses the packaged and personal dictionaries and
+curated entries. It excludes phrases that cross punctuation or a subtitle line break.
+
+On a device, try a cue containing `coffee break`, select `coffee`, then choose the phrase.
+Check its highlight, meaning, and saved context. Repeat during playback and during
+a study pause. Try a repeated word, a line break, and switching words during a search.
 
 Source: [EnglishToPersianDictionaries](https://github.com/VahidN/EnglishToPersianDictionaries),
 commit `224f15d42d145c59b5dc2c6890c4736693613cc2`, `generic-1` and `generic-13`.
