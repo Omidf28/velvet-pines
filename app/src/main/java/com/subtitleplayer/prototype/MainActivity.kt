@@ -154,7 +154,8 @@ class MainActivity : ComponentActivity() {
     private var videoReady by mutableStateOf(false)
     private var showLibrary by mutableStateOf(false)
     private var libraryFolder by mutableStateOf<Uri?>(null)
-    private var favoriteFolders by mutableStateOf<Set<Uri>>(emptySet())
+    private var favoriteFolders by mutableStateOf<List<LibraryFolderShortcut>>(emptyList())
+    private var libraryPath by mutableStateOf<List<LibrarySubfolder>>(emptyList())
     private var libraryFolderRevision by mutableIntStateOf(0)
     private var recentVideos by mutableStateOf(emptyList<LibraryVideo>())
     private var playbackQueue by mutableStateOf(emptyList<LibraryVideo>())
@@ -249,8 +250,10 @@ class MainActivity : ComponentActivity() {
             .takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.82f
         subtitleProfiles = loadSubtitleProfiles()
         libraryFolder = parseLibraryFolderUri(history.getString("libraryFolder", null))
-        favoriteFolders = history.getStringSet("favoriteFolders", emptySet()).orEmpty()
-            .mapNotNull(::parseLibraryFolderUri).take(favoriteFolderLimit).toSet()
+        favoriteFolders = history.getString("favoriteFolderShortcuts", null)?.let(::readFavoriteFolderShortcuts)
+            ?: history.getStringSet("favoriteFolders", emptySet()).orEmpty()
+                .mapNotNull(::parseLibraryFolderUri).distinct().take(favoriteFolderLimit)
+                .map { LibraryFolderShortcut(it) }
         val readable = persistentReadUris()
         recentVideos = readVideoEntries(history.getString("recentVideos", null), recentVideoLimit)
             .filter { readable.coversReadAccess(it.uri) }
@@ -542,7 +545,7 @@ class MainActivity : ComponentActivity() {
         ) + recentVideos.map(LibraryVideo::uri) + playbackQueue.map(LibraryVideo::uri) +
             recentVideos.mapNotNull(LibraryVideo::parentDirectory) + playbackQueue.mapNotNull(LibraryVideo::parentDirectory) +
             subtitleProfiles.flatMap { listOfNotNull(it.video, it.subtitles.english, it.subtitles.persian) }
-        val retainedGrants = (retained + favoriteFolders).flatMap { listOf(it, libraryGrantUri(it)) }.toSet()
+        val retainedGrants = (retained + favoriteFolders.map { it.tree }).flatMap { listOf(it, libraryGrantUri(it)) }.toSet()
         for (grant in grants) {
             if (grant.isReadPermission && grant.uri !in retainedGrants) {
                 try {
@@ -769,17 +772,19 @@ class MainActivity : ComponentActivity() {
         false
     }
 
-    private fun selectLibraryFolder(folder: Uri) {
+    private fun selectLibraryFolder(folder: Uri, path: List<LibrarySubfolder> = emptyList()) {
         libraryFolder = folder
+        libraryPath = path
         libraryFolderRevision++
         history.edit().putString("libraryFolder", folder.toString()).apply()
     }
 
-    private fun toggleFavoriteFolder(folder: Uri) {
-        if (folder in favoriteFolders) {
-            favoriteFolders = favoriteFolders - folder
+    private fun toggleFavoriteFolder(folder: LibraryFolderShortcut) {
+        val existing = favoriteFolders.firstOrNull { it.sameFolder(folder) }
+        if (existing != null) {
+            favoriteFolders = favoriteFolders - existing
         } else {
-            if (!persistentReadUris().coversReadAccess(folder)) {
+            if (!persistentReadUris().coversReadAccess(folder.tree)) {
                 Toast.makeText(this, "برای افزودن پوشه، دوباره دسترسی آن را انتخاب کنید.", Toast.LENGTH_SHORT).show()
                 return
             }
@@ -789,7 +794,7 @@ class MainActivity : ComponentActivity() {
             }
             favoriteFolders = favoriteFolders + folder
         }
-        history.edit().putStringSet("favoriteFolders", favoriteFolders.map(Uri::toString).toSet()).apply()
+        history.edit().putString("favoriteFolderShortcuts", writeFavoriteFolderShortcuts(favoriteFolders)).apply()
     }
     private fun persistentReadUris(): Set<Uri> = contentResolver.persistedUriPermissions
         .filter { it.isReadPermission }.map { it.uri }.toSet()
@@ -1052,9 +1057,6 @@ class MainActivity : ComponentActivity() {
         var showWords by rememberSaveable { mutableStateOf(false) }
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
-        var libraryPath by remember(libraryFolder, libraryFolderRevision) {
-            mutableStateOf<List<LibrarySubfolder>>(emptyList())
-        }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
         var showSubtitleMenu by remember(videoUri) { mutableStateOf(false) }
         var sourceName by remember(videoUri) { mutableStateOf<String?>(null) }
@@ -1280,7 +1282,7 @@ class MainActivity : ComponentActivity() {
                 onPlayQueue = ::playNextQueuedVideo,
                 onChooseFolder = { selectFolder.launch(libraryFolder) },
                 onOpenFavorite = { folder ->
-                    if (persistentReadUris().coversReadAccess(folder)) selectLibraryFolder(folder)
+                    if (persistentReadUris().coversReadAccess(folder.tree)) selectLibraryFolder(folder.tree, folder.path)
                     else {
                         Toast.makeText(this, "دسترسی پوشه را دوباره انتخاب کنید.", Toast.LENGTH_SHORT).show()
                         selectFolder.launch(null)

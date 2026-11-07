@@ -15,6 +15,12 @@ import org.json.JSONObject
 internal data class LibraryVideo(val uri: Uri, val name: String, val parentPath: String? = null, val parentDirectory: Uri? = null, val bookmark: PlaybackBookmark? = null)
 
 internal data class LibrarySubfolder(val documentId: String, val name: String)
+
+internal data class LibraryFolderShortcut(val tree: Uri, val path: List<LibrarySubfolder> = emptyList()) {
+    fun sameFolder(other: LibraryFolderShortcut): Boolean =
+        tree == other.tree && path.lastOrNull()?.documentId == other.path.lastOrNull()?.documentId
+}
+
 internal data class LibraryFolderListing(val folders: List<LibrarySubfolder>, val videos: List<LibraryVideo>)
 internal const val recentVideoLimit = 20
 internal const val playbackQueueLimit = 100
@@ -41,6 +47,44 @@ internal fun parseLibraryFolderUri(value: String?): Uri? {
         null
     }
 }
+
+internal fun readFavoriteFolderShortcuts(encoded: String): List<LibraryFolderShortcut> {
+    val array = try {
+        JSONArray(encoded)
+    } catch (_: JSONException) {
+        return emptyList()
+    }
+    val shortcuts = mutableListOf<LibraryFolderShortcut>()
+    for (index in 0 until minOf(array.length(), favoriteFolderLimit)) {
+        val item = array.optJSONObject(index) ?: continue
+        val tree = parseLibraryFolderUri(item.optString("tree")) ?: continue
+        val entries = item.optJSONArray("path") ?: continue
+        val path = (0 until entries.length()).mapNotNull { step ->
+            val child = entries.optJSONObject(step) ?: return@mapNotNull null
+            val id = child.optString("id")
+            val name = child.optString("name")
+            if (id.isBlank() || name.isBlank()) null else LibrarySubfolder(id, name)
+        }
+        val ids = path.map { it.documentId }
+        if (path.size != entries.length() || ids.toSet().size != ids.size ||
+            DocumentsContract.getTreeDocumentId(tree) in ids) continue
+
+        val shortcut = LibraryFolderShortcut(tree, path)
+        if (shortcuts.none { it.sameFolder(shortcut) }) shortcuts.add(shortcut)
+    }
+    return shortcuts
+}
+
+internal fun writeFavoriteFolderShortcuts(shortcuts: List<LibraryFolderShortcut>): String =
+    JSONArray().apply {
+        for (shortcut in shortcuts) {
+            val path = JSONArray()
+            for (child in shortcut.path) {
+                path.put(JSONObject().put("id", child.documentId).put("name", child.name))
+            }
+            put(JSONObject().put("tree", shortcut.tree.toString()).put("path", path))
+        }
+    }.toString()
 
 internal fun fallbackFolderName(tree: Uri): String =
     DocumentsContract.getTreeDocumentId(tree).substringAfterLast('/').substringAfterLast(':')

@@ -41,7 +41,7 @@ internal fun VideoLibraryScreen(
     folderRevision: Int,
     folderPath: List<LibrarySubfolder>,
     onFolderPathChange: (List<LibrarySubfolder>) -> Unit,
-    favoriteFolders: Set<Uri>,
+    favoriteFolders: List<LibraryFolderShortcut>,
     recent: List<LibraryVideo>,
     queue: List<LibraryVideo>,
     onEnqueue: (LibraryVideo) -> Unit,
@@ -49,8 +49,8 @@ internal fun VideoLibraryScreen(
     onRemoveQueued: (Uri) -> Unit,
     onPlayQueue: () -> Unit,
     onChooseFolder: () -> Unit,
-    onOpenFavorite: (Uri) -> Unit,
-    onToggleFavorite: (Uri) -> Unit,
+    onOpenFavorite: (LibraryFolderShortcut) -> Unit,
+    onToggleFavorite: (LibraryFolderShortcut) -> Unit,
     onChooseFile: () -> Unit,
     onOpenLink: (OnlineVideoLink, SmbCredentials?) -> Unit,
     onOpen: (LibraryVideo) -> Unit,
@@ -116,12 +116,14 @@ internal fun VideoLibraryScreen(
         }
     }
     var folderNames by remember { mutableStateOf<Map<Uri, String>>(emptyMap()) }
-    LaunchedEffect(resolver, folder, favoriteFolders, folderRevision, tab) {
+    val namedFolders = remember(folder, favoriteFolders) {
+        favoriteFolders.map { it.tree }.toSet() + listOfNotNull(folder)
+    }
+    LaunchedEffect(resolver, namedFolders, folderRevision, tab) {
         if (tab != LibraryTab.Folder) return@LaunchedEffect
-        val folders = favoriteFolders + listOfNotNull(folder)
         folderNames = withContext(Dispatchers.IO) {
             buildMap {
-                for (uri in folders) {
+                for (uri in namedFolders) {
                     val name = try {
                         readFolderName(resolver, uri)
                     } catch (cancelled: CancellationException) {
@@ -141,6 +143,9 @@ internal fun VideoLibraryScreen(
         onChooseFolder()
     }
     fun folderName(uri: Uri): String = folderNames[uri] ?: fallbackFolderName(uri)
+    val currentFolder = folder?.let { LibraryFolderShortcut(it, folderPath) }
+    val currentIsFavorite = currentFolder != null && favoriteFolders.any { it.sameFolder(currentFolder) }
+    val favoriteAction = if (currentIsFavorite) "حذف از محبوب‌ها" else "افزودن به محبوب‌ها"
     val bookmarksByKey = remember(recent, queue) {
         buildMap<String, PlaybackBookmark> {
             (queue.asReversed() + recent.asReversed()).forEach { video ->
@@ -237,9 +242,9 @@ internal fun VideoLibraryScreen(
                                 Button(onClick = ::chooseFolder) {
                                     Text(if (folder == null) "انتخاب پوشه" else "تغییر پوشه")
                                 }
-                                if (folder != null) {
-                                    OutlinedButton(onClick = { onToggleFavorite(folder) }) {
-                                        Text(if (folder in favoriteFolders) "حذف از محبوب‌ها" else "افزودن به محبوب‌ها")
+                                if (currentFolder != null) {
+                                    OutlinedButton(onClick = { onToggleFavorite(currentFolder) }) {
+                                        Text(favoriteAction)
                                     }
                                 } else {
                                     TextButton(onClick = onChooseFile) { Text("باز کردن فایل") }
@@ -248,15 +253,6 @@ internal fun VideoLibraryScreen(
                             }
                         }
                     }
-                }
-                if (!searchEditing && !showRecent && folderPath.isEmpty()) item(key = "favorite-folders") {
-                    FavoriteFoldersSection(
-                        folders = favoriteFolders.sortedBy(::folderName),
-                        selected = folder,
-                        folderName = ::folderName,
-                        onOpen = { uri -> keyboard?.hide(); query = ""; onOpenFavorite(uri) },
-                        onRemove = onToggleFavorite
-                    )
                 }
                 if (continuation != null && !searchEditing) item(key = "continue-watching") {
                     ContinueWatchingCard(continuation, onOpen = { keyboard?.hide(); onOpen(continuation) })
@@ -270,6 +266,9 @@ internal fun VideoLibraryScreen(
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { navigateTo(folderPath.dropLast(1)) }) { Text("پوشهٔ بالاتر") }
                                 TextButton(onClick = { navigateTo(emptyList()) }) { Text("پوشهٔ اصلی") }
+                                if (currentFolder != null) {
+                                    TextButton(onClick = { onToggleFavorite(currentFolder) }) { Text(favoriteAction) }
+                                }
                             }
                         }
                         FilterChip(
@@ -278,6 +277,19 @@ internal fun VideoLibraryScreen(
                             label = { Text("ویدیوهای زیرپوشه‌ها هم نمایش داده شوند") }
                         )
                     }
+                }
+                if (!searchEditing && !showRecent) item(key = "favorite-folders") {
+                    FavoriteFoldersSection(
+                        folders = favoriteFolders.sortedBy { it.path.lastOrNull()?.name ?: folderName(it.tree) },
+                        selected = currentFolder,
+                        folderName = ::folderName,
+                        onOpen = { shortcut ->
+                            keyboard?.hide()
+                            query = ""
+                            onOpenFavorite(shortcut)
+                        },
+                        onRemove = onToggleFavorite
+                    )
                 }
                 if (!showRecent && visibleFolders.isNotEmpty()) {
                     item(key = "subfolder-heading") { Text("زیرپوشه‌ها", style = MaterialTheme.typography.titleSmall) }
@@ -344,11 +356,11 @@ internal fun VideoLibraryScreen(
 
 @Composable
 private fun FavoriteFoldersSection(
-    folders: List<Uri>,
-    selected: Uri?,
+    folders: List<LibraryFolderShortcut>,
+    selected: LibraryFolderShortcut?,
     folderName: (Uri) -> String,
-    onOpen: (Uri) -> Unit,
-    onRemove: (Uri) -> Unit
+    onOpen: (LibraryFolderShortcut) -> Unit,
+    onRemove: (LibraryFolderShortcut) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("پوشه‌های محبوب", style = MaterialTheme.typography.titleSmall)
@@ -357,21 +369,29 @@ private fun FavoriteFoldersSection(
                 color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(folders, key = { it.toString() }) { uri ->
-                    val name = folderName(uri)
+                items(folders, key = { it.tree.toString() + "/" + Uri.encode(it.path.lastOrNull()?.documentId.orEmpty()) }) { shortcut ->
+                    val root = folderName(shortcut.tree)
+                    val name = shortcut.path.lastOrNull()?.name ?: root
+                    val parent = if (shortcut.path.isEmpty()) null
+                        else (listOf(root) + shortcut.path.dropLast(1).map { it.name }).joinToString(" / ")
+                    val isSelected = selected != null && shortcut.sameFolder(selected)
                     Card(colors = CardDefaults.cardColors(
-                        containerColor = if (uri == selected) MaterialTheme.colorScheme.primaryContainer else PinesPalette.Card
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else PinesPalette.Card
                     )) {
                         Row(Modifier.width(208.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(
                                 Modifier.weight(1f).heightIn(min = 56.dp)
-                                    .clickable(onClickLabel = "باز کردن پوشه") { onOpen(uri) }.padding(10.dp)
+                                    .clickable(onClickLabel = "باز کردن پوشه") { onOpen(shortcut) }.padding(10.dp)
                             ) {
                                 Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                if (uri == selected) Text("پوشهٔ فعلی", style = MaterialTheme.typography.labelSmall)
+                                if (parent != null) {
+                                    Text(parent, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis)
+                                }
+                                if (isSelected) Text("پوشهٔ فعلی", style = MaterialTheme.typography.labelSmall)
                             }
                             IconButton(
-                                onClick = { onRemove(uri) },
+                                onClick = { onRemove(shortcut) },
                                 modifier = Modifier.semantics { contentDescription = "حذف $name از پوشه‌های محبوب" }
                             ) {
                                 Text("★", color = PinesPalette.Brass, modifier = Modifier.clearAndSetSemantics { })
@@ -383,6 +403,7 @@ private fun FavoriteFoldersSection(
         }
     }
 }
+
 @Composable
 private fun VideoLinkDialog(
     onDismiss: () -> Unit,
