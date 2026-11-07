@@ -10,7 +10,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -33,6 +32,7 @@ internal fun DialogueList(
     positionMs: Long,
     onSeek: (DialogueRange) -> Unit,
     onReplay: (DialogueRange) -> Unit,
+    onLoop: (DialogueRange) -> Unit,
     onDismiss: () -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -102,16 +102,22 @@ internal fun DialogueList(
                 Card(colors = CardDefaults.cardColors(
                     containerColor = if (dialogue == current) colors.secondaryContainer else colors.surfaceVariant
                 )) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f).clickable(onClickLabel = "رفتن به دیالوگ") {
+                    Column(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "رفتن به دیالوگ") {
                             keyboard?.hide()
                             onSeek(dialogue)
-                        }.padding(10.dp)) {
+                        }.padding(horizontal = 10.dp, vertical = 8.dp)) {
                             Text(formatTime(dialogue.startMs), style = MaterialTheme.typography.labelMedium)
                             Text(dialogue.text,
                                 style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr))
                         }
-                        TextButton(onClick = { keyboard?.hide(); onReplay(dialogue) }) { Text("بازپخش") }
+                        FlowRow(Modifier.padding(horizontal = 4.dp)) {
+                            TextButton(onClick = { keyboard?.hide(); onReplay(dialogue) }) { Text("بازپخش یک‌بار") }
+                            TextButton(
+                                enabled = dialogue.endMs - dialogue.startMs >= minimumPlaybackLoopMs,
+                                onClick = { keyboard?.hide(); onLoop(dialogue) }
+                            ) { Text("تکرار پیوسته") }
+                        }
                     }
                 }
             }

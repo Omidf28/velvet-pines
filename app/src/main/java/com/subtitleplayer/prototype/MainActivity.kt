@@ -206,6 +206,15 @@ class MainActivity : ComponentActivity() {
     private var abLoop by mutableStateOf<PlaybackLoop?>(null)
 
     private fun clearAbLoop() { abLoop = null; loopStartMs = null }
+
+    private fun startAbLoop(loop: PlaybackLoop) {
+        replayEndMs = null
+        loopStartMs = loop.startMs
+        abLoop = loop
+        player.seekTo(loop.startMs)
+        player.play()
+    }
+
     private val history by lazy { getSharedPreferences("last_playback", MODE_PRIVATE) }
     private val vocabulary by lazy { SavedWordsDatabase.get(applicationContext).words() }
     private val packagedDictionary by lazy { PackagedDictionary(applicationContext) }
@@ -1605,6 +1614,12 @@ class MainActivity : ComponentActivity() {
                                             showDialogues = true
                                         })
                                     }
+                                    if (abLoop != null) {
+                                        DropdownMenuItem(text = { Text("لغو تکرار") }, onClick = {
+                                            showPlayerMenu = false
+                                            clearAbLoop()
+                                        })
+                                    }
                                     DropdownMenuItem(text = { Text("ابزارهای مطالعه و تکرار") }, onClick = { showPlayerMenu = false; showPlaybackTools = true })
                                     if (supportsPictureInPicture && videoReady && !playbackError) {
                                         DropdownMenuItem(text = { Text("تصویر در تصویر") }, onClick = { showPlayerMenu = false; lookup = null; enterVideoPictureInPicture() })
@@ -1648,10 +1663,7 @@ class MainActivity : ComponentActivity() {
                             Toast.makeText(this@MainActivity, "B باید دست‌کم نیم‌ثانیه بعد از A باشد.", Toast.LENGTH_SHORT).show()
                         } else {
                             lookup = null
-                            replayEndMs = null
-                            abLoop = loop
-                            player.seekTo(loop.startMs)
-                            player.play()
+                            startAbLoop(loop)
                         }
                     }) { Text(abLoop?.let { "B: " + formatTime(it.endMs) } ?: "ثبت B") }
                     TextButton(enabled = loopStartMs != null || abLoop != null, onClick = { clearAbLoop() }) {
@@ -1713,6 +1725,18 @@ class MainActivity : ComponentActivity() {
                 onReplay = { dialogue ->
                     showDialogues = false
                     seekWithinVideo(dialogue.startMs, dialogue.endMs)
+                },
+                onLoop = { dialogue ->
+                    val loop = if (player.isCurrentMediaItemSeekable && !player.isCurrentMediaItemLive) {
+                        playbackLoop(dialogue.startMs, dialogue.endMs, player.duration)
+                    } else null
+                    if (loop == null) {
+                        Toast.makeText(this@MainActivity, "تکرار این بازه در دسترس نیست.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showDialogues = false
+                        controlsVisible = true
+                        startAbLoop(loop)
+                    }
                 },
                 onDismiss = { showDialogues = false }
             )
