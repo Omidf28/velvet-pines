@@ -1,6 +1,13 @@
-# Immersive Playback Acceptance — 0.5.0-dev
+# Android Device Acceptance
 
 Status: pending execution on an Android device. Compilation and JVM tests do not verify touch routing, overlay positioning, or device rendering.
+
+## Beta 0.7.0-beta.4 Quick Check
+
+1. Install the APK over beta.3. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
+2. In Files, open a nested folder and play a video. In portrait, press Android Back and confirm the same folder and scroll position return. Switch between Folders and Recent and verify each retains its place.
+3. Play the sample in fullscreen, show the controls, and quickly tap `afford` and `lose` in the first subtitle. The subtitle should stay under the same touch targets while the controls hide. Verify that the last Persian definition appears and disappears after approximately three seconds. For the offline miss, attach [the test subtitle](../test-fixtures/broad-meanings.en.srt) to any video longer than 32 seconds and tap `Zzvelvetqz` at 25 seconds. Verify its card stays open.
+4. Save a defined word and return to Files. Open Flashcards from the bottom bar and tap the English entry to reveal its meaning. Switch to Files and back and verify the expanded card is still selected.
 
 ## Primary Workflow
 

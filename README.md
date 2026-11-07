@@ -8,7 +8,7 @@ The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The Eng
 
 ## Project Status
 
-**Current version:** `0.7.0-beta.3` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.4` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -125,8 +125,9 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
+| Unsigned Android release build and critical lint | Passed |
 | JVM unit tests | 221 passed |
-| SQLite migration and review checks | 14 passed (previous schema validation; schema unchanged) |
+| SQLite migration and review checks | 13 passed. The optional comparison against a Room schema was skipped. |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | 0 errors, 30 warnings |
 
