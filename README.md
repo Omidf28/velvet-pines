@@ -114,6 +114,8 @@ Android upgrades require a compatible signing identity. Before replacing a debug
 
 ## Validation
 
+[Android validation](https://github.com/Omidf28/velvet-pines/actions/workflows/android-validation.yml) runs on pushes and pull requests targeting `main`. It builds the debug and unsigned release APKs, runs unit tests and Lint, compares SQLite migrations with the Room-generated schema, and verifies the bundled dictionary in both packages. APKs from this workflow are used for validation.
+
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug
 python scripts/verify-review-migration.py

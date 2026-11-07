@@ -1,0 +1,50 @@
+name: Android validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use JDK 17
+        run: |
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s\n' "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Build, test, and lint Android
+        run: |
+          ./gradlew --no-daemon --no-configuration-cache --console=plain \
+            :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+
+      - name: Check the Room schema and SQLite migrations
+        run: |
+          python3 scripts/verify-review-migration.py \
+            --room-schema app/build/generated/ksp/debug/kotlin/com/subtitleplayer/prototype/SavedWordsDatabase_Impl.kt
+
+      - name: Verify the debug signature and packaged dictionaries
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          python3 scripts/verify-lexicon.py --apk app/build/outputs/apk/debug/app-debug.apk
+          python3 scripts/verify-lexicon.py --apk app/build/outputs/apk/release/app-release-unsigned.apk
