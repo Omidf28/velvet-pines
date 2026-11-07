@@ -47,10 +47,12 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] With default settings, select a word inside a known phrase such as `gave up`. Only the selected word should be highlighted and looked up.
 - [ ] Switch Study settings to recognized phrases. Selecting either part of a recognized phrase should select the full phrase; custom dictionary phrases should also work. Restart the application and verify the choice persists.
 - [ ] Select one occurrence of a repeated word. Only that occurrence should be highlighted. Identical text in a later cue must not retain the previous cue's selection.
-- [ ] Select an unknown word. The selected range should still be highlighted and the card should offer personal dictionary editing.
+- [ ] Select an unknown word. Wait longer than three seconds. Its card should remain available for Translate online, Close, or adding a personal definition from Word options. Confirm playback continues with the default study setting.
 - [ ] Compare subtitle coordinates before and after opening and expanding a definition card, with controls hidden in both cases. The card must not push the subtitles or change the video's bounds.
 - [ ] Test English and Persian together, two-line cues, large fonts, display cutouts, and a short landscape viewport. The card should use the remaining space above the subtitles and scroll when needed.
 - [ ] Tap another word before timeout; its definition should receive a fresh display interval. After timeout or dismissal, the highlight must clear.
+- [ ] Show playback controls and tap two words from the same cue in quick succession. The subtitle row should stay under the same touch targets while the controls hide. Only the last word should remain highlighted and its card should get a full display interval.
+- [ ] Start an online lookup for one word and immediately select another. A late result or timeout must leave the newer card intact. Start a save just before the timeout and verify that Saved is visible when the write finishes.
 - [ ] Tap empty video space while a definition is open. The definition should close and the playback controls should appear without resizing the video or automatically resuming a study pause.
 - [ ] Verify word selection, save, edit, speech, study-pause resume, and lock/unlock in both lookup modes; existing saved phrase cards must remain intact.
 ## Automatic Embedded English

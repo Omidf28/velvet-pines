@@ -23,6 +23,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
@@ -1220,12 +1221,14 @@ class MainActivity : ComponentActivity() {
         val selectedPersonalMeaning = lookup?.word?.let(::normalizeDictionaryTerm)?.let(personalMeanings::get)
         LaunchedEffect(lookup, selectedPersonalMeaning, lookup?.requestRevision) {
             val selected = lookup ?: return@LaunchedEffect
+            val revision = selected.requestRevision
             val request = selected.requests.consume()
             val requestContext = kotlinx.coroutines.currentCoroutineContext()
             selected.loading = true
             val result = withContext(Dispatchers.IO) {
                 wordLookup.resolve(selected.word, personalMeanings, request) { requestContext.ensureActive() }
             }
+            if (lookup !== selected || selected.requestRevision != revision) return@LaunchedEffect
             selected.meaning = result.meaning
             selected.meaningSource = result.source
             selected.failure = result.failure
@@ -1233,9 +1236,15 @@ class MainActivity : ComponentActivity() {
             selected.loading = false
             selected.resultRevision++
         }
-        LaunchedEffect(lookup, lookup?.studyAction, lookup?.expanded, lookup?.loading, lookup?.resultRevision, meaningTimeoutMs) {
-            if (lookup != null && lookup?.studyAction == null && lookup?.expanded != true && lookup?.loading == false) {
-                delay(meaningTimeoutMs)
+        val timedLookup = lookup?.takeIf { it.canAutoDismiss }
+        LaunchedEffect(timedLookup, timedLookup?.resultRevision, timedLookup?.saveState, meaningTimeoutMs) {
+            val selected = timedLookup ?: return@LaunchedEffect
+            val revision = selected.resultRevision
+            val saveState = selected.saveState
+            delay(meaningTimeoutMs)
+            if (lookup === selected && selected.canAutoDismiss &&
+                selected.resultRevision == revision && selected.saveState == saveState
+            ) {
                 lookup = null
             }
         }
@@ -1426,13 +1435,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 if (!pictureInPicture) {
+                    val subtitlesAboveControls = !controlsLocked && videoUri != null &&
+                        (controlsVisible || lookup?.subtitlesAboveControls == true)
                     SubtitleOverlay(
                         topReserved = if (controlsVisible && !controlsLocked) 72.dp else 12.dp,
                         meaningVisible = lookup != null && !controlsLocked && !listeningMode,
                         subtitles = {
                             Column(
                                 Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                                    .padding(bottom = if (controlsVisible && !controlsLocked && videoUri != null) 104.dp else 12.dp),
+                                    .padding(bottom = if (subtitlesAboveControls) 104.dp else 12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -1469,6 +1480,7 @@ class MainActivity : ComponentActivity() {
                                             } else null,
                                             source = source,
                                             sourceName = sourceName ?: "Local video",
+                                            subtitlesAboveControls = subtitlesAboveControls,
                                             studyAction = studyAction
                                         )
                                     }
@@ -1518,6 +1530,7 @@ class MainActivity : ComponentActivity() {
                                                     replayCue = selected.replayCue,
                                                     source = selected.source,
                                                     sourceName = selected.sourceName,
+                                                    subtitlesAboveControls = selected.subtitlesAboveControls,
                                                     studyAction = selected.studyAction
                                                 )
                                             }
@@ -2015,6 +2028,7 @@ private class Lookup(
     val replayCue: SubtitleCue?,
     val source: Uri,
     val sourceName: String,
+    val subtitlesAboveControls: Boolean,
     studyAction: StudyAction?
 ) {
     var loading by mutableStateOf(true)
@@ -2027,6 +2041,9 @@ private class Lookup(
     var meaning by mutableStateOf(meaning)
     var studyAction by mutableStateOf(studyAction)
     var saveState by mutableStateOf(WordSaveState.Ready)
+
+    val canAutoDismiss: Boolean
+        get() = !loading && meaning != null && !expanded && studyAction == null && saveState != WordSaveState.Saving
 }
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -2140,7 +2157,7 @@ private fun MeaningCard(
     Column(
         Modifier.widthIn(max = 520.dp).heightIn(max = 190.dp)
             .glassPanel(MaterialTheme.shapes.large, overVideo = true)
-            .verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 6.dp)
+            .verticalScroll(remember(lookup) { ScrollState(0) }).padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.weight(1f)) {
@@ -2168,12 +2185,17 @@ private fun MeaningCard(
             Text(lookup.meaningSource, color = PinesPalette.Accent, style = MaterialTheme.typography.labelSmall)
         }
         if (!lookup.loading && meaning == null) {
-            if (lookup.failure == LookupFailure.OfflineUnavailable) {
-                TextButton(onClick = onRetry) { Text("Retry offline lookup", color = PinesPalette.Ink) }
-            }
-            TextButton(onClick = onOnline) {
-                Text(if (lookup.failure != null && lookup.failure != LookupFailure.OfflineUnavailable)
-                    "Retry online translation" else "Translate online", color = PinesPalette.Ink)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (lookup.failure == LookupFailure.OfflineUnavailable) {
+                    TextButton(onClick = onRetry) { Text("Retry offline lookup", color = PinesPalette.Ink) }
+                }
+                TextButton(onClick = onOnline) {
+                    Text(if (lookup.failure != null && lookup.failure != LookupFailure.OfflineUnavailable)
+                        "Retry online translation" else "Translate online", color = PinesPalette.Ink)
+                }
+                if (!lookup.expanded && lookup.studyAction == null) {
+                    TextButton(onClick = onDismiss) { Text("Close", color = PinesPalette.Ink) }
+                }
             }
             Text("Only the selected term is sent to MyMemory. This requires internet access and is subject to a daily quota.",
                 color = PinesPalette.Accent, style = MaterialTheme.typography.labelSmall)

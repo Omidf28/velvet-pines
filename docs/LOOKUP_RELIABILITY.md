@@ -41,9 +41,13 @@ and [provider usage limits](https://mymemory.translated.net/doc/usagelimits.php)
 
 ## Card behavior and failure messages
 
-Ordinary results receive approximately three seconds after lookup completes. Android's
-recommended accessibility timeout can extend this period. Expanded options and
-explicit study pauses continue to prevent automatic dismissal.
+Definitions stay visible for approximately three seconds after lookup completes. Android's
+recommended accessibility timeout can extend this period. Expanded options, study pauses,
+and saves in progress hold the card open. When the save finishes, the confirmation
+gets a fresh display interval.
+
+An offline miss keeps its card open so the user can translate online, add a personal
+definition, or close it. Selecting another word replaces the card immediately.
 
 Failures open the card's options and keep it visible for a deliberate retry or close.
 Separate messages identify an unavailable offline index, connection failure, a socket
@@ -72,7 +76,8 @@ row, SQLite integrity and the prefix-search query plan.
 Pending Android scenarios:
 
 1. In airplane mode, repeatedly select a packaged word and an absent invented word.
-   Confirm the movie keeps playing and each card gets a fresh dismissal interval.
+   Confirm the movie keeps playing, definitions receive a fresh display interval,
+   and the absent-word card stays open for a deliberate action.
 2. Explicitly translate an absent term known to the service. Close it, disable the
    network and select it again; the temporary translation should remain available
    during the same Activity lifetime. Recreate/restart and confirm no persistence

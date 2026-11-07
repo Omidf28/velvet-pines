@@ -39,7 +39,7 @@ The project is an experimental implementation with local build and automated tes
 
 - A bundled English–Persian offline index with 230,921 entries (97,026 single-token keys and 133,895 multiword keys), probable inflection lookup, and personal definition overrides.
 - Offline prefix search for words and multiword entries from the library, player menu, or selected word card, with full definitions, pronunciation and personal corrections.
-- An explicit MyMemory translation fallback for absent terms, with loading/error states, source labels, and a dismissal timer that begins after lookup completes.
+- An explicit MyMemory translation fallback for absent terms. The card stays open when an offline meaning is missing, and definitions use a dismissal timer after lookup completes.
 - Bounded in-memory reuse of recent definitions and successful online translations, explicit failure-specific retries, loading cancellation, and accessibility-aware definition timeouts.
 - Persistent vocabulary entries containing definitions, dialogue context, media references, and timestamps.
 - Spaced-repetition flashcards, due-review sessions, search, filtering, sorting, and study statistics.
