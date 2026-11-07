@@ -16,6 +16,7 @@ internal data class LibraryVideo(val uri: Uri, val name: String, val parentPath:
 
 internal const val recentVideoLimit = 20
 internal const val playbackQueueLimit = 100
+internal const val favoriteFolderLimit = 20
 private val videoExtensions = setOf("mp4", "m4v", "mkv", "webm", "mov", "avi", "3gp", "ts", "mpeg", "mpg")
 
 internal fun libraryGrantUri(uri: Uri): Uri {
@@ -28,6 +29,27 @@ internal fun libraryGrantUri(uri: Uri): Uri {
 
 internal fun Set<Uri>.coversReadAccess(uri: Uri): Boolean = uri in this || libraryGrantUri(uri) in this
 
+internal fun parseLibraryFolderUri(value: String?): Uri? {
+    val uri = value?.let(Uri::parse) ?: return null
+    if (uri.scheme != ContentResolver.SCHEME_CONTENT || uri.authority.isNullOrBlank() ||
+        !DocumentsContract.isTreeUri(uri)) return null
+    return try {
+        libraryGrantUri(uri)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}
+
+internal fun fallbackFolderName(tree: Uri): String =
+    DocumentsContract.getTreeDocumentId(tree).substringAfterLast('/').substringAfterLast(':')
+        .ifBlank { "پوشهٔ ذخیره‌سازی" }
+
+internal fun readFolderName(resolver: ContentResolver, tree: Uri): String? {
+    val document = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+    return resolver.query(document, arrayOf(Document.COLUMN_DISPLAY_NAME), null, null, null)?.use {
+        if (it.moveToFirst()) it.getString(0)?.takeIf(String::isNotBlank) else null
+    }
+}
 internal fun readVideoEntries(encoded: String?, limit: Int): List<LibraryVideo> {
     if (encoded == null) return emptyList()
     val array = try {

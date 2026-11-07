@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -94,6 +96,19 @@ internal fun Modifier.pinesAtmosphere(): Modifier = drawBehind {
 }
 
 @Composable
+internal fun PinesLogo(size: Dp) {
+    Box(
+        Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(PinesPalette.Night),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.requiredSize(size * 1.55f)
+        )
+    }
+}
+@Composable
 internal fun PinesIdentityBanner(compact: Boolean = false) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
@@ -101,7 +116,8 @@ internal fun PinesIdentityBanner(compact: Boolean = false) {
                 RoundedCornerShape(12.dp))
     ) {
         Row(Modifier.padding(if (compact) 6.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(if (compact) 48.dp else 64.dp))
+            PinesLogo(if (compact) 48.dp else 64.dp)
+            Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("VELVET PINES", color = PinesPalette.Cream,
                     fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,

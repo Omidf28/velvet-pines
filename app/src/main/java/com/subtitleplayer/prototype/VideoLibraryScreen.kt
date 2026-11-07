@@ -1,9 +1,8 @@
 package com.subtitleplayer.prototype
 
 import android.net.Uri
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,11 +19,13 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -32,9 +33,12 @@ import kotlinx.coroutines.withContext
 
 private enum class LibraryTab(val label: String) { Folder("پوشه"), Recent("اخیرها"), Queue("صف پخش") }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun VideoLibraryScreen(
     folder: Uri?,
+    folderRevision: Int,
+    favoriteFolders: Set<Uri>,
     recent: List<LibraryVideo>,
     queue: List<LibraryVideo>,
     onEnqueue: (LibraryVideo) -> Unit,
@@ -42,6 +46,8 @@ internal fun VideoLibraryScreen(
     onRemoveQueued: (Uri) -> Unit,
     onPlayQueue: () -> Unit,
     onChooseFolder: () -> Unit,
+    onOpenFavorite: (Uri) -> Unit,
+    onToggleFavorite: (Uri) -> Unit,
     onChooseFile: () -> Unit,
     onOpenLink: (OnlineVideoLink, SmbCredentials?) -> Unit,
     onOpen: (LibraryVideo) -> Unit,
@@ -61,23 +67,24 @@ internal fun VideoLibraryScreen(
     var searchFocused by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val searchEditing = searchFocused && WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    var showLibraryMenu by remember { mutableStateOf(false) }
     var showLinkDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var smbBrowse by remember { mutableStateOf<SmbBrowseRequest?>(null) }
     var tab by rememberSaveable { mutableStateOf(if (recent.isNotEmpty()) LibraryTab.Recent else LibraryTab.Folder) }
-    var folderVideos by remember(folder) { mutableStateOf<List<LibraryVideo>?>(null) }
-    var folderError by remember(folder) { mutableStateOf(false) }
+    var folderVideos by remember(folder, folderRevision) { mutableStateOf<List<LibraryVideo>?>(null) }
+    var folderError by remember(folder, folderRevision) { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
-    var loadedRefresh by remember(folder) { mutableIntStateOf(-1) }
+    var loadedRefresh by remember(folder, folderRevision) { mutableIntStateOf(-1) }
     val libraryListState = rememberLazyListState()
-    LaunchedEffect(order, query, tab) { libraryListState.scrollToItem(0) }
+    LaunchedEffect(order, query, tab, folder) { libraryListState.scrollToItem(0) }
 
     val browse = smbBrowse
     if (browse != null) {
         SmbBrowserScreen(browse, onOpen = onOpenLink, onBack = { smbBrowse = null })
         return
     }
-    LaunchedEffect(folder, resolver, refresh, tab) {
+    LaunchedEffect(folder, folderRevision, resolver, refresh, tab) {
         if (folder == null || tab != LibraryTab.Folder || loadedRefresh == refresh) return@LaunchedEffect
         folderVideos = null
         folderError = false
@@ -90,6 +97,32 @@ internal fun VideoLibraryScreen(
             folderError = true
         }
     }
+    var folderNames by remember { mutableStateOf<Map<Uri, String>>(emptyMap()) }
+    LaunchedEffect(resolver, folder, favoriteFolders, folderRevision, tab) {
+        if (tab != LibraryTab.Folder) return@LaunchedEffect
+        val folders = favoriteFolders + listOfNotNull(folder)
+        folderNames = withContext(Dispatchers.IO) {
+            buildMap {
+                for (uri in folders) {
+                    val name = try {
+                        readFolderName(resolver, uri)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
+                    put(uri, name ?: fallbackFolderName(uri))
+                }
+            }
+        }
+    }
+    fun chooseFolder() {
+        keyboard?.hide()
+        query = ""
+        tab = LibraryTab.Folder
+        onChooseFolder()
+    }
+    fun folderName(uri: Uri): String = folderNames[uri] ?: fallbackFolderName(uri)
     val bookmarksByKey = remember(recent, queue) {
         buildMap<String, PlaybackBookmark> {
             (queue.asReversed() + recent.asReversed()).forEach { video ->
@@ -127,20 +160,30 @@ internal fun VideoLibraryScreen(
         if (!searchEditing) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(40.dp))
+                PinesLogo(44.dp)
                 Column(Modifier.weight(1f)) {
                     Text("VELVET PINES", color = PinesPalette.Rose, style = MaterialTheme.typography.labelSmall,
                         fontFamily = FontFamily.Serif, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("کتابخانه", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (canReturnToPlayback) TextButton(onClick = onBack) { Text("بازگشت به فیلم") }
-                else TextButton(onClick = onPlaySample) { Text("نمونه") }
+                Box {
+                    PlayerIconButton(PlayerGlyph.More, "منوی کتابخانه", onClick = { showLibraryMenu = true })
+                    DropdownMenu(expanded = showLibraryMenu, onDismissRequest = { showLibraryMenu = false }) {
+                        DropdownMenuItem(text = { Text("باز کردن فایل") }, onClick = { showLibraryMenu = false; onChooseFile() })
+                        DropdownMenuItem(text = { Text("لینک ویدیو") }, onClick = { showLibraryMenu = false; showLinkDialog = true })
+                        DropdownMenuItem(text = { Text("پخش نمونه") }, onClick = { showLibraryMenu = false; onPlaySample() })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("واژه‌نامه") }, onClick = { showLibraryMenu = false; onDictionary() })
+                        DropdownMenuItem(text = { Text("راهنما") }, onClick = { showLibraryMenu = false; showHelp = true })
+                    }
+                }
             }
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = PinesPalette.Night) {
                 LibraryTab.entries.forEach { option ->
-                    FilterChip(selected = tab == option, onClick = { tab = option }, label = {
-                        Text(option.label + if (option == LibraryTab.Queue && queue.isNotEmpty()) " (${queue.size})" else "")
+                    Tab(selected = tab == option, onClick = { tab = option }, text = {
+                        Text(option.label + if (option == LibraryTab.Queue && queue.isNotEmpty()) " (${queue.size})" else "",
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                     })
                 }
             }
@@ -148,7 +191,7 @@ internal fun VideoLibraryScreen(
         if (tab == LibraryTab.Queue) {
             PlaybackQueueList(queue, onMoveQueued, onRemoveQueued, onPlayQueue, Modifier.weight(1f))
         } else {
-            OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+            if (showRecent || folder != null) OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).onFocusChanged { searchFocused = it.isFocused },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -156,22 +199,53 @@ internal fun VideoLibraryScreen(
                 trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("پاک") } }))
             LazyColumn(state = libraryListState, modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!searchEditing) item(key = "library-actions") {
+                if (!searchEditing && showRecent) item(key = "library-actions") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = onChooseFile) { Text("باز کردن فایل") }
-                        OutlinedButton(onClick = { tab = LibraryTab.Folder; onChooseFolder() }) { Text("انتخاب پوشه") }
-                        TextButton(onClick = { showLinkDialog = true }) { Text("لینک ویدیو") }
-                        if (canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("نمونه") }
-                        TextButton(onClick = onDictionary) { Text("واژه‌نامه") }
-                        TextButton(onClick = { showHelp = true }) { Text("راهنما") }
+                        OutlinedButton(onClick = ::chooseFolder) { Text("انتخاب پوشه") }
+                        if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
                     }
+                }
+                if (!searchEditing && !showRecent) item(key = "current-folder") {
+                    Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card)) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("پوشهٔ فعلی", color = PinesPalette.Rose, style = MaterialTheme.typography.labelLarge)
+                            Text(folder?.let(::folderName) ?: "یک پوشهٔ ویدیو انتخاب کنید",
+                                style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = ::chooseFolder) {
+                                    Text(if (folder == null) "انتخاب پوشه" else "تغییر پوشه")
+                                }
+                                if (folder != null) {
+                                    OutlinedButton(onClick = { onToggleFavorite(folder) }) {
+                                        Text(if (folder in favoriteFolders) "حذف از محبوب‌ها" else "افزودن به محبوب‌ها")
+                                    }
+                                } else {
+                                    TextButton(onClick = onChooseFile) { Text("باز کردن فایل") }
+                                    if (!canReturnToPlayback) TextButton(onClick = onPlaySample) { Text("پخش نمونه") }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!searchEditing && !showRecent) item(key = "favorite-folders") {
+                    FavoriteFoldersSection(
+                        folders = favoriteFolders.sortedBy(::folderName),
+                        selected = folder,
+                        folderName = ::folderName,
+                        onOpen = { uri -> keyboard?.hide(); query = ""; onOpenFavorite(uri) },
+                        onRemove = onToggleFavorite
+                    )
                 }
                 if (continuation != null && !searchEditing) item(key = "continue-watching") {
                     ContinueWatchingCard(continuation, onOpen = { keyboard?.hide(); onOpen(continuation) })
                 }
-                if (!searchEditing) item(key = "library-order") {
+                if (!searchEditing && (showRecent || folder != null)) item(key = "library-order") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${filtered.size} ویدیو", color = PinesPalette.Muted, style = MaterialTheme.typography.labelMedium)
+                        Column {
+                            Text(if (showRecent) "تماشای اخیر" else "ویدیوهای پوشه", style = MaterialTheme.typography.titleSmall)
+                            Text("${filtered.size} ویدیو", color = PinesPalette.Muted, style = MaterialTheme.typography.labelMedium)
+                        }
                         Box(Modifier.weight(1f)) {
                             DisplayOrderMenu(order.name,
                                 if (order == LibraryDisplayOrder.Default && showRecent) "اخیرترین تماشا" else order.label,
@@ -182,7 +256,7 @@ internal fun VideoLibraryScreen(
                     }
                 }
                 val message = when {
-                    !showRecent && folder == null -> "فیلم‌هایت را از یک پوشه اضافه کن؛ زیرنویس‌های هم‌نام هم از همان پوشه در دسترس خواهند بود."
+                    !showRecent && folder == null -> null
                     !showRecent && folderError -> "پوشه خوانده نشد. دوباره تلاش کن یا دسترسی پوشه را انتخاب کن."
                     !showRecent && folderVideos == null -> "در حال بررسی پوشه…"
                     search.isNotEmpty() && filtered.isEmpty() -> "ویدیویی با این جست‌وجو پیدا نشد."
@@ -214,6 +288,47 @@ internal fun VideoLibraryScreen(
         onBrowse = { request -> showLinkDialog = false; smbBrowse = request })
 }
 
+@Composable
+private fun FavoriteFoldersSection(
+    folders: List<Uri>,
+    selected: Uri?,
+    folderName: (Uri) -> String,
+    onOpen: (Uri) -> Unit,
+    onRemove: (Uri) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("پوشه‌های محبوب", style = MaterialTheme.typography.titleSmall)
+        if (folders.isEmpty()) {
+            Text("پوشهٔ فعلی را به محبوب‌ها اضافه کنید تا اینجا در دسترس باشد.",
+                color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(folders, key = { it.toString() }) { uri ->
+                    val name = folderName(uri)
+                    Card(colors = CardDefaults.cardColors(
+                        containerColor = if (uri == selected) MaterialTheme.colorScheme.primaryContainer else PinesPalette.Card
+                    )) {
+                        Row(Modifier.width(208.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(
+                                Modifier.weight(1f).heightIn(min = 56.dp)
+                                    .clickable(onClickLabel = "باز کردن پوشه") { onOpen(uri) }.padding(10.dp)
+                            ) {
+                                Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                if (uri == selected) Text("پوشهٔ فعلی", style = MaterialTheme.typography.labelSmall)
+                            }
+                            IconButton(
+                                onClick = { onRemove(uri) },
+                                modifier = Modifier.semantics { contentDescription = "حذف $name از پوشه‌های محبوب" }
+                            ) {
+                                Text("★", color = PinesPalette.Brass, modifier = Modifier.clearAndSetSemantics { })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 @Composable
 private fun VideoLinkDialog(
     onDismiss: () -> Unit,

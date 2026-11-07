@@ -154,6 +154,8 @@ class MainActivity : ComponentActivity() {
     private var videoReady by mutableStateOf(false)
     private var showLibrary by mutableStateOf(false)
     private var libraryFolder by mutableStateOf<Uri?>(null)
+    private var favoriteFolders by mutableStateOf<Set<Uri>>(emptySet())
+    private var libraryFolderRevision by mutableIntStateOf(0)
     private var recentVideos by mutableStateOf(emptyList<LibraryVideo>())
     private var playbackQueue by mutableStateOf(emptyList<LibraryVideo>())
     private var foreground by mutableStateOf(false)
@@ -246,7 +248,9 @@ class MainActivity : ComponentActivity() {
         subtitleBackgroundOpacity = history.getFloat("subtitleBackgroundOpacity", 0.82f)
             .takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.82f
         subtitleProfiles = loadSubtitleProfiles()
-        libraryFolder = history.getString("libraryFolder", null)?.let(Uri::parse)
+        libraryFolder = parseLibraryFolderUri(history.getString("libraryFolder", null))
+        favoriteFolders = history.getStringSet("favoriteFolders", emptySet()).orEmpty()
+            .mapNotNull(::parseLibraryFolderUri).take(favoriteFolderLimit).toSet()
         val readable = persistentReadUris()
         recentVideos = readVideoEntries(history.getString("recentVideos", null), recentVideoLimit)
             .filter { readable.coversReadAccess(it.uri) }
@@ -538,7 +542,7 @@ class MainActivity : ComponentActivity() {
         ) + recentVideos.map(LibraryVideo::uri) + playbackQueue.map(LibraryVideo::uri) +
             recentVideos.mapNotNull(LibraryVideo::parentDirectory) + playbackQueue.mapNotNull(LibraryVideo::parentDirectory) +
             subtitleProfiles.flatMap { listOfNotNull(it.video, it.subtitles.english, it.subtitles.persian) }
-        val retainedGrants = retained.flatMap { listOf(it, libraryGrantUri(it)) }.toSet()
+        val retainedGrants = (retained + favoriteFolders).flatMap { listOf(it, libraryGrantUri(it)) }.toSet()
         for (grant in grants) {
             if (grant.isReadPermission && grant.uri !in retainedGrants) {
                 try {
@@ -765,6 +769,28 @@ class MainActivity : ComponentActivity() {
         false
     }
 
+    private fun selectLibraryFolder(folder: Uri) {
+        libraryFolder = folder
+        libraryFolderRevision++
+        history.edit().putString("libraryFolder", folder.toString()).apply()
+    }
+
+    private fun toggleFavoriteFolder(folder: Uri) {
+        if (folder in favoriteFolders) {
+            favoriteFolders = favoriteFolders - folder
+        } else {
+            if (!persistentReadUris().coversReadAccess(folder)) {
+                Toast.makeText(this, "برای افزودن پوشه، دوباره دسترسی آن را انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (favoriteFolders.size >= favoriteFolderLimit) {
+                Toast.makeText(this, "حداکثر $favoriteFolderLimit پوشهٔ محبوب می‌توانید ذخیره کنید.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            favoriteFolders = favoriteFolders + folder
+        }
+        history.edit().putStringSet("favoriteFolders", favoriteFolders.map(Uri::toString).toSet()).apply()
+    }
     private fun persistentReadUris(): Set<Uri> = contentResolver.persistedUriPermissions
         .filter { it.isReadPermission }.map { it.uri }.toSet()
 
@@ -1123,13 +1149,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         val selectFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-            if (uri != null) {
-                if (keepReadAccess(uri)) {
-                    libraryFolder = uri
-                    history.edit().putString("libraryFolder", uri.toString()).apply()
-                } else {
-                    Toast.makeText(this, "ذخیرهٔ دسترسی به این پوشه ممکن نبود.", Toast.LENGTH_SHORT).show()
-                }
+            val folder = parseLibraryFolderUri(uri?.toString())
+            if (folder != null) {
+                if (keepReadAccess(folder)) selectLibraryFolder(folder)
+                else Toast.makeText(this, "ذخیرهٔ دسترسی به این پوشه ممکن نبود.", Toast.LENGTH_SHORT).show()
             }
         }
         val selectSubtitle = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -1242,6 +1265,8 @@ class MainActivity : ComponentActivity() {
         if (showLibrary && !pictureInPicture) {
             VideoLibraryScreen(
                 folder = libraryFolder,
+                folderRevision = libraryFolderRevision,
+                favoriteFolders = favoriteFolders,
                 recent = recentVideos,
                 queue = playbackQueue,
                 onEnqueue = ::enqueueVideo,
@@ -1249,6 +1274,14 @@ class MainActivity : ComponentActivity() {
                 onRemoveQueued = { uri -> updatePlaybackQueue(playbackQueue.filterNot { it.uri == uri }) },
                 onPlayQueue = ::playNextQueuedVideo,
                 onChooseFolder = { selectFolder.launch(libraryFolder) },
+                onOpenFavorite = { folder ->
+                    if (persistentReadUris().coversReadAccess(folder)) selectLibraryFolder(folder)
+                    else {
+                        Toast.makeText(this, "دسترسی پوشه را دوباره انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                        selectFolder.launch(null)
+                    }
+                },
+                onToggleFavorite = ::toggleFavoriteFolder,
                 onChooseFile = { selectVideo.launch(arrayOf("video/*")) },
                 onOpenLink = { link, credentials ->
                     lookup = null
