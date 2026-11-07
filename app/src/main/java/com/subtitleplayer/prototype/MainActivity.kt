@@ -1013,6 +1013,10 @@ class MainActivity : ComponentActivity() {
         val meaningTimeoutMs = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
             3_000L, containsIcons = true, containsText = true, containsControls = true
         ) ?: 3_000L
+        var listeningMode by remember(videoUri) { mutableStateOf(false) }
+        val hasVisibleSubtitles =
+            (englishSubtitlesVisible && (englishTrack.cues.isNotEmpty() || embeddedTrackKey != null)) ||
+                (persianSubtitlesVisible && persianTrack.cues.isNotEmpty())
         var controlsVisible by remember(videoUri) { mutableStateOf(true) }
         var controlsInteraction by remember { mutableIntStateOf(0) }
         var showPlayerMenu by remember { mutableStateOf(false) }
@@ -1349,7 +1353,7 @@ class MainActivity : ComponentActivity() {
                 if (!pictureInPicture) {
                     SubtitleOverlay(
                         topReserved = if (controlsVisible && !controlsLocked) 72.dp else 12.dp,
-                        meaningVisible = lookup != null && !controlsLocked,
+                        meaningVisible = lookup != null && !controlsLocked && !listeningMode,
                         subtitles = {
                             Column(
                                 Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -1358,8 +1362,11 @@ class MainActivity : ComponentActivity() {
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 val source = frame.source
-                                val subtitle = if (embeddedTrackKey != null) embeddedSubtitle
-                                else englishTrack.timeline.activeAt(frame.positionMs - subtitleDelayMs)
+                                val subtitle = when {
+                                    listeningMode -> null
+                                    embeddedTrackKey != null -> embeddedSubtitle
+                                    else -> englishTrack.timeline.activeAt(frame.positionMs - subtitleDelayMs)
+                                }
                                 if (englishSubtitlesVisible && source != null && source == videoUri && subtitle != null) {
                                     TappableSubtitle(subtitle.text, subtitleSize, Color(subtitleTextTone.argb), subtitleBackgroundOpacity,
                                         enabled = !controlsLocked, personalMeanings = personalMeanings,
@@ -1386,10 +1393,18 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 }
-                                if (persianSubtitlesVisible && source != null && source == videoUri) {
+                                if (!listeningMode && persianSubtitlesVisible && source != null && source == videoUri) {
                                     persianTrack.timeline.activeAt(frame.positionMs - translationDelayMs)?.let {
                                         PersianSubtitle(it.text, subtitleSize, subtitleBackgroundOpacity)
                                     }
+                                }
+                                if (listeningMode && !controlsLocked) {
+                                    TextButton(
+                                        onClick = { listeningMode = false },
+                                        modifier = Modifier.background(
+                                            Color.Black.copy(alpha = 0.75f), RoundedCornerShape(24.dp)
+                                        )
+                                    ) { Text("نمایش زیرنویس", color = PinesPalette.Cream) }
                                 }
                             }
                         },
@@ -1607,6 +1622,16 @@ class MainActivity : ComponentActivity() {
                                     DropdownMenuItem(text = { Text("جست‌وجو در واژه‌نامه") }, onClick = {
                                         showPlayerMenu = false; dictionarySeed = ""; showDictionary = true
                                     })
+                                    if (hasVisibleSubtitles || listeningMode) {
+                                        DropdownMenuItem(
+                                            text = { Text(if (listeningMode) "نمایش زیرنویس" else "تمرین شنیداری بدون متن") },
+                                            onClick = {
+                                                showPlayerMenu = false
+                                                lookup = null
+                                                listeningMode = !listeningMode
+                                            }
+                                        )
+                                    }
                                     if (canSeek && dialogueRanges.isNotEmpty()) {
                                         DropdownMenuItem(text = { Text("جست‌وجوی دیالوگ‌ها") }, onClick = {
                                             showPlayerMenu = false
