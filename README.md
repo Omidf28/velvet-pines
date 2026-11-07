@@ -8,7 +8,7 @@ The application is implemented in Kotlin using Jetpack Compose, AndroidX Media3,
 
 ## Project Status
 
-**Current version:** `0.6.3-dev` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.1` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -104,10 +104,10 @@ The latest recorded validation includes:
 | Check | Recorded result |
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
-| JVM unit tests | 219 passed |
+| JVM unit tests | 221 passed |
 | SQLite migration and review checks | 14 passed (previous schema validation; schema unchanged) |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
-| Android Lint | 0 errors; 28 warnings |
+| Android Lint | 0 errors, 29 warnings |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
 
