@@ -25,6 +25,11 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Save a public HTTPS index address, restart the app, and select the saved source in Streams. Confirm the URL is filled in and the Remove action persists across restart. A URL with a query string should be rejected by Save source.
 - [ ] On an archive with linked season pages, choose Scan archive and search for an episode from an unopened season. Confirm the source path is shown. Try an unreachable child page and verify that available results still appear. Cancel a second scan and verify the previous results are still available.
 
+## Iran Domestic-Network Source Acceptance
+
+- [ ] Before recommending a source in Streams, test it on the intended Iranian network with the VPN off during an international-connectivity outage. Record the date, operator, and connection type.
+- [ ] Search or scan the catalog, open a season, start an episode, and seek in the player. Check the actual media host, redirects, and any required manifest, segments, or authentication endpoints. Record which operators were tested when reporting availability.
+
 ## Primary Workflow
 
 1. Open the synthetic sample. Rotate the phone to landscape. Confirm that system bars become transient and playback continues without reloading or losing position.
