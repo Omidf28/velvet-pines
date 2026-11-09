@@ -39,6 +39,7 @@ internal class StreamsBrowseState {
     private var pages by mutableStateOf<List<OpenPage>>(emptyList())
     private var loadedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
     val currentPage get() = pages.lastOrNull()?.page
+    val currentLocation get() = pages.takeIf { it.isNotEmpty() }?.joinToString(" / ") { it.page.title }
     val entries get() = pages.lastOrNull()?.entries ?: catalogs.values.flatten()
     val results by derivedStateOf {
         val terms = streamSearchTerms(query)
@@ -61,7 +62,7 @@ internal class StreamsBrowseState {
         pages.size < 8 && pages.none { it.page.address == page.address }
 
     fun openPage(page: StreamIndexEntry.Page, entries: List<StreamIndexEntry>) {
-        val location = (pages.map { it.page.title } + page.title).joinToString(" / ")
+        val location = listOfNotNull(currentLocation, page.title).joinToString(" / ")
         val episodes = entries.filterIsInstance<StreamIndexEntry.Video>().map { StreamSearchResult(it, location) }
         loadedEpisodes = ((loadedEpisodes - page.url).toList() + (page.url to episodes)).takeLast(16).toMap()
         pages = pages + OpenPage(page, entries, query, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
@@ -86,7 +87,7 @@ internal class StreamsBrowseState {
 @Composable
 internal fun StreamsScreen(
     state: StreamsBrowseState,
-    onPlay: (OnlineVideoLink) -> Unit,
+    onPlay: (OnlineVideoLink, String?) -> Unit,
     onReturnToPlayback: (() -> Unit)?,
     bottomBar: @Composable () -> Unit
 ) {
@@ -174,7 +175,7 @@ internal fun StreamsScreen(
                             if (link == null || link.format == OnlineVideoFormat.Smb) {
                                 state.message = "Enter a direct HTTPS or RTSP video URL."
                             } else {
-                                onPlay(link)
+                                onPlay(link, null)
                             }
                         }) { Text("Play URL") }
                         OutlinedButton(enabled = !loading && state.address.isNotBlank(), onClick = {
@@ -213,7 +214,10 @@ internal fun StreamsScreen(
                             keyboard?.hide()
                             when (entry) {
                                 is StreamIndexEntry.Page -> loadIndex(entry.address, entry)
-                                is StreamIndexEntry.Video -> onPlay(entry.link)
+                                is StreamIndexEntry.Video -> onPlay(
+                                    entry.link,
+                                    streamEpisodeTitle(entry, result.location ?: state.currentLocation)
+                                )
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = PinesPalette.Card)

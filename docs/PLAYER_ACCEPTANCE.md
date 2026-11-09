@@ -18,6 +18,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Filter the parent list, scroll, and open a child index. Press Back and verify that the parent's search and scroll position are restored. Repeat from portrait playback and verify Back first returns to the episode list.
 - [ ] Open a broken child link. Verify the error is visible and the parent list remains available. Confirm that a link to an already-open index cannot keep reopening it.
 - [ ] Open two season pages with an episode of the same name. Inside a season, search for the episode and check that only the current page is searched. Return to Streams and search for the episode by name and by season. The root results should include episodes from both opened seasons and show their source paths.
+- [ ] Play a catalog episode and check its title in the player. With English subtitles attached, save a new word. In Flashcards, check that the expanded card names the episode and its catalog path. Repeat with a link whose visible label is a URL and check that the title uses the filename.
 
 ## Primary Workflow
 

@@ -33,6 +33,9 @@ internal sealed interface StreamIndexEntry {
 
 internal class StreamIndexHttpException(val status: Int) : IOException("Index server returned HTTP $status")
 
+internal fun streamEpisodeTitle(episode: StreamIndexEntry.Video, location: String?): String =
+    listOfNotNull(episode.title, location).joinToString(" · ")
+
 private val streamSearchSeparators = Regex("[^\\p{L}\\p{N}]+")
 private val compactEpisode = Regex("(?i)\\bS([0-9]+) *E([0-9]+)\\b")
 private val numberedLabel = Regex("(?i)\\b(season|episode|فصل|قسمت) *([0-9]+)\\b")
@@ -92,7 +95,8 @@ internal fun resolveStreamIndexEntry(base: URI, href: String, title: String): St
     val path = url.path.orEmpty()
     val link = parseOnlineVideoLink(url.toString()) ?: return null
     val fileName = path.trimEnd('/').substringAfterLast('/').ifBlank { url.host }
-    val displayTitle = title.trim().take(180).ifBlank { fileName }
+    val displayTitle = title.trim().takeUnless { "://" in it || it.startsWith("//") }
+        ?.take(180).orEmpty().ifBlank { fileName }
     return when {
         link.format != OnlineVideoFormat.Auto || isVideo(path, null) -> StreamIndexEntry.Video(displayTitle, fileName, link)
         path.endsWith(".html", true) || path.endsWith(".htm", true) || path.endsWith(".xhtml", true) ||

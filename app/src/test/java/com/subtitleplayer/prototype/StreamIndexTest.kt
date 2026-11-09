@@ -53,6 +53,14 @@ class StreamIndexTest {
         assertFalse(matchesStreamSearch(streamSearchTerms("Season 2"), "Season", "2.mkv"))
     }
 
+    @Test fun episodeTitleUsesTheCatalogPathAndHidesAnAddressUsedAsLinkText() {
+        val url = "https://media.example/series/episode.mkv?token=abc"
+        val episode = resolveStreamIndexEntry(base, url, url) as StreamIndexEntry.Video
+        assertEquals("episode.mkv · Example Series / Season 2", streamEpisodeTitle(episode, "Example Series / Season 2"))
+        assertEquals("episode.mkv", streamEpisodeTitle(episode, null))
+        assertEquals(url, episode.link.url)
+    }
+
     @Test fun skipsParentLinksArchivesAndUnsupportedLinks() {
         for (href in listOf("#section", "index.html#section", "../", "episode.zip", "http://media.example/episode.mp4",
             "javascript:play()", "https://user@media.example/episode.mp4", "bad url")) {

@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
     private var showWords by mutableStateOf(false)
     private var showStreams by mutableStateOf(false)
     private var returnToStreams = false
+    private var streamTitle by mutableStateOf<String?>(null)
     private var libraryTab by mutableStateOf(LibraryTab.Folder)
     private var libraryFolder by mutableStateOf<Uri?>(null)
     private var favoriteFolders by mutableStateOf<List<LibraryFolderShortcut>>(emptyList())
@@ -609,9 +610,11 @@ class MainActivity : ComponentActivity() {
         smbCredentials: SmbCredentials? = null,
         parentDirectory: Uri? = null,
         parentPath: String? = null,
-        fromStreams: Boolean = false
+        fromStreams: Boolean = false,
+        title: String? = null
     ) {
         returnToStreams = fromStreams
+        streamTitle = title
         val incoming = knownLibraryVideo(uri)
         val readable = persistentReadUris()
         rememberCurrentProgress()
@@ -955,7 +958,6 @@ class MainActivity : ComponentActivity() {
 
     private fun readVideoName(uri: Uri): String? {
         if (uri == demoVideo) return "Sample video"
-        if (uri.isOnlineVideo) return "Online video"
         val column = OpenableColumns.DISPLAY_NAME
         return try {
             contentResolver.query(uri, arrayOf(column), null, null, null)?.use { cursor ->
@@ -1076,7 +1078,8 @@ class MainActivity : ComponentActivity() {
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
         var showSubtitleMenu by remember(videoUri) { mutableStateOf(false) }
-        var sourceName by remember(videoUri) { mutableStateOf<String?>(null) }
+        var localVideoName by remember(videoUri) { mutableStateOf<String?>(null) }
+        val sourceName = if (videoUri?.isOnlineVideo == true) streamTitle ?: "Online video" else localVideoName
         val scope = rememberCoroutineScope()
         fun selectHome(destination: HomeDestination) {
             showLibrary = true
@@ -1119,8 +1122,8 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(videoUri) {
-            val source = videoUri ?: return@LaunchedEffect
-            sourceName = withContext(Dispatchers.IO) { readVideoName(source) } ?: "Local video"
+            val source = videoUri?.takeUnless { it.isOnlineVideo } ?: return@LaunchedEffect
+            localVideoName = withContext(Dispatchers.IO) { readVideoName(source) } ?: "Local video"
         }
         LaunchedEffect(videoUri, videoReady, sourceName, videoParentDirectory, videoParentPath) {
             val uri = videoUri ?: return@LaunchedEffect
@@ -1292,11 +1295,11 @@ class MainActivity : ComponentActivity() {
         if (showStreams && !pictureInPicture) {
             StreamsScreen(
                 state = streamsBrowseState,
-                onPlay = { link ->
+                onPlay = { link, title ->
                     lookup = null
                     showStreams = false
                     showLibrary = false
-                    openVideo(Uri.parse(link.url), onlineFormat = link.format, fromStreams = true)
+                    openVideo(Uri.parse(link.url), onlineFormat = link.format, fromStreams = true, title = title)
                 },
                 onReturnToPlayback = if (videoUri != null) ({ showStreams = false; showLibrary = false }) else null,
                 bottomBar = { HomeNavigation(HomeDestination.Streams, ::selectHome) }
