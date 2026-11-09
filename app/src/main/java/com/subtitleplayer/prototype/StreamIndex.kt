@@ -31,6 +31,7 @@ internal sealed interface StreamIndexEntry {
     }
 }
 
+internal data class StreamSearchResult(val entry: StreamIndexEntry, val location: String? = null)
 internal class StreamIndexHttpException(val status: Int) : IOException("Index server returned HTTP $status")
 
 internal fun streamEpisodeTitle(episode: StreamIndexEntry.Video, location: String?): String =
@@ -115,7 +116,7 @@ internal fun extractStreamIndexEntries(base: URI, html: String): List<StreamInde
         .distinctBy { it.url }.take(300).toList()
 }
 
-internal suspend fun readStreamIndex(start: URI): List<StreamIndexEntry> {
+internal suspend fun readStreamIndex(start: URI, scanOrigin: URI? = null): List<StreamIndexEntry> {
     val context = currentCoroutineContext()
     var url = start
     repeat(5) {
@@ -130,6 +131,9 @@ internal suspend fun readStreamIndex(start: URI): List<StreamIndexEntry> {
             if (status in setOf(301, 302, 303, 307, 308)) {
                 val location = connection.getHeaderField("Location") ?: throw IOException("Missing redirect")
                 url = parseStreamIndexUrl(url.resolve(location).toString()) ?: throw IOException("Invalid redirect")
+                if (scanOrigin != null && !sameStreamOrigin(scanOrigin, url)) {
+                    throw IOException("Catalog scan cannot follow a redirect to another origin")
+                }
             } else {
                 if (status != 200) throw StreamIndexHttpException(status)
                 val contentType = connection.contentType.orEmpty()
@@ -142,7 +146,7 @@ internal suspend fun readStreamIndex(start: URI): List<StreamIndexEntry> {
                 }?.substringAfter('=')?.trim()?.trim('"')?.let {
                     runCatching { Charset.forName(it) }.getOrNull()
                 } ?: Charsets.UTF_8
-                val bytes = connection.inputStream.use { readSubtitleBytes(it, 512 * 1024) }
+                val bytes = connection.inputStream.use { readSubtitleBytes(it, 512 * 1024) { context.ensureActive() } }
                 context.ensureActive()
                 return extractStreamIndexEntries(url, String(bytes, charset))
             }

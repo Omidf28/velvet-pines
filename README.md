@@ -21,6 +21,7 @@ The project is an experimental implementation with local build and automated tes
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
 - Seekable on-demand videos opened from Streams can resume from their session checkpoint when the same link is reopened. Catalog rows show the resume time or replay status. Live streams start at the source's default position.
 - The Streams tab plays direct HTTPS and RTSP links and browses user-supplied HTTPS indexes. Linked HTML pages and directories open as text lists. Search inside an index filters that page. At the root of Streams, search also finds episodes from recently opened indexes by series or season path, title, or filename. Site-wide search requires a provider's searchable catalog or API.
+- Save HTTPS index addresses without query parameters for quick access. Scan archive searches linked pages on the same origin, up to 12 pages and three levels below the archive. Episode search results stay in the current session.
 - Video-first playback with automatic landscape immersion, fading overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
 - Configurable seek gestures, control and orientation locking, and per-media subtitle profiles.
@@ -132,7 +133,7 @@ The latest recorded validation includes:
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
 | Unsigned Android release build and critical lint | Passed |
-| JVM unit tests | 232 passed |
+| JVM unit tests | 235 passed |
 | SQLite migration and review checks | 14 passed, including comparison with the Room-generated schema |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | Passed |

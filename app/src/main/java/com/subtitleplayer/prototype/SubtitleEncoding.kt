@@ -15,11 +15,12 @@ internal enum class SubtitleTextEncoding(val label: String, val charsetName: Str
 
 internal const val maxSubtitleBytes = 8 * 1024 * 1024
 
-internal fun readSubtitleBytes(stream: InputStream, limit: Int = maxSubtitleBytes): ByteArray {
+internal fun readSubtitleBytes(stream: InputStream, limit: Int = maxSubtitleBytes, checkActive: () -> Unit = {}): ByteArray {
     require(limit > 0)
     val output = ByteArrayOutputStream()
     val buffer = ByteArray(4096)
     while (true) {
+        checkActive()
         val count = stream.read(buffer)
         if (count < 0) break
         if (count > limit - output.size()) throw IOException("Subtitle exceeds size limit")
