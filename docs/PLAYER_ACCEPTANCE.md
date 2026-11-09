@@ -1,6 +1,6 @@
 # Android Device Acceptance
 
-Status: pending execution on an Android device. Compilation and JVM tests do not verify touch routing, overlay positioning, or device rendering.
+Status: physical-device acceptance is pending. The Android 15 emulator smoke test covers the launch, sample, subtitle-word selection, saving, Back navigation, and opening the saved card. See the [emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42604131662/attempts/2).
 
 ## Beta 0.7.0-beta.4 Quick Check
 
