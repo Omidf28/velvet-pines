@@ -131,10 +131,10 @@ The latest recorded validation includes:
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
 | Unsigned Android release build and critical lint | Passed |
-| JVM unit tests | 222 passed |
+| JVM unit tests | 225 passed |
 | SQLite migration and review checks | 14 passed, including comparison with the Room-generated schema |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
-| Android Lint | 0 errors, 30 warnings |
+| Android Lint | Passed |
 
 These results do not establish physical-device, network interoperability, or accessibility acceptance. Playback gestures, TalkBack, device-specific codec behavior, file access, and external service integration require practical testing. The SQLite script complements Android database migration testing and does not replace installation or upgrade tests.
 
