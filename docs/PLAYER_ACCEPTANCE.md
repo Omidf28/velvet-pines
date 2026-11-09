@@ -2,9 +2,9 @@
 
 Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover subtitle-word selection and saving, landscape control taps, timed definitions, opening Streams, URL validation, and extracting direct media links from an HTML fixture. See the [beta.5 emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42616807667).
 
-## Beta 0.7.0-beta.5 Quick Check
+## Beta 0.7.0-beta.6 Quick Check
 
-1. Install the APK over beta.4. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
+1. Install the APK over beta.5. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
 2. In Files, open a nested folder and play a video. In portrait, press Android Back and confirm the same folder and scroll position return. Switch between Folders and Recent and verify each retains its place.
 3. Play the sample in fullscreen, show the controls, and quickly tap `afford` and `lose` in the first subtitle. The subtitle should stay under the same touch targets while the controls hide. Verify that the last Persian definition appears and disappears after approximately three seconds. For the offline miss, attach [the test subtitle](../test-fixtures/broad-meanings.en.srt) to any video longer than 32 seconds and tap `Zzvelvetqz` at 25 seconds. Verify its card stays open.
 4. Save a defined word and return to Files. Open Flashcards from the bottom bar and tap the English entry to reveal its meaning. Switch to Files and back and verify the expanded card is still selected.
@@ -17,6 +17,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Load an HTTPS archive with links to a series page, a season page, and a direct episode. Follow the links one at a time, then play the episode.
 - [ ] Filter the parent list, scroll, and open a child index. Press Back and verify that the parent's search and scroll position are restored. Repeat from portrait playback and verify Back first returns to the episode list.
 - [ ] Open a broken child link. Verify the error is visible and the parent list remains available. Confirm that a link to an already-open index cannot keep reopening it.
+- [ ] Open two season pages with an episode of the same name. Inside a season, search for the episode and check that only the current page is searched. Return to Streams and search for the episode by name and by season. The root results should include episodes from both opened seasons and show their source paths.
 
 ## Primary Workflow
 

@@ -20,6 +20,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+internal data class StreamSearchResult(val entry: StreamIndexEntry, val location: String? = null)
+
 internal class StreamsBrowseState {
     private data class OpenPage(
         val page: StreamIndexEntry.Page,
@@ -35,8 +37,24 @@ internal class StreamsBrowseState {
     val listState = LazyListState()
     private var catalogs by mutableStateOf<Map<String, List<StreamIndexEntry>>>(emptyMap())
     private var pages by mutableStateOf<List<OpenPage>>(emptyList())
+    private var loadedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
     val currentPage get() = pages.lastOrNull()?.page
     val entries get() = pages.lastOrNull()?.entries ?: catalogs.values.flatten()
+    val results by derivedStateOf {
+        val terms = streamSearchTerms(query)
+        val current = entries.map { StreamSearchResult(it) }
+        val candidates = if (currentPage == null && terms.isNotEmpty()) {
+            current + loadedEpisodes.values.flatten()
+        } else current
+        candidates.filter { result ->
+            terms.all { term ->
+                result.entry.title.contains(term, ignoreCase = true) ||
+                    result.entry.fileName.contains(term, ignoreCase = true) ||
+                    result.location?.contains(term, ignoreCase = true) == true
+            }
+        }.distinctBy { it.entry.url }
+            .sortedWith { a, b -> compareNaturalNames(a.entry.title, b.entry.title) }
+    }
 
     fun addCatalog(url: String, entries: List<StreamIndexEntry>) {
         catalogs = ((catalogs - url).toList() + (url to entries)).takeLast(5).toMap()
@@ -47,6 +65,9 @@ internal class StreamsBrowseState {
         pages.size < 8 && pages.none { it.page.address == page.address }
 
     fun openPage(page: StreamIndexEntry.Page, entries: List<StreamIndexEntry>) {
+        val location = (pages.map { it.page.title } + page.title).joinToString(" / ")
+        val episodes = entries.filterIsInstance<StreamIndexEntry.Video>().map { StreamSearchResult(it, location) }
+        loadedEpisodes = ((loadedEpisodes - page.url).toList() + (page.url to episodes)).takeLast(16).toMap()
         pages = pages + OpenPage(page, entries, query, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
         resetList()
     }
@@ -79,13 +100,7 @@ internal fun StreamsScreen(
     var request by remember { mutableStateOf<Job?>(null) }
     val page = state.currentPage
     val sourceEntries = state.entries
-    val query = state.query.trim()
-    val entries = remember(sourceEntries, query) {
-        val terms = streamSearchTerms(query)
-        sourceEntries.distinctBy { it.url }.filter {
-            terms.all { term -> it.title.contains(term, ignoreCase = true) || it.fileName.contains(term, ignoreCase = true) }
-        }.sortedWith { a, b -> compareNaturalNames(a.title, b.title) }
-    }
+    val results = state.results
 
     fun back() {
         keyboard?.hide()
@@ -186,18 +201,18 @@ internal fun StreamsScreen(
                         onValueChange = { state.query = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("Search titles or episodes") }
+                        label = { Text(if (page == null) "Search loaded titles or episodes" else "Search this index") }
                     )
                 }
-                if (entries.isEmpty()) item { Text("No results match your search.", color = PinesPalette.Muted) }
-                items(entries, key = { remoteVideoId(it.url) }) { entry ->
+                if (results.isEmpty()) item { Text("No results match your search.", color = PinesPalette.Muted) }
+                items(results, key = { remoteVideoId(it.entry.url) }) { result ->
+                    val entry = result.entry
                     val isPage = entry is StreamIndexEntry.Page
+                    val details = result.location ?: entry.fileName.takeIf { !isPage && it != entry.title }
                     ListItem(
                         headlineContent = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         leadingContent = if (isPage) ({ HomeNavigationIcon(folder = true, ink = PinesPalette.Accent) }) else null,
-                        supportingContent = if (!isPage && entry.title != entry.fileName) {
-                            { Text(entry.fileName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        } else null,
+                        supportingContent = details?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
                         modifier = Modifier.clickable(enabled = !loading, onClickLabel = if (isPage) "Open index" else "Play stream") {
                             keyboard?.hide()
                             when (entry) {

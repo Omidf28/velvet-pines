@@ -61,9 +61,14 @@ class PlaybackSmokeTest {
     @Test
     fun returningFromASeasonRestoresTheParentSearch() {
         val archive = URI("https://media.example/archive.html")
-        val rootEntries = extractStreamIndexEntries(archive, """<a href="season-1.html">Season 1</a>""")
-        val season = rootEntries.single() as StreamIndexEntry.Page
+        val rootEntries = extractStreamIndexEntries(archive, """
+            <a href="season-1.html">Season 1</a>
+            <a href="season-2.html">Season 2</a>
+        """.trimIndent())
+        val season = rootEntries.first() as StreamIndexEntry.Page
+        val nextSeason = rootEntries.last() as StreamIndexEntry.Page
         val seasonEntries = extractStreamIndexEntries(season.address, """<a href="s01e02.mp4">Episode 2</a>""")
+        val nextSeasonEntries = extractStreamIndexEntries(nextSeason.address, """<a href="s02e02.mp4">Episode 2</a>""")
         compose.runOnIdle {
             val state = StreamsBrowseState()
             state.addCatalog(archive.toString(), rootEntries)
@@ -78,6 +83,16 @@ class PlaybackSmokeTest {
             assertNull(state.currentPage)
             assertEquals(rootEntries, state.entries)
             assertEquals("Season 1", state.query)
+            state.openPage(nextSeason, nextSeasonEntries)
+            state.query = "Episode 2"
+            assertEquals(nextSeasonEntries, state.results.map { it.entry })
+            state.back()
+            state.query = "Episode 2"
+            assertEquals(listOf(seasonEntries.single(), nextSeasonEntries.single()), state.results.map { it.entry })
+            state.query = "Season 2 Episode 2"
+            assertEquals(listOf(StreamSearchResult(nextSeasonEntries.single(), "Season 2")), state.results)
+            state.query = ""
+            assertEquals(rootEntries, state.results.map { it.entry })
         }
     }
 

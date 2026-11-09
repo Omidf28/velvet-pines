@@ -8,7 +8,7 @@ The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The Eng
 
 ## Project Status
 
-**Current version:** `0.7.0-beta.5` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.6` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -19,7 +19,7 @@ The project is an experimental implementation with local build and automated tes
 - Local video playback through Android's Storage Access Framework, with folder browsing and recent media. Select a video directly from either view.
 - A redesigned library with continue-watching cards, per-video checkpoints within retained history, recorded progress, folder labels, and explicit playback from the beginning.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
-- The Streams tab plays direct HTTPS and RTSP links and browses user-supplied HTTPS indexes. Linked HTML pages and directories open as text lists, and media links play directly. Search filters the current list by link text and filename. Back restores the parent list and its search. Site-wide search requires a provider's searchable catalog or API.
+- The Streams tab plays direct HTTPS and RTSP links and browses user-supplied HTTPS indexes. Linked HTML pages and directories open as text lists. Search inside an index filters that page. At the root of Streams, search also finds episodes from recently opened indexes by series or season path, title, or filename. Site-wide search requires a provider's searchable catalog or API.
 - Video-first playback with automatic landscape immersion, fading overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
 - Configurable seek gestures, control and orientation locking, and per-media subtitle profiles.
