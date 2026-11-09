@@ -98,6 +98,7 @@ internal fun PlayerIconButton(
 @Composable
 internal fun PlayerOverlay(
     title: String,
+    backLabel: String,
     playing: Boolean,
     canPlay: Boolean,
     canSeek: Boolean,
@@ -124,7 +125,7 @@ internal fun PlayerOverlay(
                     .safeDrawingPadding().padding(horizontal=8.dp,vertical=6.dp),
                 verticalAlignment=Alignment.CenterVertically
             ) {
-                PlayerIconButton(PlayerGlyph.Back,"Back to Files",onClick=onBack)
+                PlayerIconButton(PlayerGlyph.Back,backLabel,onClick=onBack)
                 Text(
                     title, modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
                     color = PinesPalette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,

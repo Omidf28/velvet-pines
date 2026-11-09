@@ -17,14 +17,42 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performFirstLinkClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import java.net.URI
 
 class PlaybackSmokeTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun streamsTabChecksUrlsAndReturnsToFiles() {
+        compose.onNodeWithText("Streams").performClick()
+        compose.onNodeWithText("Video or index URL").performTextInput("http://media.example/episode.mp4")
+        compose.onNodeWithText("Play URL").performClick()
+        compose.onNodeWithText("Enter a direct HTTPS or RTSP video URL.").assertIsDisplayed()
+        compose.onNodeWithText("Files").performClick()
+        compose.onNodeWithContentDescription("Files menu").assertIsDisplayed()
+    }
+
+    @Test
+    fun readsPlayableEpisodesFromAnHtmlIndex() {
+        val links = extractStreamIndexEntries(
+            URI("https://media.example/series/index.html"),
+            """
+            <a href="season-1/episode-2.mp4">Episode <strong>2</strong></a>
+            <a href="season-1/episode-2.mp4#preview">Duplicate</a>
+            <a href="season-1/episode-2.srt">Subtitle</a>
+            <a href="https://cdn.example/season-1/episode-3.m3u8">Episode 3</a>
+            """.trimIndent()
+        )
+        assertEquals(listOf("Episode 2", "Episode 3"), links.map { it.title })
+        assertEquals("https://media.example/series/season-1/episode-2.mp4", links.first().link.url)
+        assertEquals(OnlineVideoFormat.Hls, links.last().link.format)
+    }
 
     @Test
     fun opensFilesAndSavesASubtitleWordToFlashcards() {

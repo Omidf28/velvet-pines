@@ -21,8 +21,12 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
+internal enum class HomeDestination(val label: String) {
+    Files("Files"), Streams("Streams"), Flashcards("Flashcards")
+}
+
 @Composable
-internal fun HomeNavigation(showingWords: Boolean, onFiles: () -> Unit, onWords: () -> Unit) {
+internal fun HomeNavigation(selected: HomeDestination, onSelect: (HomeDestination) -> Unit) {
     val colors = NavigationBarItemDefaults.colors(
         selectedIconColor = PinesPalette.Accent,
         selectedTextColor = PinesPalette.Ink,
@@ -36,20 +40,36 @@ internal fun HomeNavigation(showingWords: Boolean, onFiles: () -> Unit, onWords:
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
-        NavigationBarItem(
-            selected = !showingWords,
-            onClick = onFiles,
-            icon = { HomeNavigationIcon(folder = true) },
-            label = { Text("Files") },
-            colors = colors
-        )
-        NavigationBarItem(
-            selected = showingWords,
-            onClick = onWords,
-            icon = { HomeNavigationIcon(folder = false) },
-            label = { Text("Flashcards") },
-            colors = colors
-        )
+        for (destination in HomeDestination.entries) {
+            NavigationBarItem(
+                selected = selected == destination,
+                onClick = { if (selected != destination) onSelect(destination) },
+                icon = {
+                    when (destination) {
+                        HomeDestination.Files -> HomeNavigationIcon(folder = true)
+                        HomeDestination.Streams -> StreamNavigationIcon()
+                        HomeDestination.Flashcards -> HomeNavigationIcon(folder = false)
+                    }
+                },
+                label = { Text(destination.label) },
+                colors = colors
+            )
+        }
+    }
+}
+
+@Composable
+private fun StreamNavigationIcon() {
+    val ink = LocalContentColor.current
+    Canvas(Modifier.size(24.dp)) {
+        val u = size.width / 24f
+        drawRoundRect(ink, Offset(2 * u, 4 * u), Size(20 * u, 16 * u), CornerRadius(3 * u), style = Stroke(1.7f * u))
+        drawPath(Path().apply {
+            moveTo(10 * u, 8 * u)
+            lineTo(16 * u, 12 * u)
+            lineTo(10 * u, 16 * u)
+            close()
+        }, ink)
     }
 }
 

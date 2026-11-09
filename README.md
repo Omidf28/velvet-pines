@@ -4,11 +4,11 @@
 
 Velvet Pines integrates media playback with interactive English subtitles, Persian word definitions, and a persistent vocabulary notebook. Learners can select a word or phrase during playback, view its definition for approximately three seconds, and save it with the original dialogue and playback timestamp for subsequent review.
 
-The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The English interface uses a charcoal palette, indigo accents, and translucent panels. Files and Flashcards are available from the bottom navigation.
+The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The English interface uses a charcoal palette, indigo accents, and translucent panels. Files, Streams, and Flashcards are available from the bottom navigation.
 
 ## Project Status
 
-**Current version:** `0.7.0-beta.4` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.5` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 
@@ -19,7 +19,8 @@ The project is an experimental implementation with local build and automated tes
 - Local video playback through Android's Storage Access Framework, with folder browsing and recent media. Select a video directly from either view.
 - A redesigned library with continue-watching cards, per-video checkpoints within retained history, recorded progress, folder labels, and explicit playback from the beginning.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
-- Video-first playback with automatic landscape immersion, overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
+- The Streams tab plays direct HTTPS and RTSP links and searches playable links from user-supplied HTTPS HTML indexes. Results use the link text and filename. Loading an index reads that page's links. Site-wide search requires a provider's searchable catalog or API.
+- Video-first playback with automatic landscape immersion, fading overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
 - Configurable seek gestures, control and orientation locking, and per-media subtitle profiles.
 - Explicit fullscreen rotation on phones, with an adaptive settings overlay beside the video in landscape and above it in portrait.

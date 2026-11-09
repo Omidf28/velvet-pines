@@ -22,6 +22,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -157,6 +161,8 @@ class MainActivity : ComponentActivity() {
     private var videoReady by mutableStateOf(false)
     private var showLibrary by mutableStateOf(false)
     private var showWords by mutableStateOf(false)
+    private var showStreams by mutableStateOf(false)
+    private var returnToStreams = false
     private var libraryTab by mutableStateOf(LibraryTab.Folder)
     private var libraryFolder by mutableStateOf<Uri?>(null)
     private var favoriteFolders by mutableStateOf<List<LibraryFolderShortcut>>(emptyList())
@@ -290,6 +296,7 @@ class MainActivity : ComponentActivity() {
             .filter { readable.coversReadAccess(it.uri) }
         showLibrary = savedInstanceState?.getBoolean("showLibrary") == true
         showWords = savedInstanceState?.getBoolean("showWords") == true
+        showStreams = savedInstanceState?.getBoolean("showStreams") == true
 
         player = ExoPlayer.Builder(this).build().apply {
             setAudioAttributes(
@@ -393,9 +400,11 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (handleOpenIntent(intent)) {
             showWords = false
+            showStreams = false
             showLibrary = false
         } else if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
             showWords = false
+            showStreams = false
             libraryTab = LibraryTab.Folder
             showLibrary = true
         }
@@ -452,6 +461,7 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         outState.putBoolean("showLibrary", showLibrary)
         outState.putBoolean("showWords", showWords)
+        outState.putBoolean("showStreams", showStreams)
         outState.putString("libraryTab", libraryTab.name)
         libraryFolder?.let { folder ->
             outState.putString("libraryLocation", writeFavoriteFolderShortcuts(listOf(LibraryFolderShortcut(folder, libraryPath))))
@@ -598,8 +608,10 @@ class MainActivity : ComponentActivity() {
         onlineFormat: OnlineVideoFormat? = null,
         smbCredentials: SmbCredentials? = null,
         parentDirectory: Uri? = null,
-        parentPath: String? = null
+        parentPath: String? = null,
+        fromStreams: Boolean = false
     ) {
+        returnToStreams = fromStreams
         val incoming = knownLibraryVideo(uri)
         val readable = persistentReadUris()
         rememberCurrentProgress()
@@ -1058,6 +1070,7 @@ class MainActivity : ComponentActivity() {
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
         val recentBrowseState = remember { LibraryBrowseState() }
+        val streamsBrowseState = remember { StreamsBrowseState() }
         val flashcardsState = rememberSaveableStateHolder()
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
@@ -1065,6 +1078,15 @@ class MainActivity : ComponentActivity() {
         var showSubtitleMenu by remember(videoUri) { mutableStateOf(false) }
         var sourceName by remember(videoUri) { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
+        fun selectHome(destination: HomeDestination) {
+            showLibrary = true
+            showStreams = destination == HomeDestination.Streams
+            showWords = destination == HomeDestination.Flashcards
+        }
+        fun openHomeFromVideo() {
+            lookup = null
+            selectHome(if (returnToStreams) HomeDestination.Streams else HomeDestination.Files)
+        }
         LaunchedEffect(sleepDeadlineMs) {
             val deadline = sleepDeadlineMs ?: return@LaunchedEffect
             while (sleepDeadlineMs == deadline) {
@@ -1087,12 +1109,13 @@ class MainActivity : ComponentActivity() {
             enabled = !pictureInPicture && (showWords || showLibrary || videoUri != null)
         ) {
             when {
+                showStreams -> showStreams = false
                 showWords -> showWords = false
                 showLibrary -> finish()
                 controlsLocked -> { viewport = viewport.unlock(); controlsVisible = true; controlsInteraction++ }
                 lookup != null -> lookup = null
                 fullscreen -> { viewport = viewport.exitFullscreen(); controlsVisible = true; controlsInteraction++ }
-                else -> showLibrary = true
+                else -> openHomeFromVideo()
             }
         }
         LaunchedEffect(videoUri) {
@@ -1266,6 +1289,20 @@ class MainActivity : ComponentActivity() {
                 onDismiss = { showDictionary = false; controlsVisible = true; controlsInteraction++ }
             )
         }
+        if (showStreams && !pictureInPicture) {
+            StreamsScreen(
+                state = streamsBrowseState,
+                onPlay = { link ->
+                    lookup = null
+                    showStreams = false
+                    showLibrary = false
+                    openVideo(Uri.parse(link.url), onlineFormat = link.format, fromStreams = true)
+                },
+                onReturnToPlayback = if (videoUri != null) ({ showStreams = false; showLibrary = false }) else null,
+                bottomBar = { HomeNavigation(HomeDestination.Streams, ::selectHome) }
+            )
+            return
+        }
         if (showWords && !pictureInPicture) {
             flashcardsState.SaveableStateProvider("flashcards") {
                 SavedWordsScreen(
@@ -1278,12 +1315,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onBack = if (showLibrary) null else ({ showWords = false }),
-                    bottomBar = {
-                        HomeNavigation(showingWords = true, onFiles = {
-                            showLibrary = true
-                            showWords = false
-                        }, onWords = {})
-                    }
+                    bottomBar = { HomeNavigation(HomeDestination.Flashcards, ::selectHome) }
                 )
             }
             return
@@ -1321,12 +1353,7 @@ class MainActivity : ComponentActivity() {
                 canReturnToPlayback = videoUri != null,
                 skipSeconds = skipSeconds,
                 onPlaySample = { showLibrary = false; openDemoVideo() },
-                bottomBar = {
-                    HomeNavigation(showingWords = false, onFiles = {}, onWords = {
-                        lookup = null
-                        showWords = true
-                    })
-                },
+                bottomBar = { HomeNavigation(HomeDestination.Files, ::selectHome) },
                 onDictionary = { dictionarySeed = ""; showDictionary = true },
                 onReturnToPlayback = { showLibrary = false }
             )
@@ -1574,12 +1601,18 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                if (!pictureInPicture && videoUri != null && controlsVisible && !controlsLocked) {
+                if (!pictureInPicture && videoUri != null) AnimatedVisibility(
+                    visible = controlsVisible && !controlsLocked,
+                    modifier = Modifier.matchParentSize(),
+                    enter = fadeIn(tween(180)),
+                    exit = fadeOut(tween(120))
+                ) {
                     val progress = if (frame.durationMs > 0)
                         (frame.positionMs.toFloat() / frame.durationMs).coerceIn(0f, 1f) else 0f
                     val shownPosition = if (dragPosition >= 0) (dragPosition * frame.durationMs).toLong() else frame.positionMs
                     PlayerOverlay(
                         title = sourceName ?: "Video",
+                        backLabel = if (returnToStreams) "Back to Streams" else "Back to Files",
                         playing = frame.playing,
                         canPlay = !playbackError,
                         canSeek = canSeek,
@@ -1588,7 +1621,7 @@ class MainActivity : ComponentActivity() {
                             (if (frame.durationMs > 0) formatTime(frame.durationMs) else "—"),
                         fullscreen = fullscreen,
                         skipSeconds = skipSeconds,
-                        onBack = { lookup = null; showLibrary = true },
+                        onBack = ::openHomeFromVideo,
                         onPlayPause = {
                             controlsInteraction++
                             if (lookup?.studyAction != null) lookup = null
