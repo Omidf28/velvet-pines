@@ -36,6 +36,11 @@ class StreamIndexTest {
             (resolveStreamIndexEntry(base, "?page=2", "Next") as? StreamIndexEntry.Page)?.address)
     }
 
+    @Test fun keepsSeasonAndEpisodeNumbersAttachedToTheirLabels() {
+        assertEquals(listOf("Season 2", "Episode 2"), streamSearchTerms("Season_2 / Episode-2"))
+        assertEquals(listOf("فصل ۲", "قسمت ۲"), streamSearchTerms("فصل ۲، قسمت ۲"))
+    }
+
     @Test fun skipsParentLinksArchivesAndUnsupportedLinks() {
         for (href in listOf("#section", "index.html#section", "../", "episode.zip", "http://media.example/episode.mp4",
             "javascript:play()", "https://user@media.example/episode.mp4", "bad url")) {

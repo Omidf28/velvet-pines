@@ -34,9 +34,11 @@ internal sealed interface StreamIndexEntry {
 internal class StreamIndexHttpException(val status: Int) : IOException("Index server returned HTTP $status")
 
 private val streamSearchSeparators = Regex("[^\\p{L}\\p{N}]+")
+private val streamSearchGroups = Regex("(?i)\\b(?:season|episode|فصل|قسمت) \\p{N}+\\b|[\\p{L}\\p{N}]+")
 
+internal fun streamSearchText(value: String): String = value.replace(streamSearchSeparators, " ").trim()
 internal fun streamSearchTerms(query: String): List<String> =
-    query.split(streamSearchSeparators).filter(String::isNotBlank)
+    streamSearchGroups.findAll(streamSearchText(query)).map { it.value }.toList()
 
 internal fun parseStreamIndexUrl(input: String): URI? =
     parseOnlineVideoLink(input)?.url?.let(URI::create)?.takeIf { it.scheme == "https" }
