@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performFirstLinkClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import java.net.URI
@@ -46,12 +48,37 @@ class PlaybackSmokeTest {
             <a href="season-1/episode-2.mp4">Episode <strong>2</strong></a>
             <a href="season-1/episode-2.mp4#preview">Duplicate</a>
             <a href="season-1/episode-2.srt">Subtitle</a>
+            <a href="season-2.html">Season 2</a>
             <a href="https://cdn.example/season-1/episode-3.m3u8">Episode 3</a>
             """.trimIndent()
         )
-        assertEquals(listOf("Episode 2", "Episode 3"), links.map { it.title })
-        assertEquals("https://media.example/series/season-1/episode-2.mp4", links.first().link.url)
-        assertEquals(OnlineVideoFormat.Hls, links.last().link.format)
+        assertEquals(listOf("Episode 2", "Season 2", "Episode 3"), links.map { it.title })
+        assertEquals("https://media.example/series/season-1/episode-2.mp4", links.first().url)
+        assertEquals(URI("https://media.example/series/season-2.html"), (links[1] as StreamIndexEntry.Page).address)
+        assertEquals(OnlineVideoFormat.Hls, (links.last() as StreamIndexEntry.Video).link.format)
+    }
+
+    @Test
+    fun returningFromASeasonRestoresTheParentSearch() {
+        val archive = URI("https://media.example/archive.html")
+        val rootEntries = extractStreamIndexEntries(archive, """<a href="season-1.html">Season 1</a>""")
+        val season = rootEntries.single() as StreamIndexEntry.Page
+        val seasonEntries = extractStreamIndexEntries(season.address, """<a href="s01e02.mp4">Episode 2</a>""")
+        compose.runOnIdle {
+            val state = StreamsBrowseState()
+            state.addCatalog(archive.toString(), rootEntries)
+            state.query = "Season 1"
+            state.openPage(season, seasonEntries)
+            assertEquals(season, state.currentPage)
+            assertEquals(seasonEntries, state.entries)
+            assertEquals("", state.query)
+            assertFalse(state.canOpen(season))
+            state.query = "Episode 2"
+            state.back()
+            assertNull(state.currentPage)
+            assertEquals(rootEntries, state.entries)
+            assertEquals("Season 1", state.query)
+        }
     }
 
     @Test

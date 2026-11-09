@@ -9,7 +9,28 @@ import java.nio.charset.Charset
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-internal data class StreamIndexEntry(val title: String, val fileName: String, val link: OnlineVideoLink)
+internal sealed interface StreamIndexEntry {
+    val title: String
+    val fileName: String
+    val url: String
+
+    data class Video(
+        override val title: String,
+        override val fileName: String,
+        val link: OnlineVideoLink
+    ) : StreamIndexEntry {
+        override val url get() = link.url
+    }
+
+    data class Page(
+        override val title: String,
+        override val fileName: String,
+        val address: URI
+    ) : StreamIndexEntry {
+        override val url get() = address.toString()
+    }
+}
+
 internal class StreamIndexHttpException(val status: Int) : IOException("Index server returned HTTP $status")
 
 private val streamSearchSeparators = Regex("[^\\p{L}\\p{N}]+")
@@ -21,17 +42,30 @@ internal fun parseStreamIndexUrl(input: String): URI? =
     parseOnlineVideoLink(input)?.url?.let(URI::create)?.takeIf { it.scheme == "https" }
 
 internal fun resolveStreamIndexEntry(base: URI, href: String, title: String): StreamIndexEntry? {
+    val reference = href.trim().replace(" ", "%20")
+    if (reference.isEmpty() || reference.startsWith('#') || reference in setOf(".", "./", "..", "../")) return null
     val resolved = try {
-        base.resolve(href.trim().replace(" ", "%20")).normalize()
+        val target = if (reference.startsWith('?')) {
+            URI.create(base.toString().substringBefore('#').substringBefore('?') + reference)
+        } else {
+            base.resolve(reference)
+        }
+        target.normalize()
     } catch (_: IllegalArgumentException) {
         return null
     }
     val url = parseStreamIndexUrl(resolved.toString()) ?: return null
+    if (url == base) return null
     val path = url.path.orEmpty()
     val link = parseOnlineVideoLink(url.toString()) ?: return null
-    if (link.format == OnlineVideoFormat.Auto && !isVideo(path, null)) return null
-    val fileName = path.substringAfterLast('/')
-    return StreamIndexEntry(title.trim().take(180).ifBlank { fileName }, fileName, link)
+    val fileName = path.trimEnd('/').substringAfterLast('/').ifBlank { url.host }
+    val displayTitle = title.trim().take(180).ifBlank { fileName }
+    return when {
+        link.format != OnlineVideoFormat.Auto || isVideo(path, null) -> StreamIndexEntry.Video(displayTitle, fileName, link)
+        path.endsWith(".html", true) || path.endsWith(".htm", true) || path.endsWith(".xhtml", true) ||
+            (path.length > 1 && path.endsWith('/')) -> StreamIndexEntry.Page(displayTitle, fileName, url)
+        else -> null
+    }
 }
 
 internal fun extractStreamIndexEntries(base: URI, html: String): List<StreamIndexEntry> {
@@ -41,7 +75,7 @@ internal fun extractStreamIndexEntries(base: URI, html: String): List<StreamInde
             val title = text.subSequence(text.getSpanStart(span), text.getSpanEnd(span)).toString()
             resolveStreamIndexEntry(base, span.url, title)
         }
-        .distinctBy { it.link.url }.take(300).toList()
+        .distinctBy { it.url }.take(300).toList()
 }
 
 internal suspend fun readStreamIndex(start: URI): List<StreamIndexEntry> {

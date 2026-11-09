@@ -19,7 +19,7 @@ The project is an experimental implementation with local build and automated tes
 - Local video playback through Android's Storage Access Framework, with folder browsing and recent media. Select a video directly from either view.
 - A redesigned library with continue-watching cards, per-video checkpoints within retained history, recorded progress, folder labels, and explicit playback from the beginning.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
-- The Streams tab plays direct HTTPS and RTSP links and searches playable links from user-supplied HTTPS HTML indexes. Results use the link text and filename. Loading an index reads that page's links. Site-wide search requires a provider's searchable catalog or API.
+- The Streams tab plays direct HTTPS and RTSP links and browses user-supplied HTTPS indexes. Linked HTML pages and directories open as text lists, and media links play directly. Search filters the current list by link text and filename. Back restores the parent list and its search. Site-wide search requires a provider's searchable catalog or API.
 - Video-first playback with automatic landscape immersion, fading overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
 - Configurable seek gestures, control and orientation locking, and per-media subtitle profiles.
