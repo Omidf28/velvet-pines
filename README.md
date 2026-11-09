@@ -8,7 +8,7 @@ The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The Eng
 
 ## Project Status
 
-**Current version:** `0.7.0-beta.6` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.7` · **Platform:** Android 8.0 / API 26 and later
 
 The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
 

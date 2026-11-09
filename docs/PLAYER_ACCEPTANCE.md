@@ -2,14 +2,15 @@
 
 Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover subtitle-word selection and saving, landscape control taps, timed definitions, URL validation, and Streams navigation and season search with HTML fixtures. See the [beta.6 emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42636514598).
 
-## Beta 0.7.0-beta.6 Quick Check
+## Beta 0.7.0-beta.7 Quick Check
 
-1. Install the APK over beta.5. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
+1. Install the APK over beta.6. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
 2. In Files, open a nested folder and play a video. In portrait, press Android Back and confirm the same folder and scroll position return. Switch between Folders and Recent and verify each retains its place.
 3. Play the sample in fullscreen, show the controls, and quickly tap `afford` and `lose` in the first subtitle. The subtitle should stay under the same touch targets while the controls hide. Verify that the last Persian definition appears and disappears after approximately three seconds. For the offline miss, attach [the test subtitle](../test-fixtures/broad-meanings.en.srt) to any video longer than 32 seconds and tap `Zzvelvetqz` at 25 seconds. Verify its card stays open.
 4. Save a defined word and return to Files. Open Flashcards from the bottom bar and tap the English entry to reveal its meaning. Switch to Files and back and verify the expanded card is still selected.
 5. Open Streams. Play a known direct HTTPS or RTSP link. Then load an accessible HTTPS HTML index with direct video links, search by title or episode, and select a result. Back from portrait playback should return to Streams and retain its results.
 6. In Flashcards, open Backup and restore. Create a backup in Downloads, select Verify backup, and confirm the card and definition counts.
+7. Open two season indexes in Streams. From the root, search for an episode using its English season and episode labels, Persian labels, and compact filename code. Open a result, check its title in the player, and return after watching part of it. Check the resume time and reopen the same link to verify it resumes there.
 
 ## Nested Streams Indexes
 
