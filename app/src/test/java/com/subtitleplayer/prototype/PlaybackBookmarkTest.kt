@@ -105,4 +105,32 @@ class PlaybackBookmarkTest {
         assertEquals(0L, resumePositionForOpen(null, null, null))
         assertEquals(0L, resumePositionForOpen(-1, capturePlaybackBookmark(80, 100, false), null))
     }
+
+    @Test fun streamCheckpointsAreSeparateAndCompletionClearsTheResumePosition() {
+        val bookmarks = StreamPlaybackBookmarks()
+        val first = "https://media.example/episode-1.mp4?token=one"
+        val second = "https://media.example/episode-2.mp4"
+        bookmarks.record(first, capturePlaybackBookmark(30, 100, false))
+        bookmarks.record(second, capturePlaybackBookmark(60, 100, false))
+        assertEquals(30L, bookmarks[first]?.resumePositionMs)
+        assertEquals(60L, bookmarks[second]?.resumePositionMs)
+        assertNull(bookmarks["https://media.example/episode-1.mp4?token=two"])
+        bookmarks.record(first, capturePlaybackBookmark(100, 100, true))
+        assertEquals(0L, bookmarks[first]?.resumePositionMs)
+        assertNull(StreamPlaybackBookmarks()[first])
+    }
+
+    @Test fun streamCheckpointHistoryKeepsTheMostRecentlyUpdatedEntries() {
+        val bookmarks = StreamPlaybackBookmarks(limit = 2)
+        val first = "https://media.example/first.mp4"
+        val second = "https://media.example/second.mp4"
+        val third = "https://media.example/third.mp4"
+        bookmarks.record(first, capturePlaybackBookmark(10, 100, false))
+        bookmarks.record(second, capturePlaybackBookmark(20, 100, false))
+        bookmarks.record(first, capturePlaybackBookmark(30, 100, false))
+        bookmarks.record(third, capturePlaybackBookmark(40, 100, false))
+        assertEquals(30L, bookmarks[first]?.resumePositionMs)
+        assertNull(bookmarks[second])
+        assertEquals(40L, bookmarks[third]?.resumePositionMs)
+    }
 }

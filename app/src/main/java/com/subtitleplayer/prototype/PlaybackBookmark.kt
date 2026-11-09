@@ -20,3 +20,18 @@ internal fun capturePlaybackBookmark(positionMs: Long, durationMs: Long, ended: 
 /** Preserve an incoming movie's bookmark if recording the outgoing movie evicts a history entry. */
 internal fun resumePositionForOpen(explicit: Long?, latest: PlaybackBookmark?, prior: PlaybackBookmark?): Long =
     explicit?.coerceAtLeast(0) ?: (latest ?: prior)?.resumePositionMs ?: 0L
+
+/** Stream links can expire, so checkpoints are scoped to the current player session. */
+internal class StreamPlaybackBookmarks(private val limit: Int = 32) {
+    init { require(limit > 0) }
+    private val entries = linkedMapOf<String, PlaybackBookmark>()
+
+    operator fun get(url: String): PlaybackBookmark? = entries[remoteVideoId(url)]
+
+    fun record(url: String, bookmark: PlaybackBookmark) {
+        val key = remoteVideoId(url)
+        entries.remove(key)
+        entries[key] = bookmark
+        if (entries.size > limit) entries.remove(entries.keys.first())
+    }
+}

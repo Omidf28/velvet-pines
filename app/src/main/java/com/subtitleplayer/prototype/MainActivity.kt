@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
     private var showWords by mutableStateOf(false)
     private var showStreams by mutableStateOf(false)
     private var returnToStreams = false
+    private val streamBookmarks = StreamPlaybackBookmarks()
     private var streamTitle by mutableStateOf<String?>(null)
     private var libraryTab by mutableStateOf(LibraryTab.Folder)
     private var libraryFolder by mutableStateOf<Uri?>(null)
@@ -613,12 +614,13 @@ class MainActivity : ComponentActivity() {
         fromStreams: Boolean = false,
         title: String? = null
     ) {
-        returnToStreams = fromStreams
-        streamTitle = title
         val incoming = knownLibraryVideo(uri)
+        val incomingStream = if (fromStreams) streamBookmarks[uri.toString()] else null
         val readable = persistentReadUris()
         rememberCurrentProgress()
         rememberSubtitleProfile(readable)
+        returnToStreams = fromStreams
+        streamTitle = title
         val key = videoSubtitleKey(uri)
         val savedProfile = subtitleProfiles.firstOrNull { videoSubtitleKey(it.video) == key }?.subtitles?.withReadableFiles(readable)
         val settings = restoredSubtitles
@@ -628,7 +630,12 @@ class MainActivity : ComponentActivity() {
             } else VideoSubtitleSettings(size = defaultSubtitleSize, automaticEnglish = true, automaticSidecars = true)
 
         val knownVideo = knownLibraryVideo(uri) ?: incoming
-        val startingPosition = resumePositionForOpen(positionMs, knownVideo?.bookmark, incoming?.bookmark)
+        val startingPosition = if (fromStreams && positionMs == null) {
+            resumePositionForOpen(null, streamBookmarks[uri.toString()], incomingStream)
+                .takeIf { it > 0 } ?: C.TIME_UNSET
+        } else {
+            resumePositionForOpen(positionMs, knownVideo?.bookmark, incoming?.bookmark)
+        }
         val knownParent = parentDirectory ?: knownParentFor(uri) ?: knownVideo?.parentDirectory
         cancelSidecarDiscovery()
         videoOpenGeneration++
@@ -885,6 +892,12 @@ class MainActivity : ComponentActivity() {
 
     private fun rememberCurrentProgress() {
         val uri = videoUri ?: return
+        if (returnToStreams && uri.isOnlineVideo) {
+            if (!player.isCurrentMediaItemLive) {
+                currentProgress(uri)?.takeIf { it.durationMs > 0 }?.let { streamBookmarks.record(uri.toString(), it) }
+            }
+            return
+        }
         if (uri.scheme != "content" || !persistentReadUris().coversReadAccess(uri)) return
         val bookmark = currentProgress(uri) ?: return
         val old = knownLibraryVideo(uri)
