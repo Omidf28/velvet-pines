@@ -1,6 +1,6 @@
 # Android Device Acceptance
 
-Status: physical-device acceptance is pending. The Android 15 emulator smoke test covers the launch, sample, subtitle-word selection, saving, Back navigation, and opening the saved card. See the [emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42604131662/attempts/2).
+Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover the launch, sample, subtitle-word selection, saving, Back navigation, and opening the saved card. They also verify that landscape control taps and a timed definition leave the video frame bounds fixed. See the [emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42606219093).
 
 ## Beta 0.7.0-beta.4 Quick Check
 
