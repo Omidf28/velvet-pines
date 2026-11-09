@@ -47,13 +47,7 @@ internal class StreamsBrowseState {
             current + loadedEpisodes.values.flatten()
         } else current
         candidates.filter { result ->
-            if (terms.isEmpty()) return@filter true
-            val searchable = " " + streamSearchText(
-                listOfNotNull(result.location, result.entry.title, result.entry.fileName).joinToString(" ")
-            ) + " "
-            terms.all { term ->
-                searchable.contains(if (' ' in term) " $term " else term, ignoreCase = true)
-            }
+            matchesStreamSearch(terms, result.location, result.entry.title, result.entry.fileName)
         }.distinctBy { it.entry.url }
             .sortedWith { a, b -> compareNaturalNames(a.entry.title, b.entry.title) }
     }

@@ -34,11 +34,42 @@ internal sealed interface StreamIndexEntry {
 internal class StreamIndexHttpException(val status: Int) : IOException("Index server returned HTTP $status")
 
 private val streamSearchSeparators = Regex("[^\\p{L}\\p{N}]+")
-private val streamSearchGroups = Regex("(?i)\\b(?:season|episode|فصل|قسمت) \\p{N}+\\b|[\\p{L}\\p{N}]+")
+private val compactEpisode = Regex("(?i)\\bS([0-9]+) *E([0-9]+)\\b")
+private val numberedLabel = Regex("(?i)\\b(season|episode|فصل|قسمت) *([0-9]+)\\b")
+private val streamSearchGroups = Regex("\\b(?:season|episode) [0-9]+\\b|[\\p{L}\\p{N}]+")
 
-internal fun streamSearchText(value: String): String = value.replace(streamSearchSeparators, " ").trim()
+private fun String.withoutLeadingZeros(): String = trimStart('0').ifEmpty { "0" }
+
+private fun streamSearchText(value: String): String {
+    val digits = buildString(value.length) {
+        for (char in value) {
+            val digit = Character.digit(char, 10)
+            append(if (digit >= 0) '0' + digit else char)
+        }
+    }
+    val words = digits.replace(streamSearchSeparators, " ").trim()
+    val expanded = compactEpisode.replace(words) { match ->
+        val (season, episode) = match.destructured
+        "season ${season.withoutLeadingZeros()} episode ${episode.withoutLeadingZeros()}"
+    }
+    return numberedLabel.replace(expanded) { match ->
+        val (label, number) = match.destructured
+        val kind = if (label.equals("season", ignoreCase = true) || label == "فصل") "season" else "episode"
+        "$kind ${number.withoutLeadingZeros()}"
+    }
+}
+
 internal fun streamSearchTerms(query: String): List<String> =
     streamSearchGroups.findAll(streamSearchText(query)).map { it.value }.toList()
+
+internal fun matchesStreamSearch(terms: List<String>, vararg fields: String?): Boolean {
+    if (terms.isEmpty()) return true
+    val searchable = fields.filterNotNull().map { " " + streamSearchText(it) + " " }
+    return terms.all { term ->
+        val needle = if (' ' in term) " $term " else term
+        searchable.any { it.contains(needle, ignoreCase = true) }
+    }
+}
 
 internal fun parseStreamIndexUrl(input: String): URI? =
     parseOnlineVideoLink(input)?.url?.let(URI::create)?.takeIf { it.scheme == "https" }

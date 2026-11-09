@@ -2,7 +2,9 @@ package com.subtitleplayer.prototype
 
 import java.net.URI
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StreamIndexTest {
@@ -37,8 +39,18 @@ class StreamIndexTest {
     }
 
     @Test fun keepsSeasonAndEpisodeNumbersAttachedToTheirLabels() {
-        assertEquals(listOf("Season 2", "Episode 2"), streamSearchTerms("Season_2 / Episode-2"))
-        assertEquals(listOf("فصل ۲", "قسمت ۲"), streamSearchTerms("فصل ۲، قسمت ۲"))
+        val expected = listOf("season 2", "episode 2")
+        assertEquals(expected, streamSearchTerms("Season_02 / Episode-2"))
+        assertEquals(expected, streamSearchTerms("فصل ۲، قسمت ۲"))
+    }
+
+    @Test fun matchesEpisodeCodesAndLabelsAcrossNamingStyles() {
+        assertTrue(matchesStreamSearch(streamSearchTerms("فصل ۲ قسمت ۵"), "Show.S02E05.1080p.mkv"))
+        assertTrue(matchesStreamSearch(streamSearchTerms("s02e05"), "Season 2", "Episode 5"))
+        assertTrue(matchesStreamSearch(streamSearchTerms("s02e05"), "فصل ۲", "قسمت ۵"))
+        assertFalse(matchesStreamSearch(streamSearchTerms("Season 2 Episode 5"), "Show.S01E05.mkv"))
+        assertFalse(matchesStreamSearch(streamSearchTerms("S02E05"), "Show.S02E50.mkv"))
+        assertFalse(matchesStreamSearch(streamSearchTerms("Season 2"), "Season", "2.mkv"))
     }
 
     @Test fun skipsParentLinksArchivesAndUnsupportedLinks() {
