@@ -1,0 +1,51 @@
+name: Android emulator smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-emulator-smoke.yml'
+      - 'app/src/androidTest/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-emulator-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use JDK 17
+        run: |
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s\n' "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android smoke test
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest

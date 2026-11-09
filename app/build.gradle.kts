@@ -32,6 +32,7 @@ android {
         targetSdk = 36
         versionCode = 19
         versionName = "0.7.0-beta.4"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     if (configureReleaseSigning) {
@@ -76,4 +77,6 @@ dependencies {
     implementation("com.hierynomus:smbj:0.14.0")
     ksp("androidx.room:room-compiler:2.8.4")
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.9.4")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }
