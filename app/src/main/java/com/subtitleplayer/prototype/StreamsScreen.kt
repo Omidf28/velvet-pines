@@ -87,6 +87,7 @@ internal class StreamsBrowseState {
 @Composable
 internal fun StreamsScreen(
     state: StreamsBrowseState,
+    bookmarks: StreamPlaybackBookmarks,
     onPlay: (OnlineVideoLink, String?) -> Unit,
     onReturnToPlayback: (() -> Unit)?,
     bottomBar: @Composable () -> Unit
@@ -206,10 +207,25 @@ internal fun StreamsScreen(
                     val entry = result.entry
                     val isPage = entry is StreamIndexEntry.Page
                     val details = result.location ?: entry.fileName.takeIf { !isPage && it != entry.title }
+                    val bookmark = (entry as? StreamIndexEntry.Video)?.let { bookmarks[it.url] }
+                    val status = bookmark?.statusLabel()
                     ListItem(
                         headlineContent = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         leadingContent = if (isPage) ({ HomeNavigationIcon(folder = true, ink = PinesPalette.Accent) }) else null,
-                        supportingContent = details?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+                        supportingContent = if (details != null || status != null) {
+                            {
+                                Column {
+                                    details?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                    status?.let {
+                                        Text(
+                                            it,
+                                            color = if (bookmark?.completed == true) PinesPalette.Success else PinesPalette.Muted,
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                            }
+                        } else null,
                         modifier = Modifier.clickable(enabled = !loading, onClickLabel = if (isPage) "Open index" else "Play stream") {
                             keyboard?.hide()
                             when (entry) {

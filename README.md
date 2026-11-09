@@ -19,7 +19,7 @@ The project is an experimental implementation with local build and automated tes
 - Local video playback through Android's Storage Access Framework, with folder browsing and recent media. Select a video directly from either view.
 - A redesigned library with continue-watching cards, per-video checkpoints within retained history, recorded progress, folder labels, and explicit playback from the beginning.
 - Network playback support for HTTPS streams, HLS, DASH, RTSP, and read-only SMB access, subject to source and codec compatibility.
-- Seekable on-demand videos opened from Streams can resume from their session checkpoint when the same link is reopened. Live streams start at the source's default position.
+- Seekable on-demand videos opened from Streams can resume from their session checkpoint when the same link is reopened. Catalog rows show the resume time or replay status. Live streams start at the source's default position.
 - The Streams tab plays direct HTTPS and RTSP links and browses user-supplied HTTPS indexes. Linked HTML pages and directories open as text lists. Search inside an index filters that page. At the root of Streams, search also finds episodes from recently opened indexes by series or season path, title, or filename. Site-wide search requires a provider's searchable catalog or API.
 - Video-first playback with automatic landscape immersion, fading overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
@@ -132,7 +132,7 @@ The latest recorded validation includes:
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
 | Unsigned Android release build and critical lint | Passed |
-| JVM unit tests | 231 passed |
+| JVM unit tests | 232 passed |
 | SQLite migration and review checks | 14 passed, including comparison with the Room-generated schema |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | Passed |

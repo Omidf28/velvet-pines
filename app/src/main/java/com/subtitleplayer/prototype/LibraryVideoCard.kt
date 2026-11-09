@@ -55,11 +55,7 @@ internal fun LibraryVideoCard(
                         style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.ContentOrLtr))
                 }
                 val bookmark = video.bookmark
-                val label = when {
-                    bookmark?.completed == true -> "Watched · Replay"
-                    bookmark?.resumable == true -> "Resume at " + formatTime(bookmark.resumePositionMs)
-                    else -> null
-                }
+                val label = bookmark?.statusLabel()
                 if (label != null) {
                     Text(label, color = if (bookmark?.completed == true) PinesPalette.Success else PinesPalette.Muted,
                         style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -1308,6 +1308,7 @@ class MainActivity : ComponentActivity() {
         if (showStreams && !pictureInPicture) {
             StreamsScreen(
                 state = streamsBrowseState,
+                bookmarks = streamBookmarks,
                 onPlay = { link, title ->
                     lookup = null
                     showStreams = false

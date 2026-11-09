@@ -133,4 +133,10 @@ class PlaybackBookmarkTest {
         assertNull(bookmarks[second])
         assertEquals(40L, bookmarks[third]?.resumePositionMs)
     }
+
+    @Test fun bookmarkLabelsDistinguishUnwatchedPartialAndCompletedVideos() {
+        assertNull(capturePlaybackBookmark(0, 120_000, false).statusLabel())
+        assertEquals("Resume at 1:05", capturePlaybackBookmark(65_000, 120_000, false).statusLabel())
+        assertEquals("Watched · Replay", capturePlaybackBookmark(120_000, 120_000, true).statusLabel())
+    }
 }
