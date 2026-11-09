@@ -131,7 +131,7 @@ The latest recorded validation includes:
 | --- | --- |
 | Android debug build and APK signature verification | Passed |
 | Unsigned Android release build and critical lint | Passed |
-| JVM unit tests | 226 passed |
+| JVM unit tests | 227 passed |
 | SQLite migration and review checks | 14 passed, including comparison with the Room-generated schema |
 | Packaged lexicon hashes, SQLite integrity, license and all-row validation | Passed |
 | Android Lint | Passed |

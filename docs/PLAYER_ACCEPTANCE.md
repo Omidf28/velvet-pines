@@ -1,6 +1,6 @@
 # Android Device Acceptance
 
-Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover subtitle-word selection and saving, landscape control taps, timed definitions, opening Streams, URL validation, and extracting direct media links from an HTML fixture. See the [beta.5 emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42616807667).
+Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover subtitle-word selection and saving, landscape control taps, timed definitions, URL validation, and Streams navigation and season search with HTML fixtures. See the [beta.6 emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42636514598).
 
 ## Beta 0.7.0-beta.6 Quick Check
 
