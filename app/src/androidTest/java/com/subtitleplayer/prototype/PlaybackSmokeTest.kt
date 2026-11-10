@@ -9,7 +9,9 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performFirstLinkClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import org.junit.Assert.assertEquals
@@ -41,11 +44,19 @@ class PlaybackSmokeTest {
     }
 
     @Test
-    fun anUnreachableIndexOffersLocalFiles() {
+    fun anUnreachableSavedIndexOffersRetryAndLocalFiles() {
         compose.onNodeWithText("Streams").performClick()
         compose.onNodeWithText("Video or index URL").performTextInput("https://media.invalid/index.html")
-        compose.onNodeWithText("Load index").performClick()
+        compose.onNodeWithText("Save source").performClick()
+        compose.onNodeWithText("Files").performClick()
+        compose.onNodeWithText("Streams").performClick()
+        compose.onNode(hasScrollToIndexAction() and hasAnyDescendant(hasText("Save source")))
+            .performScrollToNode(hasText("media.invalid"))
+        compose.onNodeWithText("media.invalid").performClick()
+        waitForNode(hasText("Try again"))
+        compose.onNodeWithText("Try again").performClick()
         waitForNode(hasText("Open Files"))
+        compose.onNodeWithText("Try again").assertIsDisplayed()
         compose.onNodeWithText("Open Files").performClick()
         compose.onNodeWithContentDescription("Files menu").assertIsDisplayed()
     }

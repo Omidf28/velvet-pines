@@ -25,8 +25,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
+internal data class StreamIndexRequest(
+    val url: URI,
+    val child: StreamIndexEntry.Page? = null,
+    val scan: Boolean = false
+)
+
 internal class StreamsBrowseState {
-    private data class Notice(val text: String, val offerFiles: Boolean = false)
+    private data class Notice(val text: String, val failedRequest: StreamIndexRequest? = null)
     private data class OpenPage(
         val page: StreamIndexEntry.Page,
         val entries: List<StreamIndexEntry>,
@@ -41,7 +47,7 @@ internal class StreamsBrowseState {
     var message: String?
         get() = notice?.text
         set(value) { notice = value?.let { Notice(it) } }
-    val offerFiles get() = notice?.offerFiles == true
+    val failedRequest get() = notice?.failedRequest
     val listState = LazyListState()
     private var catalogs by mutableStateOf<Map<String, List<StreamIndexEntry>>>(emptyMap())
     private var pages by mutableStateOf<List<OpenPage>>(emptyList())
@@ -62,8 +68,8 @@ internal class StreamsBrowseState {
             .sortedWith { a, b -> compareNaturalNames(a.entry.title, b.entry.title) }
     }
 
-    fun reportUnavailable(text: String) {
-        notice = Notice(text, offerFiles = true)
+    fun reportUnavailable(text: String, request: StreamIndexRequest) {
+        notice = Notice(text, failedRequest = request)
     }
 
     fun addCatalog(url: String, entries: List<StreamIndexEntry>) {
@@ -140,7 +146,9 @@ internal fun StreamsScreen(
         sourcePrefs.edit().putString("indexes", sources.joinToString("\n")).apply()
     }
 
-    fun loadIndex(url: URI, child: StreamIndexEntry.Page? = null, scan: Boolean = false) {
+    fun loadIndex(indexRequest: StreamIndexRequest) {
+        if (loading) return
+        val (url, child, scan) = indexRequest
         keyboard?.hide()
         if (child != null && !state.canOpen(child)) {
             state.message = "This page is already open or the index is too deeply nested."
@@ -162,13 +170,13 @@ internal fun StreamsScreen(
                     }
                 }
             } catch (_: TimeoutCancellationException) {
-                state.reportUnavailable("The archive scan timed out. Try a smaller index.")
+                state.reportUnavailable("The archive scan timed out. Try a smaller index.", indexRequest)
             } catch (error: StreamIndexHttpException) {
-                state.reportUnavailable("Index server returned HTTP ${error.status}.")
+                state.reportUnavailable("Index server returned HTTP ${error.status}.", indexRequest)
             } catch (_: IOException) {
-                state.reportUnavailable("Could not load this index. Check the URL or your connection.")
+                state.reportUnavailable("Could not load this index. Check the URL or your connection.", indexRequest)
             } catch (_: SecurityException) {
-                state.reportUnavailable("Access to this index was denied.")
+                state.reportUnavailable("Access to this index was denied.", indexRequest)
             } finally {
                 loading = false
             }
@@ -193,8 +201,11 @@ internal fun StreamsScreen(
         }
         state.message?.let {
             Text(it, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
-            if (state.offerFiles) {
-                TextButton(onClick = onOpenFiles, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Open Files") }
+            state.failedRequest?.let { failed ->
+                FlowRow(Modifier.padding(horizontal = 8.dp)) {
+                    TextButton(onClick = { loadIndex(failed) }) { Text("Try again") }
+                    TextButton(onClick = onOpenFiles) { Text("Open Files") }
+                }
             }
         }
         LazyColumn(
@@ -230,12 +241,12 @@ internal fun StreamsScreen(
                             val url = parseStreamIndexUrl(state.address)
                             if (url == null) {
                                 state.message = "Enter an HTTPS index URL."
-                            } else loadIndex(url)
+                            } else loadIndex(StreamIndexRequest(url))
                         }) { Text("Load index") }
                         OutlinedButton(enabled = !loading && state.address.isNotBlank(), onClick = {
                             val url = parseStreamIndexUrl(state.address)
                             if (url == null) state.message = "Enter an HTTPS index URL."
-                            else loadIndex(url, scan = true)
+                            else loadIndex(StreamIndexRequest(url, scan = true))
                         }) { Text("Scan archive") }
                         TextButton(enabled = !loading && state.address.isNotBlank(), onClick = {
                             val url = savedStreamSource(state.address)
@@ -244,6 +255,7 @@ internal fun StreamsScreen(
                                 url in savedSources -> state.message = "This source is already saved."
                                 savedSources.size >= 10 -> state.message = "Remove a source before saving another."
                                 else -> {
+                                    keyboard?.hide()
                                     updateSources(savedSources + url)
                                     state.message = "Source saved."
                                 }
@@ -261,17 +273,37 @@ internal fun StreamsScreen(
                 item(key = "saved-stream-sources") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(savedSources, key = { remoteVideoId(it.toString()) }) { url ->
+                            var menuOpen by remember { mutableStateOf(false) }
+                            fun openSource(scan: Boolean = false) {
+                                state.address = url.toString()
+                                loadIndex(StreamIndexRequest(url, scan = scan))
+                            }
                             ListItem(
                                 headlineContent = { Text(url.host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 supportingContent = { Text(url.path.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 trailingContent = {
-                                    TextButton(enabled = !loading, onClick = { updateSources(savedSources - url) }) { Text("Remove") }
+                                    Box {
+                                        PlayerIconButton(
+                                            PlayerGlyph.More,
+                                            "Options for ${url.host}",
+                                            enabled = !loading,
+                                            onClick = { menuOpen = true }
+                                        )
+                                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                            DropdownMenuItem(text = { Text("Scan saved archive") }, onClick = {
+                                                menuOpen = false
+                                                openSource(scan = true)
+                                            })
+                                            DropdownMenuItem(text = { Text("Remove saved source") }, onClick = {
+                                                menuOpen = false
+                                                updateSources(savedSources - url)
+                                            })
+                                        }
+                                    }
                                 },
                                 modifier = Modifier.width(280.dp)
-                                    .clickable(enabled = !loading, onClickLabel = "Use saved source") {
-                                        state.address = url.toString()
-                                        state.message = "Source selected. Choose Load index or Scan archive."
-                                        state.listState.requestScrollToItem(0)
+                                    .clickable(enabled = !loading, onClickLabel = "Open saved index") {
+                                        openSource()
                                     },
                                 colors = ListItemDefaults.colors(containerColor = PinesPalette.Card)
                             )
@@ -316,7 +348,7 @@ internal fun StreamsScreen(
                         modifier = Modifier.clickable(enabled = !loading, onClickLabel = if (isPage) "Open index" else "Play stream") {
                             keyboard?.hide()
                             when (entry) {
-                                is StreamIndexEntry.Page -> loadIndex(entry.address, entry)
+                                is StreamIndexEntry.Page -> loadIndex(StreamIndexRequest(entry.address, child = entry))
                                 is StreamIndexEntry.Video -> onPlay(
                                     entry.link,
                                     streamEpisodeTitle(entry, result.location ?: state.currentLocation)

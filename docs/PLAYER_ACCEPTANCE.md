@@ -22,7 +22,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Play a catalog episode and check its title in the player. With English subtitles attached, save a new word. In Flashcards, check that the expanded card names the episode and its catalog path. Repeat with a link whose visible label is a URL and check that the title uses the filename.
 - [ ] Play two seekable on-demand streams from Streams and stop at different positions. Reopen each exact link in the same session and verify it resumes independently. Finish one and verify it starts at the beginning when reopened. Open a live stream and check that it starts at the stream's default live position.
 - [ ] Return to the catalog after pausing a listed episode. Its row should show the resume time in both the season and the root search results. Finish the episode and confirm the row instead offers replay.
-- [ ] Save a public HTTPS index address, restart the app, and select the saved source in Streams. Confirm the URL is filled in and the Remove action persists across restart. A URL with a query string should be rejected by Save source.
+- [ ] Save a public HTTPS index address, restart the app, and select the saved source in Streams. It should open the index in one tap. In that source's options, run Scan saved archive, then remove the source and confirm the removal survives restart. A URL with a query string should be rejected by Save source.
 - [ ] On an archive with linked season pages, choose Scan archive and search for an episode from an unopened season. Confirm the source path is shown. Try an unreachable child page and verify that available results still appear. Cancel a second scan and verify the previous results are still available.
 
 ## Iran Domestic-Network Source Acceptance
@@ -30,6 +30,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Before recommending a source in Streams, test it on the intended Iranian network with the VPN off during an international-connectivity outage. Record the date, operator, and connection type.
 - [ ] Search or scan the catalog, open a season, start an episode, and seek in the player. Check the actual media host, redirects, and any required manifest, segments, or authentication endpoints. Record which operators were tested when reporting availability.
 - [ ] Turn on airplane mode and turn off Wi-Fi. From a failed catalog or stream, select Open Files. Play a local video, look up an English subtitle word in the offline dictionary, and save it to Flashcards.
+- [ ] When an index, nested season, or archive scan fails, restore the connection and select Try again. Verify the same operation restarts without re-entering the address and that a failed retry still offers Open Files.
 - [x] On the Android 15 emulator with airplane mode enabled and Wi-Fi disabled, return from an unavailable catalog to Files. Play the bundled sample, look up a subtitle word, and save it to Flashcards. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/42790436096)
 
 ## Primary Workflow
