@@ -30,6 +30,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Before recommending a source in Streams, test it on the intended Iranian network with the VPN off during an international-connectivity outage. Record the date, operator, and connection type.
 - [ ] Search or scan the catalog, open a season, start an episode, and seek in the player. Check the actual media host, redirects, and any required manifest, segments, or authentication endpoints. Record which operators were tested when reporting availability.
 - [ ] Turn on airplane mode and turn off Wi-Fi. From a failed catalog or stream, select Open Files. Play a local video, look up an English subtitle word in the offline dictionary, and save it to Flashcards.
+- [x] On the Android 15 emulator with airplane mode enabled and Wi-Fi disabled, return from an unavailable catalog to Files. Play the bundled sample, look up a subtitle word, and save it to Flashcards. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/42790436096)
 
 ## Primary Workflow
 
