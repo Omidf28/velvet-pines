@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 internal class StreamsBrowseState {
+    private data class Notice(val text: String, val offerFiles: Boolean = false)
     private data class OpenPage(
         val page: StreamIndexEntry.Page,
         val entries: List<StreamIndexEntry>,
@@ -36,7 +37,11 @@ internal class StreamsBrowseState {
 
     var address by mutableStateOf("")
     var query by mutableStateOf("")
-    var message by mutableStateOf<String?>(null)
+    private var notice by mutableStateOf<Notice?>(null)
+    var message: String?
+        get() = notice?.text
+        set(value) { notice = value?.let { Notice(it) } }
+    val offerFiles get() = notice?.offerFiles == true
     val listState = LazyListState()
     private var catalogs by mutableStateOf<Map<String, List<StreamIndexEntry>>>(emptyMap())
     private var pages by mutableStateOf<List<OpenPage>>(emptyList())
@@ -55,6 +60,10 @@ internal class StreamsBrowseState {
             matchesStreamSearch(terms, result.location, result.entry.title, result.entry.fileName)
         }.distinctBy { it.entry.url }
             .sortedWith { a, b -> compareNaturalNames(a.entry.title, b.entry.title) }
+    }
+
+    fun reportUnavailable(text: String) {
+        notice = Notice(text, offerFiles = true)
     }
 
     fun addCatalog(url: String, entries: List<StreamIndexEntry>) {
@@ -102,6 +111,7 @@ internal fun StreamsScreen(
     state: StreamsBrowseState,
     bookmarks: StreamPlaybackBookmarks,
     onPlay: (OnlineVideoLink, String?) -> Unit,
+    onOpenFiles: () -> Unit,
     onReturnToPlayback: (() -> Unit)?,
     bottomBar: @Composable () -> Unit
 ) {
@@ -152,13 +162,13 @@ internal fun StreamsScreen(
                     }
                 }
             } catch (_: TimeoutCancellationException) {
-                state.message = "The archive scan timed out. Try a smaller index."
+                state.reportUnavailable("The archive scan timed out. Try a smaller index.")
             } catch (error: StreamIndexHttpException) {
-                state.message = "Index server returned HTTP ${error.status}."
+                state.reportUnavailable("Index server returned HTTP ${error.status}.")
             } catch (_: IOException) {
-                state.message = "Could not load this index. Check the URL or try again."
+                state.reportUnavailable("Could not load this index. Check the URL or your connection.")
             } catch (_: SecurityException) {
-                state.message = "Access to this index was denied."
+                state.reportUnavailable("Access to this index was denied.")
             } finally {
                 loading = false
             }
@@ -183,6 +193,9 @@ internal fun StreamsScreen(
         }
         state.message?.let {
             Text(it, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
+            if (state.offerFiles) {
+                TextButton(onClick = onOpenFiles, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Open Files") }
+            }
         }
         LazyColumn(
             modifier = Modifier.weight(1f),

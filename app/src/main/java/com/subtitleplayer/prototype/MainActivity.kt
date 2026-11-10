@@ -1309,6 +1309,7 @@ class MainActivity : ComponentActivity() {
             StreamsScreen(
                 state = streamsBrowseState,
                 bookmarks = streamBookmarks,
+                onOpenFiles = { selectHome(HomeDestination.Files) },
                 onPlay = { link, title ->
                     lookup = null
                     showStreams = false
@@ -1468,13 +1469,16 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         if (failedOnline && !controlsLocked) {
-                            TextButton(onClick = {
-                                playbackError = false
-                                videoReady = false
-                                if (player.isCurrentMediaItemLive) player.seekToDefaultPosition()
-                                player.prepare()
-                                player.play()
-                            }) { Text("Try again") }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    playbackError = false
+                                    videoReady = false
+                                    if (player.isCurrentMediaItemLive) player.seekToDefaultPosition()
+                                    player.prepare()
+                                    player.play()
+                                }) { Text("Try again") }
+                                TextButton(onClick = { selectHome(HomeDestination.Files) }) { Text("Open Files") }
+                            }
                         }
                     }
                 }

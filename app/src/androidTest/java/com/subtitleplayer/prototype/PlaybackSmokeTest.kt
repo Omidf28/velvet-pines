@@ -41,6 +41,16 @@ class PlaybackSmokeTest {
     }
 
     @Test
+    fun anUnreachableIndexOffersLocalFiles() {
+        compose.onNodeWithText("Streams").performClick()
+        compose.onNodeWithText("Video or index URL").performTextInput("https://media.invalid/index.html")
+        compose.onNodeWithText("Load index").performClick()
+        waitForNode(hasText("Open Files"))
+        compose.onNodeWithText("Open Files").performClick()
+        compose.onNodeWithContentDescription("Files menu").assertIsDisplayed()
+    }
+
+    @Test
     fun readsPlayableEpisodesFromAnHtmlIndex() {
         val links = extractStreamIndexEntries(
             URI("https://media.example/series/index.html"),
