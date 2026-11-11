@@ -53,4 +53,35 @@ jobs:
             adb shell cmd connectivity airplane-mode enable
             adb shell svc wifi disable
             test "$(adb shell cmd connectivity airplane-mode | tr -d '\r')" = enabled
-            ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
+            ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest > "$RUNNER_TEMP/android-smoke.log" 2>&1 || { cat "$RUNNER_TEMP/android-smoke.log"; exit 1; }
+            cat "$RUNNER_TEMP/android-smoke.log"
+
+      - name: Report emulator test failures
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          def annotate(message):
+              escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error::{escaped}")
+
+          failures = []
+          for report in Path("app/build/outputs/androidTest-results").rglob("TEST-*.xml"):
+              for test in ElementTree.parse(report).iter("testcase"):
+                  failure = test.find("failure")
+                  if failure is not None:
+                      message = failure.get("message") or (failure.text or "").split("\n", 1)[0]
+                      failures.append(f"{test.get('name')}: {message}")
+
+          if failures:
+              for failure in failures[:5]:
+                  annotate(failure)
+          else:
+              log = Path(os.environ["RUNNER_TEMP"]) / "android-smoke.log"
+              if log.is_file():
+                  lines = log.read_text(errors="replace").splitlines()
+                  annotate("\n".join(lines[-28:]))
+          PY
