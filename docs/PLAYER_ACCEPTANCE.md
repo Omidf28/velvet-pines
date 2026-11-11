@@ -88,6 +88,7 @@ Android 16 can ignore orientation requests on displays of at least sw600dp for a
 - [ ] Verify word selection, save, edit, speech, study-pause resume, and lock/unlock in both lookup modes; existing saved phrase cards must remain intact.
 ## Automatic Embedded English
 
+- [x] On the Android 15 emulator in airplane mode, open a local MKV from a content URI. The app automatically selects the embedded English track and displays the Persian definition when the test taps `afford`. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/43031021248)
 - [ ] Open a new local video with supported embedded English text. It should select English automatically and allow word selection without attaching a separate SRT file.
 - [ ] Use multiple language tracks with a non-English container default. Confirm that automatic mode still chooses English.
 - [ ] With both forced and non-forced English tracks, confirm the non-forced track wins. With only forced English, confirm the forced indicator and limited dialogue coverage are understood.
