@@ -54,6 +54,10 @@ android {
         buildConfig = true
     }
 
+    sourceSets.named("androidTest") {
+        assets.srcDir(rootProject.file("test-fixtures"))
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

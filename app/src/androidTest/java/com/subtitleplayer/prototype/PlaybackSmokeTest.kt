@@ -1,7 +1,10 @@
 package com.subtitleplayer.prototype
 
+import android.content.ContentValues
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Rect
+import android.provider.MediaStore
 import android.view.View
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
@@ -22,6 +25,8 @@ import androidx.compose.ui.test.performFirstLinkClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.test.filters.SdkSuppress
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -135,6 +140,38 @@ class PlaybackSmokeTest {
         waitForNode(hasText(sampleWord))
         compose.onNodeWithText(sampleWord).performClick()
         compose.onNodeWithText(sampleMeaning).assertIsDisplayed()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 29)
+    fun opensLocalMkvAndLooksUpAnEmbeddedEnglishWord() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val resolver = instrumentation.targetContext.contentResolver
+        val videos = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "velvet-pines-embedded.mkv")
+            put(MediaStore.Video.Media.MIME_TYPE, "video/x-matroska")
+        }
+        val video = checkNotNull(resolver.insert(videos, values))
+        try {
+            instrumentation.context.assets.open("demo-embedded.mkv").use { fixture ->
+                checkNotNull(resolver.openOutputStream(video)).use { fixture.copyTo(it) }
+            }
+
+            compose.activityRule.scenario.onActivity { activity ->
+                activity.startActivity(
+                    Intent(Intent.ACTION_VIEW)
+                        .setClass(activity, MainActivity::class.java)
+                        .setDataAndType(video, "video/x-matroska")
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                )
+            }
+
+            selectSampleWord()
+            compose.onNodeWithText(sampleMeaning).assertIsDisplayed()
+        } finally {
+            resolver.delete(video, null, null)
+        }
     }
 
     @Test

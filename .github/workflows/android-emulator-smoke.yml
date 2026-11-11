@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/android-emulator-smoke.yml'
       - 'app/src/androidTest/**'
+      - 'test-fixtures/demo-embedded.mkv'
   workflow_dispatch:
 
 permissions:
