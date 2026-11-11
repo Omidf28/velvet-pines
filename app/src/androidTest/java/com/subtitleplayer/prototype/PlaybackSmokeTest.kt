@@ -18,6 +18,7 @@ import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -25,6 +26,7 @@ import androidx.compose.ui.test.performFirstLinkClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.test.core.app.ActivityScenario
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -143,38 +145,6 @@ class PlaybackSmokeTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 29)
-    fun opensLocalMkvAndLooksUpAnEmbeddedEnglishWord() {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val resolver = instrumentation.targetContext.contentResolver
-        val videos = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, "velvet-pines-embedded.mkv")
-            put(MediaStore.Video.Media.MIME_TYPE, "video/x-matroska")
-        }
-        val video = checkNotNull(resolver.insert(videos, values))
-        try {
-            instrumentation.context.assets.open("demo-embedded.mkv").use { fixture ->
-                checkNotNull(resolver.openOutputStream(video)).use { fixture.copyTo(it) }
-            }
-
-            compose.activityRule.scenario.onActivity { activity ->
-                activity.startActivity(
-                    Intent(Intent.ACTION_VIEW)
-                        .setClass(activity, MainActivity::class.java)
-                        .setDataAndType(video, "video/x-matroska")
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                )
-            }
-
-            selectSampleWord()
-            compose.onNodeWithText(sampleMeaning).assertIsDisplayed()
-        } finally {
-            resolver.delete(video, null, null)
-        }
-    }
-
-    @Test
     fun fullscreenControlsAndTimedDefinitionKeepVideoBounds() {
         openSample()
         waitForNode(hasContentDescription("Fullscreen"))
@@ -240,10 +210,50 @@ class PlaybackSmokeTest {
             compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() == present
         }
     }
+}
 
-    private companion object {
-        const val sampleCue = "I can't afford to lose this job."
-        const val sampleWord = "afford"
-        const val sampleMeaning = "از عهدهٔ چیزی برآمدن"
+@SdkSuppress(minSdkVersion = 29)
+class EmbeddedSubtitlePlaybackTest {
+    @get:Rule
+    val compose = createEmptyComposeRule()
+
+    @Test
+    fun opensLocalMkvAndLooksUpAnEmbeddedEnglishWord() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val resolver = context.contentResolver
+        val videos = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val mime = "video/x-matroska"
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "velvet-pines-embedded.mkv")
+            put(MediaStore.Video.Media.MIME_TYPE, mime)
+        }
+        val video = checkNotNull(resolver.insert(videos, values))
+        try {
+            instrumentation.context.assets.open("demo-embedded.mkv").use { fixture ->
+                checkNotNull(resolver.openOutputStream(video)).use { fixture.copyTo(it) }
+            }
+
+            val openVideo = Intent(Intent.ACTION_VIEW)
+                .setClass(context, MainActivity::class.java)
+                .setDataAndType(video, mime)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            ActivityScenario.launch<MainActivity>(openVideo).use {
+                compose.waitUntil(15_000) {
+                    compose.onAllNodes(hasText(sampleCue)).fetchSemanticsNodes().isNotEmpty()
+                }
+                compose.onNodeWithText(sampleCue).performFirstLinkClick { it.start == sampleCue.indexOf(sampleWord) }
+                compose.waitUntil(15_000) {
+                    compose.onAllNodes(hasText(sampleMeaning)).fetchSemanticsNodes().isNotEmpty()
+                }
+                compose.onNodeWithText(sampleMeaning).assertIsDisplayed()
+            }
+        } finally {
+            resolver.delete(video, null, null)
+        }
     }
 }
+
+private const val sampleCue = "I can't afford to lose this job."
+private const val sampleWord = "afford"
+private const val sampleMeaning = "از عهدهٔ چیزی برآمدن"
