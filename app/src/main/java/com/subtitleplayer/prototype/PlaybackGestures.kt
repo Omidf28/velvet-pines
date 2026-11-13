@@ -1,8 +1,10 @@
 package com.subtitleplayer.prototype
 
 import android.provider.Settings
+import android.net.Uri
 import android.view.Window
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -30,6 +32,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlinx.coroutines.delay
 
 private const val minimumBrightness = 0.05f
@@ -41,6 +44,15 @@ private enum class GestureControl(val label: String, val minimumLevel: Float) {
 
 private data class GestureLevel(val control: GestureControl, val percent: Int)
 
+private data class SeekPreview(val startMs: Long, val targetMs: Long)
+
+internal fun swipeSeekTarget(startMs: Long, durationMs: Long, dragPx: Float, widthPx: Int): Long {
+    if (durationMs <= 0) return 0
+    // A full-width drag moves one minute, even on a long movie.
+    val offset = (dragPx.toDouble() / widthPx.coerceAtLeast(1) * 60_000).roundToLong()
+    return (startMs + offset).coerceIn(0L, durationMs)
+}
+
 @Composable
 internal fun PlaybackGestureLayer(
     window: Window,
@@ -48,6 +60,9 @@ internal fun PlaybackGestureLayer(
     enabled: Boolean,
     onToggleControls: (() -> Unit)?,
     onSkip: ((Long) -> Unit)?,
+    onSwipeSeek: ((Long) -> Unit)?,
+    mediaKey: Uri?,
+    landscape: Boolean,
     skipSeconds: Int,
     modifier: Modifier
 ) {
@@ -57,6 +72,10 @@ internal fun PlaybackGestureLayer(
     var tapSequence by remember { mutableIntStateOf(0) }
     val currentSkip by rememberUpdatedState(onSkip)
     val currentToggle by rememberUpdatedState(onToggleControls)
+    val currentSwipeSeek by rememberUpdatedState(onSwipeSeek)
+    var seekPreview by remember(mediaKey, landscape, enabled, onSwipeSeek != null) {
+        mutableStateOf<SeekPreview?>(null)
+    }
     LaunchedEffect(enabled, tapSequence) {
         if (!enabled) skipFeedback = null
         else if (skipFeedback != null) {
@@ -132,8 +151,47 @@ internal fun PlaybackGestureLayer(
         )
     }
 
-    Box(input) {
-        skipFeedback?.let { label ->
+    val seekInput = if (!enabled || onSwipeSeek == null) input else input.pointerInput(player, mediaKey, landscape) {
+        var distance = 0f
+        var durationMs = 0L
+        try {
+            detectHorizontalDragGestures(
+                onDragStart = {
+                    distance = 0f
+                    durationMs = player.duration
+                    skipFeedback = null
+                    feedback = null
+                    val position = player.currentPosition
+                    seekPreview = SeekPreview(position, position)
+                },
+                onDragEnd = {
+                    val preview = seekPreview
+                    seekPreview = null
+                    if (preview != null && preview.targetMs != preview.startMs) {
+                        currentSwipeSeek?.invoke(preview.targetMs)
+                    }
+                },
+                onDragCancel = { seekPreview = null },
+                onHorizontalDrag = { change, delta ->
+                    change.consume()
+                    distance += delta
+                    seekPreview = seekPreview?.let { preview ->
+                        preview.copy(targetMs = swipeSeekTarget(preview.startMs, durationMs, distance, size.width))
+                    }
+                }
+            )
+        } finally {
+            seekPreview = null
+        }
+    }
+
+    Box(seekInput) {
+        val seekLabel = seekPreview?.let { preview ->
+            val delta = preview.targetMs - preview.startMs
+            val sign = if (delta < 0) "−" else "+"
+            "${formatTime(preview.targetMs)} ($sign${formatTime(kotlin.math.abs(delta))})"
+        }
+        (seekLabel ?: skipFeedback)?.let { label ->
             Text(
                 label,
                 Modifier.align(Alignment.Center)

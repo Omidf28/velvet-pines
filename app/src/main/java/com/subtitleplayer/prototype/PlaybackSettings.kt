@@ -86,6 +86,10 @@ internal fun PlaybackSettings(
     onSleepTimer: (Int?) -> Unit,
     skipSeconds: Int,
     onSkipSeconds: (Int) -> Unit,
+    swipeToSeek: Boolean,
+    onSwipeToSeek: (Boolean) -> Unit,
+    orientation: PlaybackOrientation,
+    onOrientation: (PlaybackOrientation) -> Unit,
     speed: Float,
     onSpeed: (Float) -> Unit,
     tracks: Tracks,
@@ -158,6 +162,17 @@ internal fun PlaybackSettings(
                         }
                         Text(videoScaleMode.description, style = MaterialTheme.typography.bodySmall)
 
+                        Text("Screen orientation", style = MaterialTheme.typography.titleSmall)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PlaybackOrientation.entries.forEach { mode ->
+                                FilterChip(
+                                    selected = orientation == mode,
+                                    onClick = { onOrientation(mode) },
+                                    label = { Text(mode.name) }
+                                )
+                            }
+                        }
+                        PlaybackToggle("Swipe to seek", swipeToSeek, onSwipeToSeek)
                         Text("Seek interval", style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             seekStepChoices.forEach { seconds ->
@@ -191,8 +206,8 @@ internal fun PlaybackSettings(
                             "Manual encoding applies to files without a byte-order mark. If text looks wrong, change encoding or return to Auto.",
                             style = MaterialTheme.typography.bodySmall
                         )
-                        SubtitleVisibility("Show English subtitles", englishSubtitlesVisible, onEnglishSubtitlesVisible)
-                        SubtitleVisibility("Show Persian subtitles", persianSubtitlesVisible, onPersianSubtitlesVisible)
+                        PlaybackToggle("Show English subtitles", englishSubtitlesVisible, onEnglishSubtitlesVisible)
+                        PlaybackToggle("Show Persian subtitles", persianSubtitlesVisible, onPersianSubtitlesVisible)
                         Text(
                             "Hiding a track keeps its file and delay. Hide both for listening practice.",
                             style = MaterialTheme.typography.bodySmall
@@ -369,15 +384,15 @@ private fun AudioTracks(tracks: Tracks, onAudioTrack: (TrackSelectionOverride) -
 }
 
 @Composable
-private fun SubtitleVisibility(label: String, visible: Boolean, onVisible: (Boolean) -> Unit) {
+private fun PlaybackToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .toggleable(value = visible, role = Role.Switch, onValueChange = onVisible),
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        Switch(checked = visible, onCheckedChange = null)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

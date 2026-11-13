@@ -12,6 +12,13 @@ class PlaybackViewportTest {
         assertEquals(PlaybackOrientation.Automatic, viewport.requestedOrientation(true, false))
     }
 
+    @Test fun swipeSeekUsesScreenWidthAndClampsToPlayableTime() {
+        assertEquals(45_000L, swipeSeekTarget(30_000, 120_000, 250f, 1000))
+        assertEquals(15_000L, swipeSeekTarget(30_000, 120_000, -125f, 500))
+        assertEquals(120_000L, swipeSeekTarget(110_000, 120_000, 500f, 1000))
+        assertEquals(0L, swipeSeekTarget(10_000, 120_000, -500f, 1000))
+    }
+
     @Test fun fullscreenRequestTakesEffectBeforeTheConfigurationCallback() {
         val viewport = PlaybackViewport().toggleFullscreen(landscape = false)
         assertEquals(PlaybackOrientation.Landscape, viewport.requestedOrientation(true, false))

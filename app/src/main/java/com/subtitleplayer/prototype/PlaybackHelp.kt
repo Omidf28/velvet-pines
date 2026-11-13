@@ -15,7 +15,7 @@ internal fun PlaybackHelp(skipSeconds: Int) {
     PinesIdentityBanner()
     Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
     HelpCard("Player controls",
-        "Tap the video to show or hide controls. Fullscreen rotates the player. Double-tap left or right to seek $skipSeconds seconds. Swipe vertically on the left for brightness or on the right for volume. Use Lock to lock controls and orientation.")
+        "Tap the video to show or hide controls. Automatic orientation follows the system rotation setting. Double-tap left or right to seek $skipSeconds seconds, or swipe horizontally and release at the previewed time. Swipe vertically on the left for brightness or on the right for volume. Use Lock to lock controls and orientation.")
     HelpCard("English subtitles",
         "The player automatically selects an embedded English text track when available. Use Subtitles to choose a track or external file, hide the text, or turn the track off. Previously opened videos keep their saved selection.")
     HelpCard("Matching subtitle files",

@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.content.pm.ActivityInfo
 import android.graphics.Rect
 import android.provider.MediaStore
 import android.view.View
@@ -28,6 +29,7 @@ import androidx.compose.ui.test.performFirstLinkClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.media3.ui.PlayerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
@@ -37,6 +39,7 @@ import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
@@ -322,6 +325,39 @@ class PlaybackSmokeTest {
     }
 
     @Test
+    fun swipingVideoPreviewsThenSeeksWithoutResumingPlayback() {
+        openSample()
+        waitForNode(hasContentDescription("Pause"))
+        compose.onNodeWithContentDescription("Pause").performClick()
+        val scenario = compose.activityRule.scenario
+        var startingPosition = 0L
+        scenario.onActivity { activity ->
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_USER, activity.requestedOrientation)
+            val player = activity.samplePlayer()
+            startingPosition = player.currentPosition
+        }
+
+        val gesture = compose.onNode(playbackGestureArea)
+        gesture.performTouchInput {
+            down(Offset(width * 0.20f, height * 0.45f))
+            moveTo(Offset(width * 0.30f, height * 0.45f))
+        }
+        compose.onNode(hasText(" (+", substring = true)).assertIsDisplayed()
+        gesture.performTouchInput { up() }
+        scenario.onActivity { activity ->
+            val player = activity.samplePlayer()
+            assertFalse(player.playWhenReady)
+            assertTrue(player.currentPosition > startingPosition)
+        }
+    }
+
+    private fun MainActivity.samplePlayer(): androidx.media3.common.Player {
+        val frame = findViewById<View>(androidx.media3.ui.R.id.exo_content_frame)
+        val playerView = generateSequence(frame) { it.parent as? View }.filterIsInstance<PlayerView>().first()
+        return checkNotNull(playerView.player)
+    }
+
+    @Test
     fun fullscreenControlsAndTimedDefinitionKeepVideoBounds() {
         openSample()
         waitForNode(hasContentDescription("Fullscreen"))
@@ -364,11 +400,12 @@ class PlaybackSmokeTest {
         waitForNode(hasText(sampleMeaning))
     }
 
+    private val playbackGestureArea = SemanticsMatcher("Playback gesture area") {
+        it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show or hide playback controls"
+    }
+
     private fun tapVideo() {
-        val playbackArea = SemanticsMatcher("Playback gesture area") {
-            it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show or hide playback controls"
-        }
-        compose.onNode(playbackArea).performTouchInput {
+        compose.onNode(playbackGestureArea).performTouchInput {
             click(Offset(width * 0.15f, height * 0.45f))
         }
     }

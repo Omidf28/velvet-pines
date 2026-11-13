@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity() {
     private var embeddedSubtitle by mutableStateOf<ActiveSubtitle?>(null)
     private var playbackSpeed by mutableFloatStateOf(1f)
     private var skipSeconds by mutableIntStateOf(10)
+    private var swipeToSeek by mutableStateOf(true)
     private var videoScaleMode by mutableStateOf(VideoScaleMode.Fit)
     private var englishSubtitlesVisible by mutableStateOf(true)
     private var persianSubtitlesVisible by mutableStateOf(true)
@@ -257,6 +258,7 @@ class MainActivity : ComponentActivity() {
         pictureInPicture = isInPictureInPictureMode
         playbackSpeed = history.getFloat("speed", 1f)
         skipSeconds = history.getInt("skipSeconds", 10).takeIf { it in seekStepChoices } ?: 10
+        swipeToSeek = history.getBoolean("swipeToSeek", true)
         englishSubtitlesVisible = history.getBoolean("englishSubtitlesVisible", true)
         persianSubtitlesVisible = history.getBoolean("persianSubtitlesVisible", true)
         englishEncoding = SubtitleTextEncoding.entries.firstOrNull { it.name == history.getString("englishEncoding", null) }
@@ -1168,17 +1170,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         val originalOrientation by rememberSaveable { mutableIntStateOf(requestedOrientation) }
-        val viewportOrientation = viewport.requestedOrientation(
-            playerVisible = videoUri != null && !showLibrary && !showWords,
-            pictureInPicture = pictureInPicture
-        )
-        LaunchedEffect(viewportOrientation) {
-            val request = when (viewportOrientation) {
-                PlaybackOrientation.Automatic -> originalOrientation
+        val playerVisible = videoUri != null && !showLibrary && !showWords && !showStreams && !pictureInPicture
+        val requestedPlayerOrientation = if (playerVisible) {
+            when (viewport.requestedOrientation(playerVisible, pictureInPicture)) {
+                PlaybackOrientation.Automatic -> ActivityInfo.SCREEN_ORIENTATION_USER
                 PlaybackOrientation.Portrait -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                 PlaybackOrientation.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             }
-            if (requestedOrientation != request) requestedOrientation = request
+        } else originalOrientation
+        LaunchedEffect(requestedPlayerOrientation) {
+            if (requestedOrientation != requestedPlayerOrientation) requestedOrientation = requestedPlayerOrientation
         }
         DisposableEffect(Unit) {
             onDispose { requestedOrientation = originalOrientation }
@@ -1428,6 +1429,13 @@ class MainActivity : ComponentActivity() {
                             controlsInteraction++
                         },
                         skipSeconds = skipSeconds,
+                        mediaKey = videoUri,
+                        landscape = landscape,
+                        onSwipeSeek = if (swipeToSeek && canSeek && frame.durationMs > 0 && !controlsLocked) ({ position ->
+                            lookup = null
+                            controlsInteraction++
+                            seekWithinVideo(position, pauseAtEnd = false)
+                        }) else null,
                         onSkip = if (canSeek && !controlsLocked) ({ delta ->
                             lookup = null
                             skipBy(delta)
@@ -1988,6 +1996,13 @@ class MainActivity : ComponentActivity() {
                         history.edit().putInt("skipSeconds", it).apply()
                     }
                 },
+                swipeToSeek = swipeToSeek,
+                onSwipeToSeek = {
+                    swipeToSeek = it
+                    history.edit().putBoolean("swipeToSeek", it).apply()
+                },
+                orientation = viewport.orientation,
+                onOrientation = { viewport = viewport.copy(orientation = it) },
                 speed = playbackSpeed,
                 onSpeed = { speed ->
                     playbackSpeed = speed
@@ -2048,13 +2063,13 @@ class MainActivity : ComponentActivity() {
 
     private fun skipBy(deltaMs: Long) = seekWithinVideo(player.currentPosition + deltaMs)
 
-    private fun seekWithinVideo(positionMs: Long, stopAtMs: Long? = null) {
+    private fun seekWithinVideo(positionMs: Long, stopAtMs: Long? = null, pauseAtEnd: Boolean = true) {
         val duration = player.duration
         if (duration <= 0 || !player.isCurrentMediaItemSeekable) return
         if (abLoop != null || stopAtMs != null) clearAbLoop()
         val start = positionMs.coerceIn(0L, duration)
         replayEndMs = stopAtMs?.coerceAtMost(duration)?.takeIf { it > start }
-        if (start == duration) player.pause()
+        if (pauseAtEnd && start == duration) player.pause()
         player.seekTo(start)
         if (replayEndMs != null) player.play()
     }
