@@ -21,6 +21,9 @@ import java.net.URI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -33,6 +36,11 @@ internal data class StreamIndexRequest(
 
 internal class StreamsBrowseState {
     private data class Notice(val text: String, val failedRequest: StreamIndexRequest? = null)
+    private data class ArchiveResults(
+        val archive: StreamIndexEntry.CatalogPage,
+        val query: String,
+        val results: List<StreamSearchResult>
+    )
     private data class OpenPage(
         val page: StreamIndexEntry,
         val entries: List<StreamIndexEntry>,
@@ -54,13 +62,21 @@ internal class StreamsBrowseState {
     private var loadedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
     private var scannedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
     private var donyayeSerial by mutableStateOf<StreamIndexEntry.CatalogPage?>(null)
+    private var archiveResults by mutableStateOf<ArchiveResults?>(null)
     val currentPage get() = pages.lastOrNull()?.page
     val currentLocation get() = pages.takeIf { it.isNotEmpty() }?.joinToString(" / ") { it.page.title }
     val entries get() = pages.lastOrNull()?.entries ?: (listOfNotNull(donyayeSerial) + catalogs.values.flatten())
     val searchingArchive get() = currentPage != null && currentPage === donyayeSerial
+    private val matchingArchiveResults get() = archiveResults?.takeIf {
+        it.archive === currentPage && it.query == query
+    }
+    val archiveSearchPending get() = searchingArchive && query.isNotBlank() && matchingArchiveResults == null
+
     val results by derivedStateOf {
         if (searchingArchive) {
-            return@derivedStateOf searchArchiveTitles(entries, query).map { StreamSearchResult(it) }
+            return@derivedStateOf if (query.isBlank()) {
+                entries.take(archiveSearchLimit).map { StreamSearchResult(it) }
+            } else matchingArchiveResults?.results.orEmpty()
         }
         val terms = streamSearchTerms(query)
         val seasonLocation = currentLocation.takeIf { (currentPage as? StreamIndexEntry.Page)?.directory == true }
@@ -72,6 +88,21 @@ internal class StreamsBrowseState {
             matchesStreamSearch(terms, result.location, result.entry.title, result.entry.fileName)
         }.distinctBy { it.entry.url }
             .sortedWith { a, b -> compareNaturalNames(a.entry.title, b.entry.title) }
+    }
+
+    suspend fun searchCurrentArchive() {
+        val archive = donyayeSerial ?: return
+        if (!archiveSearchPending) return
+        val requestedQuery = query
+        delay(200)
+        val results = withContext(Dispatchers.Default) {
+            val context = currentCoroutineContext()
+            searchArchiveTitles(archive.entries, requestedQuery) { context.ensureActive() }
+                .map { StreamSearchResult(it) }
+        }
+        if (currentPage === archive && query == requestedQuery) {
+            archiveResults = ArchiveResults(archive, requestedQuery, results)
+        }
     }
 
     fun reportUnavailable(text: String, request: StreamIndexRequest) {
@@ -151,6 +182,10 @@ internal fun StreamsScreen(
     val page = state.currentPage
     val sourceEntries = state.entries
     val results = state.results
+    val archiveQuery = state.query.takeIf { state.searchingArchive }
+    LaunchedEffect(state, page?.url, archiveQuery) {
+        if (archiveQuery != null) state.searchCurrentArchive()
+    }
 
     fun back() {
         keyboard?.hide()
@@ -340,7 +375,10 @@ internal fun StreamsScreen(
                 item(key = "stream-search") {
                     OutlinedTextField(
                         value = state.query,
-                        onValueChange = { state.query = it },
+                        onValueChange = {
+                            state.query = it
+                            if (state.searchingArchive) state.listState.requestScrollToItem(0)
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = {
@@ -352,7 +390,11 @@ internal fun StreamsScreen(
                         }
                     )
                 }
-                if (results.isEmpty()) item { Text("No results match your search.", color = PinesPalette.Muted) }
+                if (state.archiveSearchPending) {
+                    item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                } else if (results.isEmpty()) {
+                    item { Text("No results match your search.", color = PinesPalette.Muted) }
+                }
                 if (state.searchingArchive && results.size == archiveSearchLimit) item {
                     Text("Showing up to $archiveSearchLimit titles. Refine your search for more specific results.", color = PinesPalette.Muted)
                 }

@@ -96,7 +96,8 @@ internal const val archiveSearchLimit = 150
 
 internal fun searchArchiveTitles(
     entries: List<StreamIndexEntry>,
-    query: String
+    query: String,
+    checkActive: () -> Unit = {}
 ): List<StreamIndexEntry.CatalogPage> {
     val phrase = streamSearchText(query)
     val titles = entries.asSequence().filterIsInstance<StreamIndexEntry.CatalogPage>()
@@ -107,6 +108,7 @@ internal fun searchArchiveTitles(
         ?.replace(" ", "")
     val ranked = List(5) { mutableListOf<StreamIndexEntry.CatalogPage>() }
     for (title in titles) {
+        checkActive()
         val rank = when {
             title.searchTitles.any { it.equals(phrase, ignoreCase = true) } -> 0
             title.searchTitles.any { it.startsWith(phrase, ignoreCase = true) } -> 1

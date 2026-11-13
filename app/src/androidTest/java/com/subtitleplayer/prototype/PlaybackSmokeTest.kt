@@ -29,6 +29,9 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -116,12 +119,20 @@ class PlaybackSmokeTest {
         assertEquals("https://media.example/forest/S02/1080p.Web-DL", season.url)
         assertEquals(true, season.directory)
         assertEquals("Season 2 · 1080p.Web-DL · 8 episodes", season.title)
+        val state = StreamsBrowseState()
         compose.runOnIdle {
-            val state = StreamsBrowseState()
             state.openArchive(StreamIndexEntry.CatalogPage("Donyaye Serial", "", address.toString(), titles))
             state.query = "مسير كاج ۲۰۲۴"
+            assertEquals(true, state.archiveSearchPending)
+        }
+        runBlocking { withContext(Dispatchers.Main) { state.searchCurrentArchive() } }
+        compose.runOnIdle {
             assertEquals(listOf(titles.first()), state.results.map { it.entry })
             state.query = "forest tales"
+            assertEquals(emptyList<StreamSearchResult>(), state.results)
+        }
+        runBlocking { withContext(Dispatchers.Main) { state.searchCurrentArchive() } }
+        compose.runOnIdle {
             assertEquals(listOf(titles.last()), state.results.map { it.entry })
             state.openPage(titles.last(), titles.last().entries)
             assertEquals(titles.last().entries.toSet(), state.results.map { it.entry }.toSet())
@@ -137,6 +148,8 @@ class PlaybackSmokeTest {
             state.back()
             state.back()
             assertEquals("forest tales", state.query)
+            assertFalse(state.archiveSearchPending)
+            assertEquals(listOf(titles.last()), state.results.map { it.entry })
         }
     }
 
