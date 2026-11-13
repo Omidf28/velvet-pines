@@ -275,9 +275,9 @@ internal fun PlaybackSettings(
                         }
                         Text("Word mode selects one word. Phrase mode also recognizes phrases in the offline and personal dictionaries.",
                             style = MaterialTheme.typography.bodySmall)
-                        SubtitleVisibility("Pause on word tap", pauseOnWordTap, onPauseOnWordTap)
+                        PlaybackToggle("Pause on word tap", pauseOnWordTap, onPauseOnWordTap)
 
-                        SubtitleVisibility("Pause after each dialogue", pauseAfterDialogue, onPauseAfterDialogue)
+                        PlaybackToggle("Pause after each dialogue", pauseAfterDialogue, onPauseAfterDialogue)
                         Text(
                             "Applies to external English subtitles. Press Play after each line to continue. A–B and dialogue loops take priority.",
                             style = MaterialTheme.typography.bodySmall
