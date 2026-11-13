@@ -36,9 +36,15 @@ internal sealed interface StreamIndexEntry {
         override val title: String,
         override val fileName: String,
         override val url: String,
-        val entries: List<StreamIndexEntry>
+        val entries: List<StreamIndexEntry>,
+        val releaseYear: String? = null
     ) : StreamIndexEntry {
+        val searchTitles = listOf(title.removeSuffix(" ${releaseYear.orEmpty()}"), fileName)
+            .map(::streamSearchText).filter(String::isNotEmpty)
+            .flatMap { name -> listOfNotNull(name, releaseYear?.let { "$name $it" }) }
+            .distinct()
         val searchText = streamSearchText("$title $fileName")
+        val compactSearchTitles = searchTitles.map { it.replace(" ", "") }
     }
 }
 
@@ -85,6 +91,36 @@ internal fun streamSearchText(value: String): String {
 
 internal fun streamSearchTerms(query: String): List<String> =
     streamSearchGroups.findAll(streamSearchText(query)).map { it.value }.toList()
+
+internal const val archiveSearchLimit = 150
+
+internal fun searchArchiveTitles(
+    entries: List<StreamIndexEntry>,
+    query: String
+): List<StreamIndexEntry.CatalogPage> {
+    val phrase = streamSearchText(query)
+    val titles = entries.asSequence().filterIsInstance<StreamIndexEntry.CatalogPage>()
+    if (phrase.isEmpty()) return titles.take(archiveSearchLimit).toList()
+
+    val terms = streamSearchTerms(phrase)
+    val persianPhrase = phrase.takeIf { it.any { char -> char in '\u0600'..'\u06ff' } }
+        ?.replace(" ", "")
+    val ranked = List(5) { mutableListOf<StreamIndexEntry.CatalogPage>() }
+    for (title in titles) {
+        val rank = when {
+            title.searchTitles.any { it.equals(phrase, ignoreCase = true) } -> 0
+            title.searchTitles.any { it.startsWith(phrase, ignoreCase = true) } -> 1
+            title.searchTitles.any { it.contains(phrase, ignoreCase = true) } -> 2
+            terms.all { title.searchText.contains(it, ignoreCase = true) } -> 3
+            persianPhrase != null && title.compactSearchTitles.any {
+                it.contains(persianPhrase, ignoreCase = true)
+            } -> 4
+            else -> continue
+        }
+        if (ranked[rank].size < archiveSearchLimit) ranked[rank].add(title)
+    }
+    return ranked.asSequence().flatten().take(archiveSearchLimit).toList()
+}
 
 internal fun matchesStreamSearch(terms: List<String>, vararg fields: String?): Boolean {
     if (terms.isEmpty()) return true

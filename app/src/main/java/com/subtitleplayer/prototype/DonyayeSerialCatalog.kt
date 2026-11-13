@@ -84,7 +84,7 @@ internal fun parseDonyayeSerialCatalog(
             json.endArray()
             if (options.isNotEmpty() && imdbId.matches(id) && (english.isNotEmpty() || persian.isNotEmpty())) {
                 val title = listOf(english.ifEmpty { persian }, year).filter(String::isNotBlank).joinToString(" ")
-                titles.putIfAbsent(id, StreamIndexEntry.CatalogPage(title, persian, "$archive#$id", options))
+                titles.putIfAbsent(id, StreamIndexEntry.CatalogPage(title, persian, "$archive#$id", options, year))
             }
         }
         json.endArray()

@@ -59,12 +59,10 @@ internal class StreamsBrowseState {
     val entries get() = pages.lastOrNull()?.entries ?: (listOfNotNull(donyayeSerial) + catalogs.values.flatten())
     val searchingArchive get() = currentPage != null && currentPage === donyayeSerial
     val results by derivedStateOf {
-        val terms = streamSearchTerms(query)
         if (searchingArchive) {
-            return@derivedStateOf entries.asSequence().filterIsInstance<StreamIndexEntry.CatalogPage>()
-                .filter { title -> terms.all { title.searchText.contains(it, ignoreCase = true) } }
-                .take(150).map { StreamSearchResult(it) }.toList()
+            return@derivedStateOf searchArchiveTitles(entries, query).map { StreamSearchResult(it) }
         }
+        val terms = streamSearchTerms(query)
         val seasonLocation = currentLocation.takeIf { (currentPage as? StreamIndexEntry.Page)?.directory == true }
         val current = entries.map { StreamSearchResult(it, seasonLocation) }
         val candidates = if (currentPage == null && terms.isNotEmpty()) {
@@ -355,8 +353,8 @@ internal fun StreamsScreen(
                     )
                 }
                 if (results.isEmpty()) item { Text("No results match your search.", color = PinesPalette.Muted) }
-                if (state.searchingArchive && results.size == 150) item {
-                    Text("Showing up to 150 titles. Refine your search for more specific results.", color = PinesPalette.Muted)
+                if (state.searchingArchive && results.size == archiveSearchLimit) item {
+                    Text("Showing up to $archiveSearchLimit titles. Refine your search for more specific results.", color = PinesPalette.Muted)
                 }
                 items(results, key = { remoteVideoId(it.entry.url) }) { result ->
                     val entry = result.entry

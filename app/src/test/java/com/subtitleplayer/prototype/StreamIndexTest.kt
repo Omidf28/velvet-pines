@@ -84,4 +84,16 @@ class StreamIndexTest {
             assertNull(href, resolveStreamIndexEntry(base, href, "Episode"))
         }
     }
+
+    @Test fun ranksExactArchiveTitlesAheadOfEarlierPartialMatches() {
+        val partial = StreamIndexEntry.CatalogPage("The Forest Tales 2025", "", "partial", emptyList(), "2025")
+        val prefix = StreamIndexEntry.CatalogPage("Forest Tales Again 2024", "", "prefix", emptyList(), "2024")
+        val exact = StreamIndexEntry.CatalogPage("Forest Tales 2025", "داستان‌های جنگل", "exact", emptyList(), "2025")
+        val titles = List(archiveSearchLimit) { partial.copy(url = "partial-$it") } + listOf(prefix, exact)
+
+        assertEquals(listOf(exact, prefix), searchArchiveTitles(titles, "forest tales").take(2))
+        assertEquals(listOf(exact), searchArchiveTitles(titles, "داستانهاي جنگل ۲۰۲۵"))
+        assertEquals(listOf(exact), searchArchiveTitles(titles, "داستان های جنگل"))
+        assertEquals(titles.take(archiveSearchLimit), searchArchiveTitles(titles, ""))
+    }
 }
