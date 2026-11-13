@@ -31,7 +31,8 @@ import kotlinx.coroutines.withTimeout
 internal data class StreamIndexRequest(
     val url: URI,
     val child: StreamIndexEntry.Page? = null,
-    val scan: Boolean = false
+    val scan: Boolean = false,
+    val refresh: Boolean = false
 )
 
 internal class StreamsBrowseState {
@@ -63,6 +64,8 @@ internal class StreamsBrowseState {
     private var scannedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
     private var donyayeSerial by mutableStateOf<StreamIndexEntry.CatalogPage?>(null)
     private var archiveResults by mutableStateOf<ArchiveResults?>(null)
+    var archiveRevision by mutableIntStateOf(0)
+        private set
     val currentPage get() = pages.lastOrNull()?.page
     val currentLocation get() = pages.takeIf { it.isNotEmpty() }?.joinToString(" / ") { it.page.title }
     val entries get() = pages.lastOrNull()?.entries ?: (listOfNotNull(donyayeSerial) + catalogs.values.flatten())
@@ -115,6 +118,15 @@ internal class StreamsBrowseState {
     }
 
     fun openArchive(archive: StreamIndexEntry.CatalogPage) {
+        val current = pages.lastOrNull()
+        if (current != null && current.page === donyayeSerial) {
+            donyayeSerial = archive
+            pages = pages.dropLast(1) + current.copy(page = archive, entries = archive.entries)
+            archiveResults = null
+            archiveRevision++
+            listState.requestScrollToItem(0)
+            return
+        }
         donyayeSerial = archive
         openPage(archive, archive.entries)
     }
@@ -183,7 +195,7 @@ internal fun StreamsScreen(
     val sourceEntries = state.entries
     val results = state.results
     val archiveQuery = state.query.takeIf { state.searchingArchive }
-    LaunchedEffect(state, page?.url, archiveQuery) {
+    LaunchedEffect(state, page?.url, archiveQuery, state.archiveRevision) {
         if (archiveQuery != null) state.searchCurrentArchive()
     }
 
@@ -211,8 +223,10 @@ internal fun StreamsScreen(
         request = scope.launch {
             try {
                 if (child == null && isDonyayeSerialArchive(url)) {
-                    val archive = state.cachedArchive(url) ?: withContext(Dispatchers.IO) {
-                        withTimeout(120_000) { readDonyayeSerialCatalog(url) }
+                    val archive = state.cachedArchive(url).takeUnless { indexRequest.refresh } ?: withContext(Dispatchers.IO) {
+                        withTimeout(120_000) {
+                            readDonyayeSerialCatalog(url, context.cacheDir, indexRequest.refresh)
+                        }
                     }
                     state.openArchive(archive)
                 } else if (scan) {
@@ -251,6 +265,11 @@ internal fun StreamsScreen(
             if (page != null) PlayerIconButton(PlayerGlyph.Back, "Parent index", onClick = ::back)
             Text(page?.title ?: "Streams", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (state.searchingArchive && page != null) {
+                TextButton(enabled = !loading, onClick = {
+                    loadIndex(StreamIndexRequest(URI.create(page.url), refresh = true))
+                }) { Text("Refresh") }
+            }
             if (onReturnToPlayback != null) {
                 PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = onReturnToPlayback)
             }

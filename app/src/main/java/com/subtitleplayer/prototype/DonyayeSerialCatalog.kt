@@ -2,11 +2,12 @@ package com.subtitleplayer.prototype
 
 import android.util.JsonReader
 import android.util.JsonToken
-import java.io.FilterInputStream
+import java.io.File
 import java.io.IOException
-import java.io.InputStream
 import java.io.Reader
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
@@ -18,31 +19,54 @@ internal fun isDonyayeSerialArchive(url: URI): Boolean =
     url.scheme == "https" && url.host.equals(archiveHost, ignoreCase = true) &&
         url.port in listOf(-1, 443) && url.path == archivePath && url.rawQuery == null
 
-internal suspend fun readDonyayeSerialCatalog(archive: URI): StreamIndexEntry.CatalogPage {
+internal suspend fun readDonyayeSerialCatalog(
+    archive: URI,
+    cacheDirectory: File,
+    refresh: Boolean = false
+): StreamIndexEntry.CatalogPage {
+    val cache = File(cacheDirectory, "donyaye-serial.js")
     val context = currentCoroutineContext()
-    val script = archive.resolve("10_thous.js")
-    val entries = readStreamResponse(script, "text/javascript, application/javascript, */*", archive) { _, _, input ->
-        val bounded = object : FilterInputStream(input) {
-            private var remaining = catalogByteLimit
+    fun readCatalog(file: File): StreamIndexEntry.CatalogPage {
+        if (file.length() > catalogByteLimit) throw IOException("Catalog exceeds size limit")
+        val entries = file.reader(Charsets.UTF_8).use {
+            parseDonyayeSerialCatalog(archive, it) { context.ensureActive() }
+        }
+        if (entries.isEmpty()) throw IOException("Catalog has no playable entries")
+        return StreamIndexEntry.CatalogPage("Donyaye Serial", "", archive.toString(), entries)
+    }
 
-            override fun read(): Int {
-                context.ensureActive()
-                if (remaining == 0) throw IOException("Catalog exceeds size limit")
-                return super.read().also { if (it >= 0) remaining-- }
-            }
+    if (!refresh && cache.isFile) {
+        try {
+            return readCatalog(cache)
+        } catch (_: IOException) {
+            context.ensureActive()
+        }
+    }
 
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-                context.ensureActive()
-                if (remaining == 0) throw IOException("Catalog exceeds size limit")
-                return super.read(buffer, offset, minOf(length, remaining)).also {
-                    if (it > 0) remaining -= it
+    val pending = File.createTempFile("donyaye-serial-", ".tmp", cacheDirectory)
+    try {
+        val script = archive.resolve("10_thous.js")
+        readStreamResponse(script, "text/javascript, application/javascript, */*", archive) { _, _, input ->
+            pending.outputStream().buffered().use { output ->
+                val buffer = ByteArray(16 * 1024)
+                var total = 0
+                while (true) {
+                    context.ensureActive()
+                    val size = input.read(buffer)
+                    if (size < 0) break
+                    total += size
+                    if (total > catalogByteLimit) throw IOException("Catalog exceeds size limit")
+                    output.write(buffer, 0, size)
                 }
             }
         }
-        bounded.reader(Charsets.UTF_8).use { parseDonyayeSerialCatalog(archive, it) { context.ensureActive() } }
+        val catalog = readCatalog(pending)
+        context.ensureActive()
+        Files.move(pending.toPath(), cache.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        return catalog
+    } finally {
+        pending.delete()
     }
-    if (entries.isEmpty()) throw IOException("Catalog has no playable entries")
-    return StreamIndexEntry.CatalogPage("Donyaye Serial", "", archive.toString(), entries)
 }
 
 internal fun parseDonyayeSerialCatalog(

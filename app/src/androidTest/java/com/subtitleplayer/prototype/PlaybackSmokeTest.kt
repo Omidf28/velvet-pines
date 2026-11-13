@@ -38,6 +38,7 @@ import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
+import java.io.File
 import java.net.URI
 
 class PlaybackSmokeTest {
@@ -157,6 +158,25 @@ class PlaybackSmokeTest {
     fun rejectsAnArchiveWithAnUnexpectedDataFormat() {
         val address = URI("https://dls6.aparatchi-dlcenter.top/DonyayeSerial/10_thous.html")
         parseDonyayeSerialCatalog(address, "let data = {};".reader())
+    }
+
+    @Test
+    fun opensAStoredArchiveWithoutNetworkAccess() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val directory = java.nio.file.Files.createTempDirectory(context.cacheDir.toPath(), "archive-test-").toFile()
+        val cache = File(directory, "donyaye-serial.js")
+        try {
+            cache.writeText("""
+                let data = [['tt1000001', 'movie', 'Forest', 'جنگل', 2024, 9, 100,
+                    {'1': [{'file': 'https://media.example/forest.mkv'}]}, []]]
+            """.trimIndent())
+            val address = URI("https://dls6.aparatchi-dlcenter.top/DonyayeSerial/10_thous.html")
+            val archive = runBlocking { withContext(Dispatchers.IO) { readDonyayeSerialCatalog(address, directory) } }
+            assertEquals("Forest 2024", archive.entries.single().title)
+        } finally {
+            cache.delete()
+            directory.delete()
+        }
     }
 
     @Test
