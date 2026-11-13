@@ -12,6 +12,8 @@ internal val dialogueDictionary = buildMap<String, WordMeaning> {
     define("binge-watch", "چند قسمت یا چند فیلم را پشت سر هم تماشا کردن",
         "binge watch", "binge-watching", "binge watching", "binge-watched", "binge watched")
     define("bookmarking", "نشانک‌گذاری برای پیدا کردن دوبارهٔ صفحه یا موقعیت")
+    define("bring it up", "آن موضوع را مطرح کردن؛ پیش کشیدن آن در گفت‌وگو",
+        "brings it up", "brought it up", "bringing it up")
     define("call it a day", "برای امروز دست از کار کشیدن؛ کار را همین‌جا تمام کردن")
     define("catch off guard", "غافلگیر کردن؛ کسی را در موقعیتی که آمادگی ندارد گیر انداختن", "caught off guard")
     define("catfished", "با هویت جعلی در اینترنت فریب داده شد")
@@ -30,10 +32,14 @@ internal val dialogueDictionary = buildMap<String, WordMeaning> {
     define("out of the loop", "بی‌خبر از جریان امور؛ در جریان نبودن")
     define("overshare", "بیش از حد دربارهٔ مسائل شخصی گفتن")
     define("plot twist", "چرخش غیرمنتظره در داستان")
+    define("put it off", "آن کار را به تعویق انداختن؛ انجامش را به بعد موکول کردن",
+        "puts it off", "putting it off")
     define("read the room", "حال‌وهوای جمع را فهمیدن و رفتار را با آن هماهنگ کردن")
     define("screenshot", "تصویر ثبت‌شده از صفحهٔ نمایش؛ از صفحه عکس گرفتن")
     define("spill the tea", "خبر یا حرف پشت‌پرده را تعریف کردن (محاوره‌ای)")
     define("spoiler alert", "هشدار لو رفتن بخشی از داستان")
+    define("start over", "دوباره از اول شروع کردن؛ از نو آغاز کردن",
+        "starts over", "started over", "starting over")
     define("underwhelming", "کمتر از حد انتظار؛ ناامیدکننده یا کم‌تأثیر")
     define("unmute", "صدا یا میکروفون را دوباره فعال کردن", "unmuted")
     define("walk out on", "کسی را رها کردن و رفتن", "walked out on")

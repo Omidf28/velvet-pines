@@ -43,6 +43,7 @@ class DialogueCoverageTest {
             listOf("overslept", "overheard", "withdrew", "hangry", "screenshot", "binge-watch")
                 .all { wordResults.getValue(it).meaning != null })
         assertTrue("Previously fixed dialogue phrases must stay available",
-            listOf("my bad", "call it a day", "plot twist").none { it in missingPhrases })
+            listOf("my bad", "call it a day", "plot twist", "brought it up", "start over", "putting it off")
+                .none { it in missingPhrases })
     }
 }

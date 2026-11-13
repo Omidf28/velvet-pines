@@ -47,6 +47,21 @@ class DictionaryResolutionTest {
         assertTrue(result.meaning.persian.contains("ax:"))
         assertTrue(result.meaning.persian.length <= 1000)
     }
+
+    @Test fun recoveredDialoguePhrasesAreSearchableAndSelectable() {
+        val cases = listOf(
+            Triple("She brought it up yesterday.", "brought it up", "bring it up"),
+            Triple("We need to start over.", "start over", "start over"),
+            Triple("I keep putting it off.", "putting it off", "put it off")
+        )
+        for ((line, phrase, headword) in cases) {
+            val entry = mergeDictionarySearch(phrase, emptyList(), emptyMap()).entries.first { it.term == phrase }
+            val selection = subtitleTerms(line, mode = SubtitleLookupMode.Phrases).single { it.text == phrase }
+            assertEquals(headword, entry.meaning.headword)
+            assertEquals(entry.meaning, selection.meaning)
+            assertFalse(subtitleTerms(line).any { it.text == phrase })
+        }
+    }
     @Test fun onlineErrorsHtmlLatinAndOversizeResultsAreRejected() {
         assertFalse(validOnlineDefinition("MYMEMORY WARNING: quota exceeded"))
         assertFalse(validOnlineDefinition("Serendipity"))
