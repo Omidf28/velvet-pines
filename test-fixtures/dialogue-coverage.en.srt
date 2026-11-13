@@ -1,0 +1,79 @@
+1
+00:00:01,000 --> 00:00:04,000
+I overslept and missed the bus. My bad.
+
+2
+00:00:05,000 --> 00:00:08,000
+I misheard you. Did you say the appointment was tomorrow?
+
+3
+00:00:09,000 --> 00:00:12,000
+I overheard them talking about the new schedule.
+
+4
+00:00:13,000 --> 00:00:16,000
+She withheld the details until she had more evidence.
+
+5
+00:00:17,000 --> 00:00:20,000
+We outgrew that apartment when the twins were born.
+
+6
+00:00:21,000 --> 00:00:24,000
+He withdrew his application and rethought his plans.
+
+7
+00:00:25,000 --> 00:00:28,000
+I'm hangry. Can we call it a day and get dinner?
+
+8
+00:00:29,000 --> 00:00:32,000
+No biggie. I took a screenshot before the page closed.
+
+9
+00:00:33,000 --> 00:00:36,000
+Long story short, they left me out of the loop.
+
+10
+00:00:37,000 --> 00:00:40,000
+Cut to the chase. Did she walk out on him?
+
+11
+00:00:41,000 --> 00:00:44,000
+I was caught off guard when she brought it up.
+
+12
+00:00:45,000 --> 00:00:48,000
+Spoiler alert. We stayed up to binge-watch the whole season.
+
+13
+00:00:49,000 --> 00:00:52,000
+That plot twist was good, but the ending felt underwhelming.
+
+14
+00:00:53,000 --> 00:00:56,000
+Unmute your microphone. We can't hear a thing.
+
+15
+00:00:57,000 --> 00:01:00,000
+I overpaid for the tickets, and now she's ghosted me.
+
+16
+00:01:01,000 --> 00:01:04,000
+He leapt over the fence and nearly tripped.
+
+17
+00:01:05,000 --> 00:01:08,000
+It's okay to be nervous. Take a breath.
+
+18
+00:01:09,000 --> 00:01:12,000
+I'm not going to sugarcoat it. We need to start over.
+
+19
+00:01:13,000 --> 00:01:16,000
+I keep putting it off because I don't know where to begin.
+
+20
+00:01:17,000 --> 00:01:20,000
+Read the room. Now's hardly the time to spill the tea.

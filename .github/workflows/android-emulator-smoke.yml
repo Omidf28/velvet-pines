@@ -7,6 +7,7 @@ on:
       - '.github/workflows/android-emulator-smoke.yml'
       - 'app/src/androidTest/**'
       - 'test-fixtures/demo-embedded.mkv'
+      - 'test-fixtures/dialogue-coverage.en.srt'
   workflow_dispatch:
 
 permissions:
@@ -55,6 +56,7 @@ jobs:
             test "$(adb shell cmd connectivity airplane-mode | tr -d '\r')" = enabled
             ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest > "$RUNNER_TEMP/android-smoke.log" 2>&1 || { cat "$RUNNER_TEMP/android-smoke.log"; exit 1; }
             cat "$RUNNER_TEMP/android-smoke.log"
+            adb logcat -d -s DialogueCoverage:I '*:S'
 
       - name: Report emulator test failures
         if: failure()
