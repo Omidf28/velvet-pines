@@ -34,7 +34,7 @@ internal data class StreamIndexRequest(
 internal class StreamsBrowseState {
     private data class Notice(val text: String, val failedRequest: StreamIndexRequest? = null)
     private data class OpenPage(
-        val page: StreamIndexEntry.Page,
+        val page: StreamIndexEntry,
         val entries: List<StreamIndexEntry>,
         val parentQuery: String,
         val parentIndex: Int,
@@ -53,11 +53,18 @@ internal class StreamsBrowseState {
     private var pages by mutableStateOf<List<OpenPage>>(emptyList())
     private var loadedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
     private var scannedEpisodes by mutableStateOf<Map<String, List<StreamSearchResult>>>(emptyMap())
+    private var donyayeSerial by mutableStateOf<StreamIndexEntry.CatalogPage?>(null)
     val currentPage get() = pages.lastOrNull()?.page
     val currentLocation get() = pages.takeIf { it.isNotEmpty() }?.joinToString(" / ") { it.page.title }
-    val entries get() = pages.lastOrNull()?.entries ?: catalogs.values.flatten()
+    val entries get() = pages.lastOrNull()?.entries ?: (listOfNotNull(donyayeSerial) + catalogs.values.flatten())
+    val searchingArchive get() = currentPage != null && currentPage === donyayeSerial
     val results by derivedStateOf {
         val terms = streamSearchTerms(query)
+        if (searchingArchive) {
+            return@derivedStateOf entries.asSequence().filterIsInstance<StreamIndexEntry.CatalogPage>()
+                .filter { title -> terms.all { title.searchText.contains(it, ignoreCase = true) } }
+                .take(150).map { StreamSearchResult(it) }.toList()
+        }
         val current = entries.map { StreamSearchResult(it) }
         val candidates = if (currentPage == null && terms.isNotEmpty()) {
             current + loadedEpisodes.values.flatten() + scannedEpisodes.values.flatten()
@@ -77,6 +84,14 @@ internal class StreamsBrowseState {
         resetList()
     }
 
+    fun openArchive(archive: StreamIndexEntry.CatalogPage) {
+        donyayeSerial = archive
+        openPage(archive, archive.entries)
+    }
+
+    fun cachedArchive(url: URI): StreamIndexEntry.CatalogPage? =
+        donyayeSerial?.takeIf { it.url == url.toString() }
+
     fun addScan(url: String, scan: StreamCatalogScan) {
         addCatalog(url, scan.rootEntries)
         scannedEpisodes = ((scannedEpisodes - url).toList() + (url to scan.episodes)).takeLast(3).toMap()
@@ -86,13 +101,16 @@ internal class StreamsBrowseState {
             if (scan.failedPages > 0) " Could not load ${scan.failedPages} linked pages." else ""
     }
 
-    fun canOpen(page: StreamIndexEntry.Page): Boolean =
-        pages.size < 8 && pages.none { it.page.address == page.address }
+    fun canOpen(page: StreamIndexEntry): Boolean =
+        pages.size < 8 && pages.none { it.page.url == page.url }
 
-    fun openPage(page: StreamIndexEntry.Page, entries: List<StreamIndexEntry>) {
+    fun openPage(page: StreamIndexEntry, entries: List<StreamIndexEntry>) {
+        if (!canOpen(page)) return
         val location = listOfNotNull(currentLocation, page.title).joinToString(" / ")
         val episodes = entries.filterIsInstance<StreamIndexEntry.Video>().map { StreamSearchResult(it, location) }
-        loadedEpisodes = ((loadedEpisodes - page.url).toList() + (page.url to episodes)).takeLast(16).toMap()
+        if (episodes.isNotEmpty() && page is StreamIndexEntry.Page) {
+            loadedEpisodes = ((loadedEpisodes - page.url).toList() + (page.url to episodes)).takeLast(16).toMap()
+        }
         pages = pages + OpenPage(page, entries, query, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
         resetList()
     }
@@ -158,11 +176,16 @@ internal fun StreamsScreen(
         state.message = null
         request = scope.launch {
             try {
-                if (scan) {
+                if (child == null && isDonyayeSerialArchive(url)) {
+                    val archive = state.cachedArchive(url) ?: withContext(Dispatchers.IO) {
+                        withTimeout(120_000) { readDonyayeSerialCatalog(url) }
+                    }
+                    state.openArchive(archive)
+                } else if (scan) {
                     val catalog = withContext(Dispatchers.IO) { withTimeout(45_000) { scanStreamCatalog(url) } }
                     state.addScan(url.toString(), catalog)
                 } else {
-                    val found = withContext(Dispatchers.IO) { readStreamIndex(url) }
+                    val found = withContext(Dispatchers.IO) { readStreamIndex(url, directory = child?.directory == true) }
                     when {
                         found.isEmpty() -> state.message = "This index has no video or catalog links."
                         child == null -> state.addCatalog(url.toString(), found)
@@ -170,9 +193,12 @@ internal fun StreamsScreen(
                     }
                 }
             } catch (_: TimeoutCancellationException) {
-                state.reportUnavailable("The archive scan timed out. Try a smaller index.", indexRequest)
+                state.reportUnavailable("The archive request timed out.", indexRequest)
             } catch (error: StreamIndexHttpException) {
-                state.reportUnavailable("Index server returned HTTP ${error.status}.", indexRequest)
+                val message = if (isDonyayeSerialArchive(url) && error.status == 503) {
+                    "Donyaye Serial returned HTTP 503. Try an Iranian connection with VPN off."
+                } else "Index server returned HTTP ${error.status}."
+                state.reportUnavailable(message, indexRequest)
             } catch (_: IOException) {
                 state.reportUnavailable("Could not load this index. Check the URL or your connection.", indexRequest)
             } catch (_: SecurityException) {
@@ -318,14 +344,25 @@ internal fun StreamsScreen(
                         onValueChange = { state.query = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text(if (page == null) "Search loaded titles or episodes" else "Search this index") }
+                        label = {
+                            Text(when {
+                                state.searchingArchive -> "Search by English or Persian title"
+                                page == null -> "Search loaded titles or episodes"
+                                else -> "Search this index"
+                            })
+                        }
                     )
                 }
                 if (results.isEmpty()) item { Text("No results match your search.", color = PinesPalette.Muted) }
+                if (state.searchingArchive && results.size == 150) item {
+                    Text("Showing up to 150 titles. Refine your search for more specific results.", color = PinesPalette.Muted)
+                }
                 items(results, key = { remoteVideoId(it.entry.url) }) { result ->
                     val entry = result.entry
-                    val isPage = entry is StreamIndexEntry.Page
-                    val details = result.location ?: entry.fileName.takeIf { !isPage && it != entry.title }
+                    val isPage = entry !is StreamIndexEntry.Video
+                    val details = result.location ?: entry.fileName.takeIf {
+                        it.isNotBlank() && it != entry.title && entry !is StreamIndexEntry.Page
+                    }
                     val bookmark = (entry as? StreamIndexEntry.Video)?.let { bookmarks[it.url] }
                     val status = bookmark?.statusLabel()
                     ListItem(
@@ -349,6 +386,7 @@ internal fun StreamsScreen(
                             keyboard?.hide()
                             when (entry) {
                                 is StreamIndexEntry.Page -> loadIndex(StreamIndexRequest(entry.address, child = entry))
+                                is StreamIndexEntry.CatalogPage -> state.openPage(entry, entry.entries)
                                 is StreamIndexEntry.Video -> onPlay(
                                     entry.link,
                                     streamEpisodeTitle(entry, result.location ?: state.currentLocation)

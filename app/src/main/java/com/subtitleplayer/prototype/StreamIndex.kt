@@ -3,6 +3,7 @@ package com.subtitleplayer.prototype
 import android.text.Html
 import android.text.style.URLSpan
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.charset.Charset
@@ -25,9 +26,19 @@ internal sealed interface StreamIndexEntry {
     data class Page(
         override val title: String,
         override val fileName: String,
-        val address: URI
+        val address: URI,
+        val directory: Boolean = false
     ) : StreamIndexEntry {
         override val url get() = address.toString()
+    }
+
+    data class CatalogPage(
+        override val title: String,
+        override val fileName: String,
+        override val url: String,
+        val entries: List<StreamIndexEntry>
+    ) : StreamIndexEntry {
+        val searchText = streamSearchText("$title $fileName")
     }
 }
 
@@ -44,11 +55,16 @@ private val streamSearchGroups = Regex("\\b(?:season|episode) [0-9]+\\b|[\\p{L}\
 
 private fun String.withoutLeadingZeros(): String = trimStart('0').ifEmpty { "0" }
 
-private fun streamSearchText(value: String): String {
+internal fun streamSearchText(value: String): String {
     val digits = buildString(value.length) {
         for (char in value) {
             val digit = Character.digit(char, 10)
-            append(if (digit >= 0) '0' + digit else char)
+            append(when {
+                digit >= 0 -> '0' + digit
+                char == 'ي' || char == 'ى' -> 'ی'
+                char == 'ك' -> 'ک'
+                else -> char
+            })
         }
     }
     val words = digits.replace(streamSearchSeparators, " ").trim()
@@ -116,7 +132,33 @@ internal fun extractStreamIndexEntries(base: URI, html: String): List<StreamInde
         .distinctBy { it.url }.take(300).toList()
 }
 
-internal suspend fun readStreamIndex(start: URI, scanOrigin: URI? = null): List<StreamIndexEntry> {
+internal suspend fun readStreamIndex(start: URI, scanOrigin: URI? = null, directory: Boolean = false): List<StreamIndexEntry> {
+    val context = currentCoroutineContext()
+    return readStreamResponse(start, "text/html, application/xhtml+xml", scanOrigin) { url, contentType, input ->
+        val mime = contentType.substringBefore(';').trim()
+        if (!mime.equals("text/html", true) && !mime.equals("application/xhtml+xml", true)) {
+            throw IOException("Unavailable HTML index")
+        }
+        val charset = contentType.split(';').drop(1).firstOrNull {
+            it.trim().startsWith("charset=", ignoreCase = true)
+        }?.substringAfter('=')?.trim()?.trim('"')?.let {
+            runCatching { Charset.forName(it) }.getOrNull()
+        } ?: Charsets.UTF_8
+        val bytes = readSubtitleBytes(input, 512 * 1024) { context.ensureActive() }
+        context.ensureActive()
+        val base = if (directory && !url.rawPath.endsWith('/')) {
+            URI.create(url.toString().substringBefore('?') + "/")
+        } else url
+        extractStreamIndexEntries(base, String(bytes, charset))
+    }
+}
+
+internal suspend fun <T> readStreamResponse(
+    start: URI,
+    accept: String,
+    redirectOrigin: URI? = null,
+    read: (URI, String, InputStream) -> T
+): T {
     val context = currentCoroutineContext()
     var url = start
     repeat(5) {
@@ -126,29 +168,17 @@ internal suspend fun readStreamIndex(start: URI, scanOrigin: URI? = null): List<
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 6_000
             connection.readTimeout = 6_000
-            connection.setRequestProperty("Accept", "text/html, application/xhtml+xml")
+            connection.setRequestProperty("Accept", accept)
             val status = connection.responseCode
             if (status in setOf(301, 302, 303, 307, 308)) {
                 val location = connection.getHeaderField("Location") ?: throw IOException("Missing redirect")
                 url = parseStreamIndexUrl(url.resolve(location).toString()) ?: throw IOException("Invalid redirect")
-                if (scanOrigin != null && !sameStreamOrigin(scanOrigin, url)) {
+                if (redirectOrigin != null && !sameStreamOrigin(redirectOrigin, url)) {
                     throw IOException("Catalog scan cannot follow a redirect to another origin")
                 }
             } else {
                 if (status != 200) throw StreamIndexHttpException(status)
-                val contentType = connection.contentType.orEmpty()
-                val mime = contentType.substringBefore(';').trim()
-                if (!mime.equals("text/html", true) && !mime.equals("application/xhtml+xml", true)) {
-                    throw IOException("Unavailable HTML index")
-                }
-                val charset = contentType.split(';').drop(1).firstOrNull {
-                    it.trim().startsWith("charset=", ignoreCase = true)
-                }?.substringAfter('=')?.trim()?.trim('"')?.let {
-                    runCatching { Charset.forName(it) }.getOrNull()
-                } ?: Charsets.UTF_8
-                val bytes = connection.inputStream.use { readSubtitleBytes(it, 512 * 1024) { context.ensureActive() } }
-                context.ensureActive()
-                return extractStreamIndexEntries(url, String(bytes, charset))
+                return connection.inputStream.use { read(url, connection.contentType.orEmpty(), it) }
             }
         } catch (invalid: IllegalArgumentException) {
             throw IOException("Invalid index URL", invalid)

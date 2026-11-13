@@ -34,6 +34,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
 import java.net.URI
 
 class PlaybackSmokeTest {
@@ -84,6 +85,55 @@ class PlaybackSmokeTest {
         assertEquals("https://media.example/series/season-1/episode-2.mp4", links.first().url)
         assertEquals(URI("https://media.example/series/season-2.html"), (links[1] as StreamIndexEntry.Page).address)
         assertEquals(OnlineVideoFormat.Hls, (links.last() as StreamIndexEntry.Video).link.format)
+    }
+
+    @Test
+    fun searchesDonyayeSerialAndOpensMovieAndSeasonOptions() {
+        val address = URI("https://dls6.aparatchi-dlcenter.top/DonyayeSerial/10_thous.html")
+        val script = """
+            let data = [
+                ['tt1000001', 'movie', 'Pine\'s Trail', 'مسیر کاج', 2024, 9, 100,
+                    {'1': [
+                        {'file': 'https://media.example/trail.mkv', 'quality': '1080p', 'version': 'SoftSub'},
+                        {'file': 'http://media.example/trail.mp4', 'quality': '720p'}
+                    ], '3': {'1': [{'file': 'https://media.example/trail-original.mkv'}]}}, []],
+                ['tt1000002', 'series', 'Forest Tales', 'داستان‌های جنگل', 2025, 8, 200,
+                    {'1': {'2': [
+                        {'folder': 'https://media.example/forest/S02/1080p.Web-DL',
+                         'quality': '1080p.Web-DL', 'number_of_episodes': 8}
+                    ]}, '2': [{'file': 'https://media.example/forest-special.mkv'}]}, []]
+            ]
+            throw new Error('The script body must not run')
+        """.trimIndent()
+        val titles = parseDonyayeSerialCatalog(address, script.reader())
+        assertEquals(listOf("Pine's Trail 2024", "Forest Tales 2025"), titles.map { it.title })
+        val movie = titles.first().entries.first() as StreamIndexEntry.Video
+        assertEquals(2, titles.first().entries.size)
+        assertEquals("https://media.example/trail.mkv", movie.url)
+        assertEquals("1080p · SoftSub", movie.title)
+        val season = titles.last().entries.first() as StreamIndexEntry.Page
+        assertEquals("https://media.example/forest-special.mkv", titles.last().entries.last().url)
+        assertEquals("https://media.example/forest/S02/1080p.Web-DL", season.url)
+        assertEquals(true, season.directory)
+        assertEquals("Season 2 · 1080p.Web-DL · 8 episodes", season.title)
+        compose.runOnIdle {
+            val state = StreamsBrowseState()
+            state.openArchive(StreamIndexEntry.CatalogPage("Donyaye Serial", "", address.toString(), titles))
+            state.query = "مسير كاج ۲۰۲۴"
+            assertEquals(listOf(titles.first()), state.results.map { it.entry })
+            state.query = "forest tales"
+            assertEquals(listOf(titles.last()), state.results.map { it.entry })
+            state.openPage(titles.last(), titles.last().entries)
+            assertEquals(titles.last().entries.toSet(), state.results.map { it.entry }.toSet())
+            state.back()
+            assertEquals("forest tales", state.query)
+        }
+    }
+
+    @Test(expected = IOException::class)
+    fun rejectsAnArchiveWithAnUnexpectedDataFormat() {
+        val address = URI("https://dls6.aparatchi-dlcenter.top/DonyayeSerial/10_thous.html")
+        parseDonyayeSerialCatalog(address, "let data = {};".reader())
     }
 
     @Test

@@ -15,6 +15,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 
 ## Nested Streams Indexes
 
+- [ ] On the connection intended for playback, enter the Donyaye Serial archive URL and select Load index. Search in English and Persian, open a film and select a quality, then open a series and select a season and quality. Verify the episode list, playback, seeking, and Back to the original search.
 - [x] On the Android 15 emulator, parse a fixture with season and episode links, enter a season in the browse state, and verify that Back restores the parent search. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/42618411024)
 - [ ] Load an HTTPS archive with links to a series page, a season page, and a direct episode. Follow the links one at a time, then play the episode.
 - [ ] Filter the parent list, scroll, and open a child index. Press Back and verify that the parent's search and scroll position are restored. Repeat from portrait playback and verify Back first returns to the episode list.
