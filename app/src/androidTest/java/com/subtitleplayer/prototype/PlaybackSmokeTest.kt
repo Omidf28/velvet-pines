@@ -95,6 +95,18 @@ class PlaybackSmokeTest {
     }
 
     @Test
+    fun aFailedVideoReturnsToStreamsWithItsAddress() {
+        val address = "https://media.invalid/episode.mp4"
+        compose.onNodeWithText("Streams").performClick()
+        compose.onNodeWithText("Video or index URL").performTextInput(address)
+        compose.onNodeWithText("Play URL").performClick()
+        waitForNode(hasText("Browse Streams"))
+        compose.onNodeWithText("Browse Streams").performClick()
+        compose.onNodeWithText("Video or index URL").assertIsDisplayed()
+        compose.onNodeWithText(address).assertIsDisplayed()
+    }
+
+    @Test
     fun anUnreachableSavedIndexOffersRetryAndLocalFiles() {
         compose.onNodeWithText("Streams").performClick()
         compose.onNodeWithText("Video or index URL").performTextInput("https://media.invalid/index.html")

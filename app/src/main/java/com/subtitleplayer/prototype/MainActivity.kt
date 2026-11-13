@@ -1482,6 +1482,9 @@ class MainActivity : ComponentActivity() {
                                     player.prepare()
                                     player.play()
                                 }) { Text("Try again") }
+                                if (returnToStreams) {
+                                    TextButton(onClick = ::openHomeFromVideo) { Text("Browse Streams") }
+                                }
                                 TextButton(onClick = { selectHome(HomeDestination.Files) }) { Text("Open Files") }
                             }
                         }

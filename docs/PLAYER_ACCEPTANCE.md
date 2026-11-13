@@ -36,6 +36,7 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 - [ ] Search or scan the catalog, open a season, start an episode, and seek in the player. Check the actual media host, redirects, and any required manifest, segments, or authentication endpoints. Record which operators were tested when reporting availability.
 - [ ] Turn on airplane mode and turn off Wi-Fi. From a failed catalog or stream, select Open Files. Play a local video, look up an English subtitle word in the offline dictionary, and save it to Flashcards.
 - [ ] When an index, nested season, or archive scan fails, restore the connection and select Try again. Verify the same operation restarts without re-entering the address and that a failed retry still offers Open Files.
+- [ ] Open a broken episode from a season. Select Browse Streams on the playback error and verify the season and its active search are still open. Select a different episode and verify it plays.
 - [x] On the Android 15 emulator with airplane mode enabled and Wi-Fi disabled, return from an unavailable catalog to Files. Play the bundled sample, look up a subtitle word, and save it to Flashcards. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/42790436096)
 
 ## Primary Workflow
