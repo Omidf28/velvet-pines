@@ -68,6 +68,9 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 
 ## Fullscreen and Settings Regression
 
+- [ ] In Playback settings, select Automatic. With Android auto-rotate enabled, turn the phone in both directions during playback and while paused. Verify the video position and selected subtitle track survive each turn. Disable system auto-rotate and verify Automatic respects the lock. Select Portrait or Landscape manually, then exit playback and verify the app restores its normal orientation.
+- [ ] Swipe left and right over the picture. Verify the preview shows the target and time difference and that release seeks while preserving Play or Pause. Test short and long drags, cancellation, both ends of the video, and switching Swipe to seek off. Check that vertical volume and brightness, double-tap seek and subtitle-word taps still work. Repeat with locked controls and a non-seekable source.
+- [x] On the Android 15 emulator, verify the player requests the user orientation in Automatic mode and that a horizontal drag on the paused sample previews a time and seeks on release while staying paused. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/43503246308)
 - [ ] On a portrait phone, press fullscreen. The Activity should rotate into landscape; the source, subtitle selection, and playback position must remain intact.
 - [ ] Press fullscreen again or Android Back while immersive. The player should return to portrait without seeking or reopening the source. Background taps must continue to toggle controls only.
 - [ ] Lock in each orientation, physically rotate the phone, and unlock. The lock should pin the selected viewing orientation and release back to the prior automatic or explicit preference.
