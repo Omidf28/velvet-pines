@@ -210,11 +210,13 @@ private val phraseDictionary = buildMap<String, WordMeaning> {
     phrase("never mind", "بی‌خیال / مهم نیست")
     phrase("no way", "امکان ندارد / عمراً")
 }
-private val maxPhraseWords = phraseDictionary.keys.maxOf { key -> key.count { it == ' ' } + 1 }
+private val maxPhraseWords = (phraseDictionary.keys + dialogueDictionary.keys).maxOf { key ->
+    key.count { it == ' ' } + 1
+}
 
 internal fun defaultTermMeaning(term: String): WordMeaning? {
     val key = normalizeDictionaryTerm(term) ?: return null
-    return phraseDictionary[key] ?: lookupWord(key)
+    return phraseDictionary[key] ?: lookupWord(key) ?: dialogueDictionary[key]
 }
 
 internal fun subtitleTerms(
@@ -228,14 +230,14 @@ internal fun subtitleTerms(
         var first = 0
         while (first < tokens.size) {
             var last = first
-            var meaning = lookupWord(tokens[first].value)
+            var meaning = lookupWord(tokens[first].value) ?: dialogueDictionary[normalized[first]]
             val limit = if (mode == SubtitleLookupMode.Words) first + 1
                 else minOf(first + (if (personalMeanings.isEmpty()) maxPhraseWords else 8), tokens.size)
             for (next in first + 1 until limit) {
                 val gap = text.substring(tokens[next - 1].range.last + 1, tokens[next].range.first)
                 if (gap.any { it != ' ' && it != '\t' && it != '\u00A0' }) break
                 val key = normalized.subList(first, next + 1).joinToString(" ")
-                val phrase = personalMeanings[key] ?: phraseDictionary[key] ?: continue
+                val phrase = personalMeanings[key] ?: phraseDictionary[key] ?: dialogueDictionary[key] ?: continue
                 last = next
                 meaning = phrase
             }

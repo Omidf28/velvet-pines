@@ -29,6 +29,12 @@ internal fun mergeDictionarySearch(
         if (term.startsWith(prefix)) merged[term] = DictionarySearchEntry(term,
             personal[term] ?: WordMeaning(term, meaning), if (term in personal) "Personal dictionary" else "Offline dictionary")
     }
+    for ((term, meaning) in dialogueDictionary) {
+        if (term.startsWith(prefix) && term !in merged) {
+            merged[term] = DictionarySearchEntry(term, personal[term] ?: meaning,
+                if (term in personal) "Personal dictionary" else "Offline dictionary")
+        }
+    }
     immediateDictionaryMeaning(prefix, personal)?.let {
         merged[prefix] = DictionarySearchEntry(prefix, it.meaning!!, it.source)
     }

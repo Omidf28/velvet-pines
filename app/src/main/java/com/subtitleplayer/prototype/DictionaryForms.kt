@@ -1,22 +1,26 @@
 package com.subtitleplayer.prototype
 
+private val irregularBaseForms = mapOf(
+    "overheard" to "overhear", "misheard" to "mishear", "outgrew" to "outgrow", "outgrown" to "outgrow",
+    "withheld" to "withhold", "overslept" to "oversleep", "rethought" to "rethink",
+    "overpaid" to "overpay", "withdrew" to "withdraw", "withdrawn" to "withdraw", "leapt" to "leap",
+    "went" to "go", "gone" to "go", "was" to "be", "were" to "be",
+    "been" to "be", "am" to "be", "is" to "be", "are" to "be",
+    "did" to "do", "done" to "do", "had" to "have", "has" to "have",
+    "saw" to "see", "seen" to "see", "took" to "take", "taken" to "take",
+    "came" to "come", "got" to "get", "gotten" to "get", "said" to "say",
+    "thought" to "think", "bought" to "buy", "brought" to "bring",
+    "knew" to "know", "known" to "know", "felt" to "feel", "found" to "find",
+    "made" to "make", "told" to "tell", "left" to "leave", "gave" to "give",
+    "given" to "give", "children" to "child", "men" to "man", "women" to "woman",
+    "feet" to "foot", "teeth" to "tooth", "mice" to "mouse"
+)
+
 /** Conservative candidates; every proposed base still requires a dictionary hit. */
 internal fun dictionaryBaseForms(term: String): List<String> {
     val key = normalizeDictionaryTerm(term) ?: return emptyList()
     if (' ' in key) return emptyList()
-    val irregular = mapOf(
-        "went" to "go", "gone" to "go", "was" to "be", "were" to "be",
-        "been" to "be", "am" to "be", "is" to "be", "are" to "be",
-        "did" to "do", "done" to "do", "had" to "have", "has" to "have",
-        "saw" to "see", "seen" to "see", "took" to "take", "taken" to "take",
-        "came" to "come", "got" to "get", "gotten" to "get", "said" to "say",
-        "thought" to "think", "bought" to "buy", "brought" to "bring",
-        "knew" to "know", "known" to "know", "felt" to "feel", "found" to "find",
-        "made" to "make", "told" to "tell", "left" to "leave", "gave" to "give",
-        "given" to "give", "children" to "child", "men" to "man", "women" to "woman",
-        "feet" to "foot", "teeth" to "tooth", "mice" to "mouse"
-    )
-    irregular[key]?.let { return listOf(it) }
+    irregularBaseForms[key]?.let { return listOf(it) }
     return buildList {
         if (key.endsWith("'s") && key.length > 3) add(key.dropLast(2))
         if (key.endsWith("ies") && key.length > 4) add(key.dropLast(3) + "y")
@@ -57,7 +61,9 @@ internal fun immediateDictionaryMeaning(key: String, personal: Map<String, WordM
 
 internal fun indexedDictionaryMeaning(key: String, find: (String) -> WordMeaning?): DictionaryResult {
     find(key)?.let { return DictionaryResult(it, "Offline dictionary") }
-    val candidates = dictionaryBaseForms(key).mapNotNull(find).take(3)
+    val candidates = dictionaryBaseForms(key).asSequence().mapNotNull { base ->
+        dialogueDictionary[base] ?: find(base)
+    }.take(3).toList()
     if (candidates.isNotEmpty()) {
         val definition = candidates.joinToString("\n") { "${it.headword}: ${it.persian}" }.take(1000)
         return DictionaryResult(WordMeaning(key, definition), "Possible base form · Offline")

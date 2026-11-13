@@ -24,6 +24,19 @@ class DictionaryResolutionTest {
         assertEquals("Possible base form · Offline", result.source)
         assertNull(indexedDictionaryMeaning("running") { null }.meaning)
     }
+    @Test fun fillsDialogueGapsWithoutOverridingPersonalOrIndexedExactForms() {
+        val custom = WordMeaning("hangry", "معنی شخصی")
+        assertEquals(custom, immediateDictionaryMeaning("hangry", mapOf("hangry" to custom))?.meaning)
+        assertEquals("hangry", immediateDictionaryMeaning("hangry", emptyMap())?.meaning?.headword)
+        val search = mergeDictionarySearch("binge", emptyList(), emptyMap())
+        assertEquals("binge-watch", search.entries.first { it.term == "binge-watching" }.meaning.headword)
+        val phrase = subtitleTerms("Let's call it a day.", mode = SubtitleLookupMode.Phrases).last()
+        assertEquals("call it a day", phrase.meaning?.headword)
+        assertEquals("withdraw", dictionaryBaseForms("withdrew").single())
+        val exact = WordMeaning("screenshots", "تصاویر صفحه")
+        assertEquals(exact, indexedDictionaryMeaning("screenshots") { exact }.meaning)
+        assertTrue(indexedDictionaryMeaning("screenshots") { null }.meaning!!.persian.startsWith("screenshot:"))
+    }
     @Test fun ambiguousStemsRemainVisibleAndBounded() {
         val result = indexedDictionaryMeaning("axes") { when (it) {
             "axe" -> WordMeaning(it, "تبر")
