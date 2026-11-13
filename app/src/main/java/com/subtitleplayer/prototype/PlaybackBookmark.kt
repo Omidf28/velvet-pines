@@ -31,10 +31,17 @@ internal fun PlaybackBookmark.statusLabel(): String? = when {
     else -> null
 }
 
-/** Stream links can expire, so checkpoints are scoped to the current player session. */
-internal class StreamPlaybackBookmarks(private val limit: Int = 32) {
+/** Keep checkpoints by the hash of the exact URL so the stored history contains no stream links. */
+internal class StreamPlaybackBookmarks(
+    private val limit: Int = 32,
+    saved: String? = null,
+    private val persist: (String) -> Unit = {}
+) {
     init { require(limit > 0) }
-    private var entries by mutableStateOf<List<Pair<String, PlaybackBookmark>>>(emptyList())
+    private var entries by mutableStateOf(
+        saved.orEmpty().lineSequence().mapNotNull(::parseEntry).toList()
+            .asReversed().distinctBy { it.first }.take(limit).asReversed()
+    )
 
     operator fun get(url: String): PlaybackBookmark? {
         val key = remoteVideoId(url)
@@ -42,7 +49,24 @@ internal class StreamPlaybackBookmarks(private val limit: Int = 32) {
     }
 
     fun record(url: String, bookmark: PlaybackBookmark) {
+        if (bookmark.durationMs <= 0) return
         val key = remoteVideoId(url)
-        entries = (entries.filterNot { it.first == key } + (key to bookmark)).takeLast(limit)
+        val updated = (entries.filterNot { it.first == key } + (key to bookmark)).takeLast(limit)
+        if (updated == entries) return
+        entries = updated
+        persist(updated.joinToString("\n") { (id, progress) ->
+            "$id ${progress.positionMs} ${progress.durationMs} ${progress.completed}"
+        })
+    }
+
+    private fun parseEntry(line: String): Pair<String, PlaybackBookmark>? {
+        val fields = line.split(' ', limit = 4)
+        if (fields.size != 4 || !streamBookmarkId.matches(fields[0])) return null
+        val position = fields[1].toLongOrNull()?.takeIf { it >= 0 } ?: return null
+        val duration = fields[2].toLongOrNull()?.takeIf { it > 0 } ?: return null
+        val completed = fields[3].toBooleanStrictOrNull() ?: return null
+        return fields[0] to capturePlaybackBookmark(position, duration, completed)
     }
 }
+
+private val streamBookmarkId = Regex("remote:[A-Za-z0-9_-]{43}")

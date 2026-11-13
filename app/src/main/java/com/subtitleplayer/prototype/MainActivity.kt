@@ -163,7 +163,11 @@ class MainActivity : ComponentActivity() {
     private var showWords by mutableStateOf(false)
     private var showStreams by mutableStateOf(false)
     private var returnToStreams = false
-    private val streamBookmarks = StreamPlaybackBookmarks()
+    private val streamBookmarks by lazy {
+        StreamPlaybackBookmarks(saved = history.getString("streamBookmarks", null)) { entries ->
+            history.edit().putString("streamBookmarks", entries).apply()
+        }
+    }
     private var streamTitle by mutableStateOf<String?>(null)
     private var libraryTab by mutableStateOf(LibraryTab.Folder)
     private var libraryFolder by mutableStateOf<Uri?>(null)

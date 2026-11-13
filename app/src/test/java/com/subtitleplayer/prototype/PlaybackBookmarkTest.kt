@@ -134,6 +134,24 @@ class PlaybackBookmarkTest {
         assertEquals(40L, bookmarks[third]?.resumePositionMs)
     }
 
+    @Test fun streamCheckpointsSurviveReopeningWithoutStoringUrls() {
+        var saved = ""
+        val bookmarks = StreamPlaybackBookmarks { saved = it }
+        val first = "https://media.example/first.mp4?token=secret"
+        val second = "https://media.example/second.mp4"
+        bookmarks.record(first, capturePlaybackBookmark(42_000, 120_000, false))
+        bookmarks.record(second, capturePlaybackBookmark(120_000, 120_000, true))
+        bookmarks.record(first, capturePlaybackBookmark(0, 0, false))
+
+        assertFalse(saved.contains("https://"))
+        assertFalse(saved.contains("secret"))
+        val reopened = StreamPlaybackBookmarks(saved = "invalid record\n$saved")
+        assertEquals(42_000L, reopened[first]?.resumePositionMs)
+        assertNull(reopened[first.replace("secret", "other")])
+        assertEquals("Watched · Replay", reopened[second]?.statusLabel())
+        assertEquals(0L, reopened[second]?.resumePositionMs)
+    }
+
     @Test fun bookmarkLabelsDistinguishUnwatchedPartialAndCompletedVideos() {
         assertNull(capturePlaybackBookmark(0, 120_000, false).statusLabel())
         assertEquals("Resume at 1:05", capturePlaybackBookmark(65_000, 120_000, false).statusLabel())
