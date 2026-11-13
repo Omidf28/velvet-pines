@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.graphics.Rect
 import android.provider.MediaStore
 import android.view.View
+import androidx.activity.compose.setContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
@@ -45,6 +46,43 @@ import java.net.URI
 class PlaybackSmokeTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun partiallyWatchedStreamOffersResumeAndPlaybackFromBeginning() {
+        val index = URI("https://media.example/season/index.html")
+        val link = OnlineVideoLink("https://media.example/season/episode.mp4", OnlineVideoFormat.Auto)
+        val episode = StreamIndexEntry.Video("Episode 1", "episode.mp4", link)
+        val requests = mutableListOf<Triple<OnlineVideoLink, String?, Long?>>()
+        compose.activityRule.scenario.onActivity { activity ->
+            val state = StreamsBrowseState()
+            state.openPage(StreamIndexEntry.Page("Season 1", "index.html", index), listOf(episode))
+            val bookmarks = StreamPlaybackBookmarks()
+            bookmarks.record(link.url, capturePlaybackBookmark(65_000, 120_000, false))
+            activity.setContent {
+                VelvetPinesTheme {
+                    StreamsScreen(
+                        state = state,
+                        bookmarks = bookmarks,
+                        onPlay = { video, title, position -> requests += Triple(video, title, position) },
+                        onOpenFiles = {},
+                        onReturnToPlayback = null,
+                        bottomBar = {}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("Resume at 1:05").assertIsDisplayed()
+        compose.onNodeWithText("Episode 1").performClick()
+        compose.onNodeWithContentDescription("Options for Episode 1").performClick()
+        compose.onNodeWithText("Play from beginning").performClick()
+
+        compose.runOnIdle {
+            assertEquals(
+                listOf(Triple(link, "Episode 1 · Season 1", null), Triple(link, "Episode 1 · Season 1", 0L)),
+                requests
+            )
+        }
+    }
 
     @Test
     fun streamsTabChecksUrlsAndReturnsToFiles() {
