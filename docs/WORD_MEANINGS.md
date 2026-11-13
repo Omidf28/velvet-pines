@@ -61,6 +61,17 @@ Compose request; a late response cannot replace the next word's card. Opening th
 card menu or using an explicit study pause prevents automatic dismissal as before.
 Playback is not paused by lookup when pause-on-word-tap is disabled.
 
+## Dialogue coverage baseline
+
+The [20 original dialogue cues](../test-fixtures/dialogue-coverage.en.srt) are
+checked against the offline Android lookup in airplane mode. The first run found
+entries for 133 of 133 distinct word forms and 191 of 191 word occurrences.
+Fourteen distinct forms used a possible base form. Thirteen of 16 selected
+phrases returned a definition. The missing phrases were `brought it up`,
+`start over`, and `putting it off`. This counts returned definitions in
+the fixture. Judging whether a definition fits its line requires a separate review.
+[Emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/43506288003)
+
 ## Online fallback
 
 The button sends only the selected normalized term to
