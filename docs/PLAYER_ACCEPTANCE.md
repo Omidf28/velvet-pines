@@ -2,9 +2,9 @@
 
 Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover subtitle-word selection and saving, landscape control taps, timed definitions, URL validation, and Streams navigation and season search with HTML fixtures. See the [beta.6 emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42636514598).
 
-## Beta 0.7.0-beta.9 Quick Check
+## Beta 0.7.0-beta.10 Quick Check
 
-1. Install the APK over beta.8. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
+1. Install the APK over beta.9. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
 2. In Files, open a nested folder and play a video. In portrait, press Android Back and confirm the same folder and scroll position return. Switch between Folders and Recent and verify each retains its place.
 3. Play the sample in fullscreen, show the controls, and quickly tap `afford` and `lose` in the first subtitle. The subtitle should stay under the same touch targets while the controls hide. Verify that the last Persian definition appears and disappears after approximately three seconds. For the offline miss, attach [the test subtitle](../test-fixtures/broad-meanings.en.srt) to any video longer than 32 seconds and tap `Zzvelvetqz` at 25 seconds. Verify its card stays open.
 4. Save a defined word and return to Files. Open Flashcards from the bottom bar and tap the English entry to reveal its meaning. Switch to Files and back and verify the expanded card is still selected.
@@ -16,6 +16,8 @@ Status: physical-device acceptance is pending. The Android 15 emulator smoke tes
 ## Nested Streams Indexes
 
 - [ ] On the connection intended for playback, enter the Donyaye Serial archive URL and select Load index. Search in English and Persian, open a film and select a quality, then open a series and select a season and quality. Verify the episode list, playback, seeking, and Back to the original search.
+- [ ] Search for the same Persian title with a space, a half-space, and neither. Inside a season, check that Episode 2 appears before Episode 10 and that searching for the season and episode numbers finds the intended row.
+- [ ] After loading the catalog successfully, close the app. With airplane mode on and Wi-Fi off, reopen Streams and select Donyaye Serial from Saved sources. Search for a title, try Refresh, and verify that the saved catalog remains searchable after the error.
 - [x] On the Android 15 emulator, parse a fixture with season and episode links, enter a season in the browse state, and verify that Back restores the parent search. [Emulator result](https://github.com/Omidf28/velvet-pines/actions/runs/42618411024)
 - [ ] Load an HTTPS archive with links to a series page, a season page, and a direct episode. Follow the links one at a time, then play the episode.
 - [ ] Filter the parent list, scroll, and open a child index. Press Back and verify that the parent's search and scroll position are restored. Repeat from portrait playback and verify Back first returns to the episode list.
