@@ -1314,11 +1314,12 @@ class MainActivity : ComponentActivity() {
                 state = streamsBrowseState,
                 bookmarks = streamBookmarks,
                 onOpenFiles = { selectHome(HomeDestination.Files) },
-                onPlay = { link, title ->
+                onPlay = { link, title, positionMs ->
                     lookup = null
                     showStreams = false
                     showLibrary = false
-                    openVideo(Uri.parse(link.url), onlineFormat = link.format, fromStreams = true, title = title)
+                    openVideo(Uri.parse(link.url), positionMs = positionMs, onlineFormat = link.format,
+                        fromStreams = true, title = title)
                 },
                 onReturnToPlayback = if (videoUri != null) ({ showStreams = false; showLibrary = false }) else null,
                 bottomBar = { HomeNavigation(HomeDestination.Streams, ::selectHome) }

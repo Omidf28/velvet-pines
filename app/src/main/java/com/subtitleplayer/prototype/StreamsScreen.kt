@@ -176,7 +176,7 @@ internal class StreamsBrowseState {
 internal fun StreamsScreen(
     state: StreamsBrowseState,
     bookmarks: StreamPlaybackBookmarks,
-    onPlay: (OnlineVideoLink, String?) -> Unit,
+    onPlay: (OnlineVideoLink, String?, Long?) -> Unit,
     onOpenFiles: () -> Unit,
     onReturnToPlayback: (() -> Unit)?,
     bottomBar: @Composable () -> Unit
@@ -319,7 +319,7 @@ internal fun StreamsScreen(
                             if (link == null || link.format == OnlineVideoFormat.Smb) {
                                 state.message = "Enter a direct HTTPS or RTSP video URL."
                             } else {
-                                onPlay(link, null)
+                                onPlay(link, null, null)
                             }
                         }) { Text("Play URL") }
                         OutlinedButton(enabled = !loading && state.address.isNotBlank(), onClick = {
@@ -435,8 +435,11 @@ internal fun StreamsScreen(
                     val details = result.location.takeUnless { page != null } ?: entry.fileName.takeIf {
                         it.isNotBlank() && it != entry.title && entry !is StreamIndexEntry.Page
                     }
-                    val bookmark = (entry as? StreamIndexEntry.Video)?.let { bookmarks[it.url] }
+                    val video = entry as? StreamIndexEntry.Video
+                    val bookmark = video?.let { bookmarks[it.url] }
                     val status = bookmark?.statusLabel()
+                    val playbackTitle = video?.let { streamEpisodeTitle(it, result.location ?: state.currentLocation) }
+                    var menuOpen by remember { mutableStateOf(false) }
                     ListItem(
                         headlineContent = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         leadingContent = if (isPage) ({ HomeNavigationIcon(folder = true, ink = PinesPalette.Accent) }) else null,
@@ -454,15 +457,33 @@ internal fun StreamsScreen(
                                 }
                             }
                         } else null,
-                        modifier = Modifier.clickable(enabled = !loading, onClickLabel = if (isPage) "Open index" else "Play stream") {
+                        trailingContent = if (video != null && bookmark?.resumable == true) {
+                            {
+                                Box {
+                                    PlayerIconButton(
+                                        PlayerGlyph.More, "Options for ${entry.title}", enabled = !loading,
+                                        onClick = { menuOpen = true }
+                                    )
+                                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                        DropdownMenuItem(text = { Text("Play from beginning") }, onClick = {
+                                            menuOpen = false
+                                            keyboard?.hide()
+                                            onPlay(video.link, playbackTitle, 0L)
+                                        })
+                                    }
+                                }
+                            }
+                        } else null,
+                        modifier = Modifier.clickable(enabled = !loading, onClickLabel = when {
+                            isPage -> "Open index"
+                            bookmark?.resumable == true -> "Resume stream"
+                            else -> "Play stream"
+                        }) {
                             keyboard?.hide()
                             when (entry) {
                                 is StreamIndexEntry.Page -> loadIndex(StreamIndexRequest(entry.address, child = entry))
                                 is StreamIndexEntry.CatalogPage -> state.openPage(entry, entry.entries)
-                                is StreamIndexEntry.Video -> onPlay(
-                                    entry.link,
-                                    streamEpisodeTitle(entry, result.location ?: state.currentLocation)
-                                )
+                                is StreamIndexEntry.Video -> onPlay(entry.link, playbackTitle, null)
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = PinesPalette.Card)
