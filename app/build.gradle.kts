@@ -30,8 +30,8 @@ android {
         applicationId = "com.subtitleplayer.prototype"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.7.0-beta.8"
+        versionCode = 24
+        versionName = "0.7.0-beta.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
