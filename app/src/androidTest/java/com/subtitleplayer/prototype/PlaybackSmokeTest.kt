@@ -125,6 +125,16 @@ class PlaybackSmokeTest {
             assertEquals(listOf(titles.last()), state.results.map { it.entry })
             state.openPage(titles.last(), titles.last().entries)
             assertEquals(titles.last().entries.toSet(), state.results.map { it.entry }.toSet())
+            val episodes = extractStreamIndexEntries(
+                URI(season.url + "/"),
+                """<a href="EP10.mkv">EP…</a><a href="EP2.mkv">EP…</a>""",
+                directory = true
+            )
+            state.openPage(season, episodes)
+            assertEquals(listOf("Episode 2", "Episode 10"), state.results.map { it.entry.title })
+            state.query = "فصل ۲ قسمت ۱۰"
+            assertEquals(listOf("Episode 10"), state.results.map { it.entry.title })
+            state.back()
             state.back()
             assertEquals("forest tales", state.query)
         }

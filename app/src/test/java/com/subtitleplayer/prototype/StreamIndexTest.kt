@@ -61,6 +61,23 @@ class StreamIndexTest {
         assertEquals(url, episode.link.url)
     }
 
+    @Test fun recoversEpisodeNumbersFromFilenamesBehindShortenedLabels() {
+        val entries = mapOf(
+            "Forest.S02E10.1080p.mkv" to "Season 2 · Episode 10",
+            "Forest.2x03.mkv" to "Season 2 · Episode 3",
+            "Forest_S02_E04_720p.mkv" to "Season 2 · Episode 4",
+            "EP-005.mkv" to "Episode 5",
+            "Behind.the.Scenes.1920x1080.mkv" to "Short label"
+        )
+        for ((filename, expected) in entries) {
+            val original = checkNotNull(resolveStreamIndexEntry(base, filename, "Short label"))
+            val episode = archiveEpisodeEntry(original)
+            assertEquals(expected, episode.title)
+            assertEquals(filename, episode.fileName)
+            assertEquals(original.url, episode.url)
+        }
+    }
+
     @Test fun skipsParentLinksArchivesAndUnsupportedLinks() {
         for (href in listOf("#section", "index.html#section", "../", "episode.zip", "http://media.example/episode.mp4",
             "javascript:play()", "https://user@media.example/episode.mp4", "bad url")) {

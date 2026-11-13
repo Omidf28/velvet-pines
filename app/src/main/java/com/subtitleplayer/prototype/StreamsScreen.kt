@@ -65,7 +65,8 @@ internal class StreamsBrowseState {
                 .filter { title -> terms.all { title.searchText.contains(it, ignoreCase = true) } }
                 .take(150).map { StreamSearchResult(it) }.toList()
         }
-        val current = entries.map { StreamSearchResult(it) }
+        val seasonLocation = currentLocation.takeIf { (currentPage as? StreamIndexEntry.Page)?.directory == true }
+        val current = entries.map { StreamSearchResult(it, seasonLocation) }
         val candidates = if (currentPage == null && terms.isNotEmpty()) {
             current + loadedEpisodes.values.flatten() + scannedEpisodes.values.flatten()
         } else current
@@ -360,7 +361,7 @@ internal fun StreamsScreen(
                 items(results, key = { remoteVideoId(it.entry.url) }) { result ->
                     val entry = result.entry
                     val isPage = entry !is StreamIndexEntry.Video
-                    val details = result.location ?: entry.fileName.takeIf {
+                    val details = result.location.takeUnless { page != null } ?: entry.fileName.takeIf {
                         it.isNotBlank() && it != entry.title && entry !is StreamIndexEntry.Page
                     }
                     val bookmark = (entry as? StreamIndexEntry.Video)?.let { bookmarks[it.url] }

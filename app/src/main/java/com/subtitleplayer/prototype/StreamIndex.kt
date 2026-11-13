@@ -52,6 +52,10 @@ private val streamSearchSeparators = Regex("[^\\p{L}\\p{N}]+")
 private val compactEpisode = Regex("(?i)\\bS([0-9]+) *E([0-9]+)\\b")
 private val numberedLabel = Regex("(?i)\\b(season|episode|فصل|قسمت) *([0-9]+)\\b")
 private val streamSearchGroups = Regex("\\b(?:season|episode) [0-9]+\\b|[\\p{L}\\p{N}]+")
+private val episodeFileCode = Regex(
+    "(?i)(?<![\\p{L}\\p{N}])(?:S([0-9]{1,3})[ ._-]*E([0-9]{1,4})|([0-9]{1,3})x([0-9]{1,4}))(?![\\p{L}\\p{N}])"
+)
+private val episodeFileLabel = Regex("(?i)(?<![\\p{L}\\p{N}])(?:episode|ep|e)[ ._-]*([0-9]{1,4})(?![\\p{L}\\p{N}])")
 
 private fun String.withoutLeadingZeros(): String = trimStart('0').ifEmpty { "0" }
 
@@ -122,14 +126,28 @@ internal fun resolveStreamIndexEntry(base: URI, href: String, title: String): St
     }
 }
 
-internal fun extractStreamIndexEntries(base: URI, html: String): List<StreamIndexEntry> {
+internal fun archiveEpisodeEntry(entry: StreamIndexEntry): StreamIndexEntry {
+    if (entry !is StreamIndexEntry.Video) return entry
+    val code = episodeFileCode.find(entry.fileName)
+    if (code != null) {
+        val season = code.groupValues[1].ifEmpty { code.groupValues[3] }.withoutLeadingZeros()
+        val episode = code.groupValues[2].ifEmpty { code.groupValues[4] }.withoutLeadingZeros()
+        return entry.copy(title = "Season $season · Episode $episode")
+    }
+    val episode = episodeFileLabel.find(entry.fileName)?.groupValues?.get(1) ?: return entry
+    return entry.copy(title = "Episode ${episode.withoutLeadingZeros()}")
+}
+
+internal fun extractStreamIndexEntries(base: URI, html: String, directory: Boolean = false): List<StreamIndexEntry> {
     val text = Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
     return text.getSpans(0, text.length, URLSpan::class.java).asSequence()
         .mapNotNull { span ->
             val title = text.subSequence(text.getSpanStart(span), text.getSpanEnd(span)).toString()
             resolveStreamIndexEntry(base, span.url, title)
         }
-        .distinctBy { it.url }.take(300).toList()
+        .distinctBy { it.url }.take(300)
+        .map { if (directory) archiveEpisodeEntry(it) else it }
+        .toList()
 }
 
 internal suspend fun readStreamIndex(start: URI, scanOrigin: URI? = null, directory: Boolean = false): List<StreamIndexEntry> {
@@ -149,7 +167,7 @@ internal suspend fun readStreamIndex(start: URI, scanOrigin: URI? = null, direct
         val base = if (directory && !url.rawPath.endsWith('/')) {
             URI.create(url.toString().substringBefore('?') + "/")
         } else url
-        extractStreamIndexEntries(base, String(bytes, charset))
+        extractStreamIndexEntries(base, String(bytes, charset), directory)
     }
 }
 
