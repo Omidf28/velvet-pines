@@ -1,6 +1,7 @@
 package com.subtitleplayer.prototype
 
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Rect
@@ -71,6 +72,39 @@ class PlaybackSmokeTest {
         compose.onNodeWithText("Try again").assertIsDisplayed()
         compose.onNodeWithText("Open Files").performClick()
         compose.onNodeWithContentDescription("Files menu").assertIsDisplayed()
+    }
+
+    @Test
+    fun openingDonyayeSerialSavesAnArchiveShortcut() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = context.getSharedPreferences("stream_sources", Context.MODE_PRIVATE)
+        val previous = preferences.getString("indexes", null)
+        val cache = File(context.cacheDir, "donyaye-serial.js")
+        val previousCatalog = cache.takeIf { it.isFile }?.readBytes()
+        try {
+            preferences.edit().putString("indexes", "").commit()
+            cache.writeText("""
+                let data = [['tt1000001', 'movie', 'Forest', 'جنگل', 2024, 9, 100,
+                    {'1': [{'file': 'https://media.example/forest.mkv'}]}, []]]
+            """.trimIndent())
+            compose.onNodeWithText("Streams").performClick()
+            compose.onNodeWithText("Video or index URL").performTextInput(
+                "https://dls6.aparatchi-dlcenter.top/DonyayeSerial/10_thous.html"
+            )
+            compose.onNodeWithText("Load index").performClick()
+            waitForNode(hasText("Forest 2024"))
+            compose.onNodeWithContentDescription("Parent index").performClick()
+            compose.onNodeWithText("Files").performClick()
+            compose.onNodeWithText("Streams").performClick()
+            compose.onNode(hasScrollToIndexAction() and hasAnyDescendant(hasText("Save source")))
+                .performScrollToNode(hasText("Donyaye Serial"))
+            compose.onNodeWithText("Donyaye Serial").assertIsDisplayed()
+            compose.onNodeWithText("Donyaye Serial").performClick()
+            waitForNode(hasText("Forest 2024"))
+        } finally {
+            preferences.edit().putString("indexes", previous).commit()
+            if (previousCatalog == null) cache.delete() else cache.writeBytes(previousCatalog)
+        }
     }
 
     @Test

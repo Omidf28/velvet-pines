@@ -193,7 +193,10 @@ internal fun StreamsScreen(
     var request by remember { mutableStateOf<Job?>(null) }
     val page = state.currentPage
     val sourceEntries = state.entries
-    val results = state.results
+    val archiveSaved = savedSources.any(::isDonyayeSerialArchive)
+    val results = if (page == null && archiveSaved && state.query.isBlank()) {
+        state.results.filterNot { it.entry is StreamIndexEntry.CatalogPage }
+    } else state.results
     val archiveQuery = state.query.takeIf { state.searchingArchive }
     LaunchedEffect(state, page?.url, archiveQuery, state.archiveRevision) {
         if (archiveQuery != null) state.searchCurrentArchive()
@@ -229,6 +232,9 @@ internal fun StreamsScreen(
                         }
                     }
                     state.openArchive(archive)
+                    if (!archiveSaved && savedSources.size < 10) {
+                        updateSources(savedSources + url)
+                    }
                 } else if (scan) {
                     val catalog = withContext(Dispatchers.IO) { withTimeout(45_000) { scanStreamCatalog(url) } }
                     state.addScan(url.toString(), catalog)
@@ -331,7 +337,8 @@ internal fun StreamsScreen(
                             val url = savedStreamSource(state.address)
                             when {
                                 url == null -> state.message = "Save a public HTTPS index URL without query parameters."
-                                url in savedSources -> state.message = "This source is already saved."
+                                url in savedSources || (isDonyayeSerialArchive(url) && archiveSaved) ->
+                                    state.message = "This source is already saved."
                                 savedSources.size >= 10 -> state.message = "Remove a source before saving another."
                                 else -> {
                                     keyboard?.hide()
@@ -353,12 +360,15 @@ internal fun StreamsScreen(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(savedSources, key = { remoteVideoId(it.toString()) }) { url ->
                             var menuOpen by remember { mutableStateOf(false) }
+                            val isArchive = isDonyayeSerialArchive(url)
                             fun openSource(scan: Boolean = false) {
                                 state.address = url.toString()
                                 loadIndex(StreamIndexRequest(url, scan = scan))
                             }
                             ListItem(
-                                headlineContent = { Text(url.host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                headlineContent = {
+                                    Text(if (isArchive) "Donyaye Serial" else url.host, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                },
                                 supportingContent = { Text(url.path.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 trailingContent = {
                                     Box {
@@ -369,10 +379,12 @@ internal fun StreamsScreen(
                                             onClick = { menuOpen = true }
                                         )
                                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                            DropdownMenuItem(text = { Text("Scan saved archive") }, onClick = {
-                                                menuOpen = false
-                                                openSource(scan = true)
-                                            })
+                                            if (!isArchive) {
+                                                DropdownMenuItem(text = { Text("Scan saved archive") }, onClick = {
+                                                    menuOpen = false
+                                                    openSource(scan = true)
+                                                })
+                                            }
                                             DropdownMenuItem(text = { Text("Remove saved source") }, onClick = {
                                                 menuOpen = false
                                                 updateSources(savedSources - url)
