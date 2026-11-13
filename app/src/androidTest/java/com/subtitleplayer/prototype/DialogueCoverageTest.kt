@@ -13,7 +13,7 @@ class DialogueCoverageTest {
         val fixture = instrumentation.context.assets.open("dialogue-coverage.en.srt")
             .bufferedReader().use { it.readText() }
         val cues = parseSrt(fixture)
-        assertEquals(20, cues.size)
+        assertEquals(28, cues.size)
 
         val words = cues.flatMap { cue ->
             subtitleTerms(cue.text).map { normalizeWord(it.text) }
@@ -28,7 +28,8 @@ class DialogueCoverageTest {
         val phrases = listOf(
             "my bad", "call it a day", "no biggie", "long story short", "out of the loop",
             "cut to the chase", "walk out on", "caught off guard", "brought it up", "spoiler alert",
-            "plot twist", "take a breath", "start over", "putting it off", "read the room", "spill the tea"
+            "plot twist", "take a breath", "start over", "putting it off", "read the room", "spill the tea",
+            "on the house", "take a rain check", "get the hang of it", "run it by me"
         )
         val dialogue = cues.joinToString("\n") { normalizeWord(it.text) }
         assertTrue(phrases.all { it in dialogue })
@@ -40,10 +41,10 @@ class DialogueCoverageTest {
         Log.i("DialogueCoverage", "Missing words: $missingWords; missing phrases: $missingPhrases")
 
         assertTrue("Previously fixed dialogue words must stay available",
-            listOf("overslept", "overheard", "withdrew", "hangry", "screenshot", "binge-watch")
+            listOf("overslept", "overheard", "withdrew", "hangry", "screenshot", "binge-watch",
+                "y'all", "gonna", "gotta", "wanna", "kinda", "sorta", "lemme", "dunno",
+                "could've", "would've", "might've", "must've", "couldn't've", "shouldn't've", "we'd've")
                 .all { wordResults.getValue(it).meaning != null })
-        assertTrue("Previously fixed dialogue phrases must stay available",
-            listOf("my bad", "call it a day", "plot twist", "brought it up", "start over", "putting it off")
-                .none { it in missingPhrases })
+        assertTrue("Selected dialogue phrases without definitions: $missingPhrases", missingPhrases.isEmpty())
     }
 }

@@ -42,7 +42,7 @@ by selecting the word again. Disk space is required for the unpacked index.
    Returned roots are labeled as probable; up to three alternatives are retained.
 5. A missing term offers an explicit online translation button and personal editing.
 
-The project also supplies 31 dialogue definitions with spelling and inflection
+The project also supplies 50 dialogue definitions with spelling and inflection
 variants. They are available in offline search and word lookup. Multiword
 entries such as `call it a day` also work in Known phrases mode. Additional
 irregular forms, including `withdrew` and `overslept`, use the indexed base
@@ -63,14 +63,18 @@ Playback is not paused by lookup when pause-on-word-tap is disabled.
 
 ## Dialogue coverage baseline
 
-The [20 original dialogue cues](../test-fixtures/dialogue-coverage.en.srt) are
-checked against the offline Android lookup in airplane mode. The first run found
+The [dialogue fixture](../test-fixtures/dialogue-coverage.en.srt) is checked
+against the offline Android lookup in airplane mode. The first run used 20 cues and found
 entries for 133 of 133 distinct word forms and 191 of 191 word occurrences.
 Fourteen distinct forms used a possible base form. Thirteen of 16 selected
 phrases returned a definition. The missing phrases were `brought it up`,
 `start over`, and `putting it off`. This counts returned definitions in
 the fixture. Judging whether a definition fits its line requires a separate review.
 [Emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/43506288003)
+
+The expanded fixture includes 28 cues and 20 selected phrases. The new lines
+cover casual speech such as `gonna`, contractions such as `couldn't've`, and
+idioms such as `on the house` and `take a rain check`.
 
 ## Online fallback
 
