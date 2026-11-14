@@ -52,6 +52,10 @@ Regular fallback also handles selected spelling changes before applying
 generic suffix rules. Examples include `panicking` → `panic`,
 `untying` → `untie`, and `unhappier` → `unhappy`.
 
+For selected British and American spelling pairs, an exact miss also checks
+the alternate spelling. For example, `prioritise` can use `prioritize`.
+When only a base form is found, the result keeps the possible-base-form label.
+
 The phrase menu also recognizes selected verbs with an object between the verb
 and particle. For example, selecting `brought the issue up` highlights the text
 as it appears in the subtitle and can look up `bring up` after an exact miss.

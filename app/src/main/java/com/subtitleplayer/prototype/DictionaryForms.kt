@@ -19,6 +19,23 @@ private val irregularBaseForms = mapOf(
 private val verbsWithInflectedCk = setOf("panic", "mimic", "picnic", "traffic", "frolic")
 private val inflectionSuffixes = listOf("ing", "ed", "er", "est")
 
+private val americanSpellingBases = setOf(
+    "organize", "recognize", "realize", "normalize", "prioritize", "standardize",
+    "customize", "personalize", "visualize", "specialize", "minimize", "maximize",
+    "initialize", "legalize", "memorize", "randomize"
+)
+private val spellingVariants = buildMap {
+    for (american in americanSpellingBases) {
+        val british = american.removeSuffix("ize") + "ise"
+        for (suffix in listOf("", "s", "d", "ing")) {
+            val left = (if (suffix == "ing") british.dropLast(1) else british) + suffix
+            val right = (if (suffix == "ing") american.dropLast(1) else american) + suffix
+            put(left, right)
+            put(right, left)
+        }
+    }
+}
+
 /** Conservative candidates; every proposed base still requires a dictionary hit. */
 internal fun dictionaryBaseForms(term: String): List<String> {
     val key = normalizeDictionaryTerm(term) ?: return emptyList()
@@ -69,9 +86,11 @@ internal fun immediateDictionaryMeaning(key: String, personal: Map<String, WordM
 
 internal fun indexedDictionaryMeaning(key: String, find: (String) -> WordMeaning?): DictionaryResult {
     find(key)?.let { return DictionaryResult(it, "Offline dictionary") }
+    val variant = spellingVariants[key]
+    variant?.let(find)?.let { return DictionaryResult(it, "Spelling variant · Offline") }
     val candidates = dictionaryBaseForms(key).asSequence().mapNotNull { base ->
-        dialogueDictionary[base] ?: find(base)
-    }.take(3).toList()
+        dialogueDictionary[base] ?: find(base) ?: spellingVariants[base]?.let(find)
+    }.distinctBy { it.headword }.take(3).toList()
     if (candidates.isNotEmpty()) {
         val definition = candidates.joinToString("\n") { "${it.headword}: ${it.persian}" }.take(1000)
         return DictionaryResult(WordMeaning(key, definition), "Possible base form · Offline")

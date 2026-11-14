@@ -17,6 +17,23 @@ class DictionaryResolutionTest {
         assertEquals("اخبار", result.meaning?.persian)
         assertEquals(listOf("news"), calls)
     }
+    @Test fun spellingVariantsPreferExactEntriesAndCanRecoverAnInflectedBase() {
+        val american = WordMeaning("organize", "سازمان‌دهی کردن")
+        val british = WordMeaning("organise", "مرتب کردن")
+        assertEquals(british, indexedDictionaryMeaning("organise") {
+            if (it == "organise") british else american
+        }.meaning)
+
+        val variant = indexedDictionaryMeaning("organise") { american.takeIf { word -> word.headword == it } }
+        assertEquals(american, variant.meaning)
+        assertEquals("Spelling variant · Offline", variant.source)
+        assertEquals(british, indexedDictionaryMeaning("organize") { british.takeIf { word -> word.headword == it } }.meaning)
+
+        val inflected = indexedDictionaryMeaning("organising") { american.takeIf { word -> word.headword == it } }
+        assertEquals("Possible base form · Offline", inflected.source)
+        assertEquals("organize: سازمان‌دهی کردن", inflected.meaning?.persian)
+        assertNull(indexedDictionaryMeaning("surprise") { if (it == "surprize") american else null }.meaning)
+    }
     @Test fun inflectionMustHaveExistingRootAndIsLabeled() {
         val result = indexedDictionaryMeaning("running") { if (it == "run") WordMeaning(it, "دویدن") else null }
         assertEquals("running", result.meaning?.headword)
