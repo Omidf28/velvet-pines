@@ -51,6 +51,10 @@ definition after an exact miss.
 The phrase menu also recognizes selected verbs with an object between the verb
 and particle. For example, selecting `brought the issue up` highlights the text
 as it appears in the subtitle and can look up `bring up` after an exact miss.
+The player smoke test opens the bundled sample, looks up `bring the issue up`
+from the subtitle phrase menu, and verifies the saved Persian meaning in
+Flashcards with the emulator in airplane mode.
+[Emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/43588288212)
 
 Keys use the existing English word grammar: letters, internal apostrophes/hyphens,
 and up to eight words. Matching is case-insensitive and normalizes curly apostrophes.
