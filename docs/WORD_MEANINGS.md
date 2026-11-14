@@ -6,8 +6,8 @@ See [0.6.2 lookup reliability](LOOKUP_RELIABILITY.md) for temporary caches, expl
 
 ## What ships
 
-The bundled English–Persian SQLite dictionary has **233,213 indexed entries**:
-**97,734 single-token entries** and **135,479 multiword entries**. These are dictionary
+The bundled English–Persian SQLite dictionary has **233,691 indexed entries**:
+**97,969 single-token entries** and **135,722 multiword entries**. These are dictionary
 keys, not a measured percentage of film dialogue or a guarantee of distinct linguistic
 headwords. The phrase-selection mode recognizes curated phrases. The expanded word card can search the larger phrase index.
 
@@ -24,11 +24,14 @@ a study pause. Try a repeated word, a line break, and switching words during a s
 Source: [EnglishToPersianDictionaries](https://github.com/VahidN/EnglishToPersianDictionaries),
 commit `224f15d42d145c59b5dc2c6890c4736693613cc2`. Six additional source groups
 contribute 2,292 keys, including `imo` and `break the ice`. The automated
-import keeps the original indexed definitions for keys already present.
+import keeps the original indexed definitions for keys already present. A
+subsequent import of `generic-14` supplied 478 previously missing keys,
+including `flawlessly` and `anonymously`. Comparison against the prior SQLite
+index confirmed that all 233,213 existing key and definition pairs were retained.
 License: Apache 2.0. The original license, attribution and modification notice ship
 inside the APK. See [third-party notices](../THIRD_PARTY_NOTICES.md).
 
-The gzip asset is 7,129,002 bytes. The installed read-only database is 20,750,336 bytes.
+The gzip asset is 7,139,900 bytes. The installed read-only database is 20,779,008 bytes.
 The `.bin` asset contains gzip data; this extension prevents the Android asset merger from silently unpacking `.gz` source assets. It is unpacked into Android's no-backup directory on the first indexed lookup, with
 size bounds and SHA-256 verification. Installation and queries run on an IO dispatcher;
 no full dictionary map is loaded into memory. It does not modify the user's Room
