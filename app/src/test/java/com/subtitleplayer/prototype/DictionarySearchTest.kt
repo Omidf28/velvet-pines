@@ -40,6 +40,28 @@ class DictionarySearchTest {
             "forest" to WordMeaning("forest", "جنگل")), emptyMap())
         assertEquals(listOf("forest"), result.entries.map { it.term })
     }
+    @Test fun aCompleteVariantAppearsBeforeLongerPrefixMatches() {
+        val alternate = WordMeaning("prioritize", "اولویت‌بندی کردن")
+        val longer = "prioritised" to WordMeaning("prioritised", "اولویت داده شد")
+        val result = mergeDictionarySearch("prioritise", listOf(longer), emptyMap(), limit = 1) {
+            alternate.takeIf { meaning -> meaning.headword == it }
+        }
+        assertEquals(DictionarySearchEntry("prioritise", alternate, "Spelling variant · Offline"), result.entries.single())
+        assertTrue(result.hasMore)
+    }
+
+    @Test fun exactSearchResultsAndUnfinishedPrefixesSkipAlternateLookup() {
+        val own = WordMeaning("prioritise", "معنی شخصی")
+        val indexed = listOf("prioritise" to WordMeaning("prioritise", "معنی واژه‌نامه"))
+        for (result in listOf(
+            mergeDictionarySearch("prioritise", emptyList(), mapOf("prioritise" to own)) { error("Unexpected lookup") },
+            mergeDictionarySearch("prioritise", indexed, emptyMap()) { error("Unexpected lookup") }
+        )) {
+            assertEquals("prioritise", result.entries.single().meaning.headword)
+        }
+        assertTrue(mergeDictionarySearch("prioritis", emptyList(), emptyMap()) { error("Unexpected lookup") }
+            .entries.isEmpty())
+    }
     @Test fun resultsAreSortedBoundedAndSignalMore() {
         val input = (0..40).reversed().map { "ztest" + ('a' + it / 26) + ('a' + it % 26) }.map { it to WordMeaning(it, "آزمون") }
         val result = mergeDictionarySearch("ztest", input, emptyMap())

@@ -17,18 +17,15 @@ internal class PackagedDictionary(context: Context) {
         immediateDictionaryMeaning(key, personal)?.let { return it }
         val file = prepare()
         SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-            fun find(value: String): WordMeaning? = db.rawQuery(
-                "SELECT definition FROM lexicon WHERE term = ? LIMIT 1", arrayOf(value)
-            ).use { cursor -> if (cursor.moveToFirst()) WordMeaning(value, cursor.getString(0)) else null }
-            return indexedDictionaryMeaning(key, ::find)
+            return indexedDictionaryMeaning(key) { db.findMeaning(it) }
         }
     }
 
     /** Prefix range uses the primary-key index, not a scan of 230,000 definitions. Call on IO. */
     fun search(input: String, personal: Map<String, WordMeaning>): DictionarySearchResult {
         val prefix = normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
-        val indexed = SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-            db.rawQuery(
+        return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            val indexed = db.rawQuery(
                 "SELECT term, definition FROM lexicon WHERE term >= ? AND term < ? ORDER BY term LIMIT ?",
                 arrayOf(prefix, prefix + '\u007f', (dictionarySearchLimit + 1).toString())
             ).use { cursor ->
@@ -39,9 +36,13 @@ internal class PackagedDictionary(context: Context) {
                     }
                 }
             }
+            mergeDictionarySearch(prefix, indexed, personal, findAlternate = { db.findMeaning(it) })
         }
-        return mergeDictionarySearch(prefix, indexed, personal)
     }
+
+    private fun SQLiteDatabase.findMeaning(term: String): WordMeaning? = rawQuery(
+        "SELECT definition FROM lexicon WHERE term = ? LIMIT 1", arrayOf(term)
+    ).use { cursor -> if (cursor.moveToFirst()) WordMeaning(term, cursor.getString(0)) else null }
 
     /** Check the bounded candidate set with one primary-key query. Call on IO. */
     fun matchingPhrases(keys: Set<String>): Set<String> {

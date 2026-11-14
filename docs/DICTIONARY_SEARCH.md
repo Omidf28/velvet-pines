@@ -12,6 +12,9 @@ menu, and the expanded word card (which pre-fills the selected term).
   the query to reach a later entry. This is deliberately not an unbounded list.
 - Select a result to read the full stored definition and source, pronounce it using
   an installed offline English voice, or add/edit/remove a personal definition.
+- A complete supported spelling such as `prioritise` appears in results if the
+  packaged dictionary has only its alternate spelling. The row keeps the typed
+  word and identifies the definition as a spelling variant.
 - The direct-definition action also works for a valid typed term with no prefix
   results. This supports inflection lookup and adding an absent personal term.
 - Personal entries override packaged and curated meanings, including the preview
