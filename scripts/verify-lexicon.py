@@ -1,7 +1,30 @@
 """Verify the shipped lexicon, optionally reading its assets directly from an APK."""
 import argparse, gzip, hashlib, json, pathlib, re, sqlite3, zipfile
 
-def verify(asset_dir, apk=None):
+def compare_previous(conn, previous, require_additive):
+    conn.execute("ATTACH DATABASE ':memory:' AS previous")
+    conn.deserialize(gzip.decompress(previous.read_bytes()), name='previous')
+    added_words, added_phrases = conn.execute("""
+        SELECT coalesce(sum(instr(current.term, ' ') = 0), 0),
+               coalesce(sum(instr(current.term, ' ') > 0), 0)
+        FROM main.lexicon AS current
+        LEFT JOIN previous.lexicon AS old USING (term)
+        WHERE old.term IS NULL
+    """).fetchone()
+    removed, changed = conn.execute("""
+        SELECT coalesce(sum(current.term IS NULL), 0),
+               coalesce(sum(current.definition <> old.definition), 0)
+        FROM previous.lexicon AS old
+        LEFT JOIN main.lexicon AS current USING (term)
+    """).fetchone()
+    print(f'Comparison: {added_words + added_phrases:,} added '
+          f'({added_words:,} single-token keys, {added_phrases:,} multiword keys), '
+          f'{removed:,} removed, {changed:,} definitions changed')
+    if require_additive and (removed or changed):
+        raise SystemExit('Bulk import must preserve all previous keys and definitions.')
+
+
+def verify(asset_dir, apk=None, previous=None, require_additive=False):
     archive = zipfile.ZipFile(apk) if apk else None
     def read(name):
         return archive.read('assets/lexicon/' + name) if archive else (asset_dir / name).read_bytes()
@@ -50,6 +73,8 @@ def verify(asset_dir, apk=None):
                 assert all(key.startswith(prefix) for key in keys)
             plan = conn.execute('EXPLAIN QUERY PLAN ' + query, ('coffee', 'coffee\x7f', 41)).fetchall()
             assert any('SEARCH' in row[3] and 'PRIMARY KEY' in row[3] for row in plan), plan
+            if previous is not None:
+                compare_previous(conn, previous, require_additive)
         print(f'PASS: {count:,} entries; {words:,} single-token keys; hashes, license, integrity, all rows and indexed prefix queries valid')
     finally:
         if archive: archive.close()
@@ -58,5 +83,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--assets', type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[1] / 'app/src/main/assets/lexicon')
     parser.add_argument('--apk', type=pathlib.Path)
+    parser.add_argument('--previous', type=pathlib.Path, help='Previous compressed lexicon asset to compare')
+    parser.add_argument('--require-additive', action='store_true', help='Fail if the comparison finds deleted keys or changed definitions')
     args = parser.parse_args()
-    verify(args.assets, args.apk)
+    if args.require_additive and args.previous is None:
+        parser.error('--require-additive requires --previous')
+    verify(args.assets, args.apk, args.previous, args.require_additive)

@@ -31,6 +31,31 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Compare the offline dictionary with the previous version
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -o pipefail
+          if [[ "$BASE_SHA" == 0000000000000000000000000000000000000000 ]]; then
+            echo 'Dictionary comparison skipped on initial branch creation.'
+            exit 0
+          fi
+          asset=app/src/main/assets/lexicon/dictionary-en-fa.sqlite.bin
+          git cat-file -e "$BASE_SHA^{commit}"
+          if git diff --quiet "$BASE_SHA" HEAD -- "$asset"; then
+            exit 0
+          fi
+          if ! git cat-file -e "$BASE_SHA:$asset"; then
+            echo 'Dictionary comparison skipped because the baseline has no dictionary asset.'
+            exit 0
+          fi
+          previous=$(mktemp)
+          trap 'rm -f "$previous"' EXIT
+          git show "$BASE_SHA:$asset" > "$previous"
+          python3 scripts/verify-lexicon.py --previous "$previous" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Use JDK 17
         run: |

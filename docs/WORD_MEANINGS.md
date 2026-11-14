@@ -131,6 +131,26 @@ Copy `dictionary-en-fa.sqlite.bin` and `manifest.json` into the existing asset f
 retaining its license and notice. The script uses only Python's standard library,
 validates SQLite integrity, emits source checksums, and uses deterministic gzip
 metadata. Rebuilding from the same cached files reproduced the committed gzip hash.
+
+For a bulk import, keep a copy of the previous compressed index and compare it
+with the rebuilt one before shipping:
+
+```text
+python scripts/verify-lexicon.py --assets <rebuilt-assets> --previous <previous.sqlite.bin> --require-additive
+```
+
+The asset directory should include the license and notice alongside the generated
+files. The optional `--apk` flag reads the new index from a built APK. The
+comparison reports new single-token and multiword keys, deleted keys, and
+changed definitions. Use `--require-additive` for import batches that must
+preserve every existing key and definition.
+
+Android validation runs this comparison automatically when a push or pull
+request changes the dictionary asset. A push compares against the branch tip
+before the push, and a pull request compares its merge result against the
+target commit. The counts appear in the GitHub Actions job summary, including
+when an update intentionally corrects existing definitions.
+
 Run `python scripts/verify-lexicon.py --apk <apk>` to verify the actual APK assets, their hashes, all definitions and SQLite integrity.
 
 Python/SQLite version differences may change output bytes; regenerate the manifest
