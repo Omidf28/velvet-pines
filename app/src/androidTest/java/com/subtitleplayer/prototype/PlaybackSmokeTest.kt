@@ -26,6 +26,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performFirstLinkClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -322,6 +323,40 @@ class PlaybackSmokeTest {
         waitForNode(hasText(sampleWord))
         compose.onNodeWithText(sampleWord).performClick()
         compose.onNodeWithText(sampleMeaning).assertIsDisplayed()
+    }
+
+    @Test
+    fun savesASplitSubtitlePhraseWithItsOfflineMeaning() {
+        openSample()
+        waitForNode(hasText(sampleCue))
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.samplePlayer().apply {
+                pause()
+                seekTo(15_000)
+            }
+        }
+
+        val cue = "Take a breath.\nWe can bring the issue up tomorrow."
+        val phrase = "bring the issue up"
+        val meaning = "مطرح کردن یک موضوع؛ پیش کشیدن آن در گفت‌وگو"
+        val subtitle = hasText(cue)
+        waitForNode(subtitle)
+        compose.onNode(subtitle).performFirstLinkClick { it.start == cue.indexOf("issue") }
+        compose.onNodeWithContentDescription("Word options").performClick()
+        compose.onNodeWithText("Phrases in this subtitle").performScrollTo().performClick()
+        waitForNode(hasText(phrase))
+        compose.onNodeWithText(phrase).performScrollTo().performClick()
+        waitForNode(hasText(meaning))
+        compose.onNodeWithText("Save").performClick()
+        waitForNode(hasText("Saved"))
+
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Flashcards").performClick()
+        waitForNode(hasText(phrase))
+        compose.onNodeWithText(phrase).performClick()
+        compose.onNodeWithText(meaning).assertIsDisplayed()
     }
 
     @Test
