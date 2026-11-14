@@ -17,7 +17,7 @@ internal fun mergeDictionarySearch(
     indexed: List<Pair<String, WordMeaning>>,
     personal: Map<String, WordMeaning>,
     limit: Int = dictionarySearchLimit,
-    findAlternate: (String) -> WordMeaning? = { null }
+    findIndexed: (String) -> WordMeaning? = { null }
 ): DictionarySearchResult {
     require(limit > 0)
     val merged = mutableMapOf<String, DictionarySearchEntry>()
@@ -42,10 +42,9 @@ internal fun mergeDictionarySearch(
     personal.entries.asSequence().filter { it.key.startsWith(prefix) }.sortedBy { it.key }.take(limit + 1).forEach {
         merged[it.key] = DictionarySearchEntry(it.key, it.value, "Personal dictionary")
     }
-    if (prefix !in merged) {
-        dictionarySpellingVariant(prefix)?.let(findAlternate)?.let { meaning ->
-            merged[prefix] = DictionarySearchEntry(prefix, meaning, "Spelling variant · Offline")
-        }
+    if (prefix !in merged && normalizeDictionaryTerm(prefix) != null) {
+        val fallback = indexedDictionaryMeaning(prefix, exactKnownMissing = true, find = findIndexed)
+        fallback.meaning?.let { merged[prefix] = DictionarySearchEntry(prefix, it, fallback.source) }
     }
     val sorted = merged.values.sortedBy { it.term }
     return DictionarySearchResult(sorted.take(limit), sorted.size > limit)

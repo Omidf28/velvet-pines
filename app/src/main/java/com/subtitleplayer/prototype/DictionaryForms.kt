@@ -36,8 +36,6 @@ private val spellingVariants = buildMap {
     }
 }
 
-internal fun dictionarySpellingVariant(key: String): String? = spellingVariants[key]
-
 /** Conservative candidates; every proposed base still requires a dictionary hit. */
 internal fun dictionaryBaseForms(term: String): List<String> {
     val key = normalizeDictionaryTerm(term) ?: return emptyList()
@@ -86,12 +84,16 @@ internal fun immediateDictionaryMeaning(key: String, personal: Map<String, WordM
     return null
 }
 
-internal fun indexedDictionaryMeaning(key: String, find: (String) -> WordMeaning?): DictionaryResult {
-    find(key)?.let { return DictionaryResult(it, "Offline dictionary") }
-    val variant = dictionarySpellingVariant(key)
+internal fun indexedDictionaryMeaning(
+    key: String,
+    exactKnownMissing: Boolean = false,
+    find: (String) -> WordMeaning?
+): DictionaryResult {
+    if (!exactKnownMissing) find(key)?.let { return DictionaryResult(it, "Offline dictionary") }
+    val variant = spellingVariants[key]
     variant?.let(find)?.let { return DictionaryResult(it, "Spelling variant · Offline") }
     val candidates = dictionaryBaseForms(key).asSequence().mapNotNull { base ->
-        dialogueDictionary[base] ?: find(base) ?: dictionarySpellingVariant(base)?.let(find)
+        dialogueDictionary[base] ?: find(base) ?: spellingVariants[base]?.let(find)
     }.distinctBy { it.headword }.take(3).toList()
     if (candidates.isNotEmpty()) {
         val definition = candidates.joinToString("\n") { "${it.headword}: ${it.persian}" }.take(1000)

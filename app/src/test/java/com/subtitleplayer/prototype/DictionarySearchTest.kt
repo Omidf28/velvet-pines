@@ -61,6 +61,19 @@ class DictionarySearchTest {
         }
         assertTrue(mergeDictionarySearch("prioritis", emptyList(), emptyMap()) { error("Unexpected lookup") }
             .entries.isEmpty())
+        assertTrue(mergeDictionarySearch("panicking-", emptyList(), emptyMap()) { error("Unexpected lookup") }
+            .entries.isEmpty())
+    }
+
+    @Test fun missingInflectionsUseTheSameBaseDefinitionAsSubtitleLookup() {
+        val find: (String) -> WordMeaning? = { term ->
+            if (term == "panic") WordMeaning(term, "وحشت کردن") else null
+        }
+        val entry = mergeDictionarySearch("panicking", emptyList(), emptyMap(), findIndexed = find).entries.single()
+        val lookup = indexedDictionaryMeaning("panicking", find = find)
+        assertEquals("panicking", entry.term)
+        assertEquals(lookup.meaning, entry.meaning)
+        assertEquals("Possible base form · Offline", entry.source)
     }
     @Test fun resultsAreSortedBoundedAndSignalMore() {
         val input = (0..40).reversed().map { "ztest" + ('a' + it / 26) + ('a' + it % 26) }.map { it to WordMeaning(it, "آزمون") }

@@ -36,7 +36,7 @@ internal class PackagedDictionary(context: Context) {
                     }
                 }
             }
-            mergeDictionarySearch(prefix, indexed, personal, findAlternate = { db.findMeaning(it) })
+            mergeDictionarySearch(prefix, indexed, personal, findIndexed = { db.findMeaning(it) })
         }
     }
 

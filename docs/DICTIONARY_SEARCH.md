@@ -15,6 +15,9 @@ menu, and the expanded word card (which pre-fills the selected term).
 - A complete supported spelling such as `prioritise` appears in results if the
   packaged dictionary has only its alternate spelling. The row keeps the typed
   word and identifies the definition as a spelling variant.
+- A typed inflection such as `panicking` can also appear with a possible base
+  form definition when the exact spelling is absent. The same fallback is used
+  when selecting a word in subtitles.
 - The direct-definition action also works for a valid typed term with no prefix
   results. This supports inflection lookup and adding an absent personal term.
 - Personal entries override packaged and curated meanings, including the preview
