@@ -59,7 +59,13 @@ class DictionarySearchTest {
         )) {
             assertEquals("prioritise", result.entries.single().meaning.headword)
         }
-        assertTrue(mergeDictionarySearch("prioritis", emptyList(), emptyMap()) { error("Unexpected lookup") }
+        val attempted = mutableListOf<String>()
+        assertTrue(mergeDictionarySearch("prioritis", emptyList(), emptyMap()) { term ->
+            attempted.add(term)
+            null
+        }.entries.isEmpty())
+        assertFalse("prioritize" in attempted)
+        assertTrue(mergeDictionarySearch("prioritis'", emptyList(), emptyMap()) { error("Unexpected lookup") }
             .entries.isEmpty())
         assertTrue(mergeDictionarySearch("panicking-", emptyList(), emptyMap()) { error("Unexpected lookup") }
             .entries.isEmpty())
