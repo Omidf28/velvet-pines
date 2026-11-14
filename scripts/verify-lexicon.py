@@ -15,7 +15,14 @@ def verify(asset_dir, apk=None):
         data = gzip.decompress(compressed)
         assert len(data) == manifest['databaseBytes']
         assert hashlib.sha256(data).hexdigest() == manifest['databaseSha256']
-        assert len(manifest['sourceFiles']) == 52
+        groups = manifest.get('sourceGroups', ['generic-1', 'generic-13'])
+        absent = manifest.get('absentSourceLetters', {})
+        assert len(groups) == len(set(groups))
+        assert set(manifest['sourceFiles']) == {
+            f'{group}/{letter}.json' for group in groups
+            for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' if letter not in absent.get(group, '')
+        }
+        assert 0 < len(data) <= 64 * 1024 * 1024
         assert all(re.fullmatch('[a-f0-9]{64}', value) for value in manifest['sourceFiles'].values())
         assert b'Apache License' in read('LICENSE.txt')
         assert manifest['sourceCommit'].encode() in read('NOTICE.txt')

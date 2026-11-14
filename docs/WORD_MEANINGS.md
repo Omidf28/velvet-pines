@@ -6,8 +6,8 @@ See [0.6.2 lookup reliability](LOOKUP_RELIABILITY.md) for temporary caches, expl
 
 ## What ships
 
-The APK includes an English–Persian SQLite dictionary with **230,921 indexed entries**:
-**97,026 single-token entries** and **133,895 multiword entries**. These are dictionary
+The bundled English–Persian SQLite dictionary has **233,213 indexed entries**:
+**97,734 single-token entries** and **135,479 multiword entries**. These are dictionary
 keys, not a measured percentage of film dialogue or a guarantee of distinct linguistic
 headwords. The phrase-selection mode recognizes curated phrases. The expanded word card can search the larger phrase index.
 
@@ -22,11 +22,13 @@ Check its highlight, meaning, and saved context. Repeat during playback and duri
 a study pause. Try a repeated word, a line break, and switching words during a search.
 
 Source: [EnglishToPersianDictionaries](https://github.com/VahidN/EnglishToPersianDictionaries),
-commit `224f15d42d145c59b5dc2c6890c4736693613cc2`, `generic-1` and `generic-13`.
+commit `224f15d42d145c59b5dc2c6890c4736693613cc2`. Six additional source groups
+contribute 2,292 keys, including `imo` and `break the ice`. The automated
+import keeps the original indexed definitions for keys already present.
 License: Apache 2.0. The original license, attribution and modification notice ship
 inside the APK. See [third-party notices](../THIRD_PARTY_NOTICES.md).
 
-The gzip asset is 7,056,742 bytes; the installed read-only database is 20,561,920 bytes.
+The gzip asset is 7,129,002 bytes. The installed read-only database is 20,750,336 bytes.
 The `.bin` asset contains gzip data; this extension prevents the Android asset merger from silently unpacking `.gz` source assets. It is unpacked into Android's no-backup directory on the first indexed lookup, with
 size bounds and SHA-256 verification. Installation and queries run on an IO dispatcher;
 no full dictionary map is loaded into memory. It does not modify the user's Room
@@ -114,8 +116,9 @@ the application correctly rejects (the latter has an offline definition).
 
 ## Rebuilding the data
 
-Download `A.json` through `Z.json` for both datasets from the pinned commit into
-`<cache>/generic-1/` and `<cache>/generic-13/`. Then run:
+Download the files listed in the manifest's `sourceFiles` from the pinned commit
+under `Dictionaries/` and preserve their group and letter paths in `<cache>`.
+The builder records which letter files are absent upstream. Then run:
 
 ```text
 python scripts/build-lexicon.py <cache> <output>

@@ -4,7 +4,8 @@
 
 The files in `app/src/main/assets/lexicon/` include transformed data from
 [VahidN/EnglishToPersianDictionaries](https://github.com/VahidN/EnglishToPersianDictionaries),
-commit `224f15d42d145c59b5dc2c6890c4736693613cc2`, datasets `generic-1` and `generic-13`.
+commit `224f15d42d145c59b5dc2c6890c4736693613cc2`. The included datasets and
+file hashes are listed in `app/src/main/assets/lexicon/manifest.json`.
 The upstream repository publishes these files under the Apache License, Version 2.0.
 The complete upstream license and a modification notice are distributed alongside
 the data inside the APK as `lexicon/LICENSE.txt` and `lexicon/NOTICE.txt`.

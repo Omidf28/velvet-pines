@@ -1,7 +1,9 @@
 English/Persian lexicon data: EnglishToPersianDictionaries, VahidN and contributors.
 Source: https://github.com/VahidN/EnglishToPersianDictionaries
 Pinned commit: 224f15d42d145c59b5dc2c6890c4736693613cc2
-Included datasets: Dictionaries/generic-1 and Dictionaries/generic-13 (A-Z JSON files).
+Included datasets under Dictionaries/: generic-1, generic-13, generic-16,
+chat-slang, idioms-1, idioms-2, idioms-3, and essential-english-words-2.
+The manifest lists the included letter files and upstream omissions.
 License: Apache License 2.0; see LICENSE.txt in this directory.
 Modified for Velvet Pines: normalized keys, filtered unsupported keys, removed HTML,
 merged and limited definitions, and converted the data to a compressed SQLite index.
