@@ -10,7 +10,7 @@ The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The Eng
 
 **Current version:** `0.7.0-beta.11` · **Platform:** Android 8.0 / API 26 and later
 
-The project is an experimental implementation with local build and automated test validation. Physical-device acceptance testing remains outstanding. A Windows edition is planned; no Windows application is currently available.
+The Android beta is available for device testing. Windows and iOS are in planning for public distribution.
 
 ## Core Capabilities
 
@@ -159,6 +159,7 @@ Application code currently resides in the `com.subtitleplayer.prototype` package
 - [Word meanings and dictionary provenance](docs/WORD_MEANINGS.md) — offline coverage, online privacy, rebuilding, and device acceptance.
 - [Android development roadmap](ROADMAP.md) — implementation history and remaining acceptance work; Persian.
 - [Windows development roadmap](WINDOWS_ROADMAP.md) — architecture evaluation, interactive subtitle prototype, shared logic, data compatibility, and distribution milestones; Persian.
+- [iOS development roadmap](IOS_ROADMAP.md) — iPhone playback prototype, offline study, data transfer, TestFlight, and App Store submission; Persian.
 - [Engineering checkpoint](CHECKPOINT.md) — recorded build results and outstanding verification; Persian.
 - [Library and playback bookmarks](docs/LIBRARY_PLAYBACK.md) — navigation, checkpoint semantics, retention limits, and migration behavior.
 - [Nearby subtitle discovery](docs/SIDECAR_DISCOVERY.md) — filename rules, access scope, result validity, and a synthetic device test kit.
