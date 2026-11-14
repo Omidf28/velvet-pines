@@ -16,6 +16,9 @@ private val irregularBaseForms = mapOf(
     "feet" to "foot", "teeth" to "tooth", "mice" to "mouse"
 )
 
+private val verbsWithInflectedCk = setOf("panic", "mimic", "picnic", "traffic", "frolic")
+private val inflectionSuffixes = listOf("ing", "ed", "er", "est")
+
 /** Conservative candidates; every proposed base still requires a dictionary hit. */
 internal fun dictionaryBaseForms(term: String): List<String> {
     val key = normalizeDictionaryTerm(term) ?: return emptyList()
@@ -26,13 +29,18 @@ internal fun dictionaryBaseForms(term: String): List<String> {
         if (key.endsWith("ies") && key.length > 4) add(key.dropLast(3) + "y")
         if (key.endsWith("s") && !key.endsWith("ss") && key.length > 3) add(key.dropLast(1))
         if (key.endsWith("es") && key.length > 3) add(key.dropLast(2))
-        for (suffix in listOf("ing", "ed", "er", "est")) {
+        for (suffix in inflectionSuffixes) {
             if (key.endsWith(suffix) && key.length > suffix.length + 2) {
                 val stem = key.dropLast(suffix.length)
+                if ((suffix == "ing" || suffix == "ed") && stem.endsWith("ck")) {
+                    val base = stem.dropLast(1)
+                    if (base in verbsWithInflectedCk) add(base)
+                }
+                if (suffix == "ing" && stem.endsWith("y")) add(stem.dropLast(1) + "ie")
+                if (stem.endsWith("i")) add(stem.dropLast(1) + "y")
                 add(stem)
                 add(stem + "e")
                 if (stem.length > 2 && stem.last() == stem[stem.lastIndex - 1] && stem.last() !in "aeiou") add(stem.dropLast(1))
-                if (stem.endsWith("i")) add(stem.dropLast(1) + "y")
             }
         }
     }.distinct()

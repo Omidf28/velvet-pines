@@ -19,6 +19,15 @@ class DictionaryFormsTest {
         assertTrue("cooper" in dictionaryBaseForms("Cooper’s"))
         assertEquals(dictionaryBaseForms("Running"), dictionaryBaseForms("running"))
     }
+    @Test fun recoversSpellingChangesBeforeGenericStems() {
+        assertEquals("panic", dictionaryBaseForms("panicking").first())
+        assertEquals("mimic", dictionaryBaseForms("mimicked").first())
+        assertEquals("unhappy", dictionaryBaseForms("unhappier").first())
+        val untying = dictionaryBaseForms("untying")
+        assertEquals("untie", untying.first())
+        assertTrue("work" !in dictionaryBaseForms("working").drop(1))
+        assertTrue("clic" !in dictionaryBaseForms("clicked"))
+    }
     @Test fun noRootForNegationOrUnsupportedInputs() {
         assertTrue(dictionaryBaseForms("wasn't").isEmpty())
         assertTrue(dictionaryBaseForms("123").isEmpty())

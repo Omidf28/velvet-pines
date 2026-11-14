@@ -48,6 +48,10 @@ entries such as `call it a day` also work in Known phrases mode. Additional
 irregular forms, including `withdrew` and `overslept`, use the indexed base
 definition after an exact miss.
 
+Regular fallback also handles selected spelling changes before applying
+generic suffix rules. Examples include `panicking` → `panic`,
+`untying` → `untie`, and `unhappier` → `unhappy`.
+
 The phrase menu also recognizes selected verbs with an object between the verb
 and particle. For example, selecting `brought the issue up` highlights the text
 as it appears in the subtitle and can look up `bring up` after an exact miss.
