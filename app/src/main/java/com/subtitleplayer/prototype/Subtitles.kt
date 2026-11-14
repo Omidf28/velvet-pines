@@ -179,7 +179,8 @@ internal data class SubtitleTerm(
     val start: Int,
     val endExclusive: Int,
     val text: String,
-    val meaning: WordMeaning?
+    val meaning: WordMeaning?,
+    val lookupText: String = text
 )
 
 private val phraseDictionary = buildMap<String, WordMeaning> {

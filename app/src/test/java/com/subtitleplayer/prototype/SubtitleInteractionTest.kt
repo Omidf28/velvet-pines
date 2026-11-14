@@ -108,4 +108,27 @@ class SubtitleInteractionTest {
         assertEquals(35, subtitlePhraseCandidates(SubtitleSelection(cue, term.start, term.endExclusive)).size)
         assertEquals(emptyList<SubtitleTerm>(), subtitlePhraseCandidates(SubtitleSelection(cue, 0, 2)))
     }
+
+    @Test fun splitPhrasesRetainTheVisibleTextAndResolveToTheBase() {
+        val cue = ActiveSubtitle("She brought the issue up, then put the meeting off.", 1000)
+        for ((word, phrase, base) in listOf(
+            Triple("issue", "brought the issue up", "bring up"),
+            Triple("off", "put the meeting off", "put off")
+        )) {
+            val term = subtitleTerms(cue.text).single { it.text == word }
+            val match = subtitlePhraseCandidates(SubtitleSelection(cue, term.start, term.endExclusive))
+                .single { it.lookupText == base }
+            assertEquals(phrase, cue.text.substring(match.start, match.endExclusive))
+            assertEquals(base, defaultTermMeaning(match.lookupText)?.headword)
+        }
+    }
+
+    @Test fun splitPhrasesDoNotCrossClausesOrReplaceKnownExactForms() {
+        for (text in listOf("bring it up", "bring the box and climb up", "bring the box, up", "bring the box\nup")) {
+            val cue = ActiveSubtitle(text, 1000)
+            val verb = subtitleTerms(text).first()
+            val choices = subtitlePhraseCandidates(SubtitleSelection(cue, verb.start, verb.endExclusive))
+            assertTrue(choices.all { it.lookupText == it.text })
+        }
+    }
 }

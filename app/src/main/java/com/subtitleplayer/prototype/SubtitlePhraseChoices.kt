@@ -29,6 +29,7 @@ internal fun SubtitlePhraseChoices(
     val known = remember(keys, personalMeanings) {
         keys.filterTo(mutableSetOf()) { it in personalMeanings || defaultTermMeaning(it) != null }
     }
+    val splitChoices = remember(candidates) { candidates.filter { it.lookupText != it.text }.toSet() }
     var retry by remember { mutableIntStateOf(0) }
     var matches by remember(keys, known, retry) { mutableStateOf<Set<String>?>(null) }
     var failed by remember(keys, known, retry) { mutableStateOf(false) }
@@ -47,13 +48,13 @@ internal fun SubtitlePhraseChoices(
     val status = when {
         found == null -> "Checking dictionary…"
         failed -> "Could not read part of the dictionary."
-        found.isEmpty() -> "No matching phrases found."
+        found.isEmpty() && splitChoices.isEmpty() -> "No matching phrases found."
         else -> "Dictionary matches"
     }
     Text(status, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
     if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
     if (found != null) {
-        candidates.filter { normalizeDictionaryTerm(it.text) in found }.forEach { term ->
+        candidates.filter { normalizeDictionaryTerm(it.text) in found || it in splitChoices }.forEach { term ->
             TextButton(onClick = { onSelect(term) }) {
                 Text(term.text, color = PinesPalette.Accent,
                     style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr))

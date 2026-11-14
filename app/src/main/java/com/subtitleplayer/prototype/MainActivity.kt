@@ -1263,14 +1263,22 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(lookup) { pronunciation.stop() }
         val selectedPersonalMeaning = lookup?.word?.let(::normalizeDictionaryTerm)?.let(personalMeanings::get)
-        LaunchedEffect(lookup, selectedPersonalMeaning, lookup?.requestRevision) {
+        val basePersonalMeaning = lookup?.phraseBase?.let(personalMeanings::get)
+        LaunchedEffect(lookup, selectedPersonalMeaning, basePersonalMeaning, lookup?.requestRevision) {
             val selected = lookup ?: return@LaunchedEffect
             val revision = selected.requestRevision
             val request = selected.requests.consume()
             val requestContext = kotlinx.coroutines.currentCoroutineContext()
             selected.loading = true
             val result = withContext(Dispatchers.IO) {
-                wordLookup.resolve(selected.word, personalMeanings, request) { requestContext.ensureActive() }
+                val exact = wordLookup.resolve(selected.word, personalMeanings, request) { requestContext.ensureActive() }
+                val base = selected.phraseBase
+                if (exact.meaning == null && base != null && request == WordLookupRequest.Offline) {
+                    wordLookup.resolve(base, personalMeanings) { requestContext.ensureActive() }.let { result ->
+                        if (result.meaning != null) result.copy(source = "${result.source} · $base")
+                        else exact
+                    }
+                } else exact
             }
             if (lookup !== selected || selected.requestRevision != revision) return@LaunchedEffect
             selected.meaning = result.meaning
@@ -1586,6 +1594,7 @@ class MainActivity : ComponentActivity() {
                                             if (lookup === selected) {
                                                 lookup = Lookup(
                                                     word = term.text,
+                                                    phraseBase = term.lookupText.takeIf { it != term.text },
                                                     meaning = null,
                                                     dialogue = selected.dialogue,
                                                     selection = selected.selection.copy(start = term.start, endExclusive = term.endExclusive),
@@ -2106,7 +2115,8 @@ private class Lookup(
     val source: Uri,
     val sourceName: String,
     val subtitlesAboveControls: Boolean,
-    studyAction: StudyAction?
+    studyAction: StudyAction?,
+    val phraseBase: String? = null
 ) {
     var loading by mutableStateOf(true)
     var meaningSource by mutableStateOf("")

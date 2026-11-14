@@ -42,11 +42,15 @@ by selecting the word again. Disk space is required for the unpacked index.
    Returned roots are labeled as probable; up to three alternatives are retained.
 5. A missing term offers an explicit online translation button and personal editing.
 
-The project also supplies 50 dialogue definitions with spelling and inflection
+The project also supplies 52 dialogue definitions with spelling and inflection
 variants. They are available in offline search and word lookup. Multiword
 entries such as `call it a day` also work in Known phrases mode. Additional
 irregular forms, including `withdrew` and `overslept`, use the indexed base
 definition after an exact miss.
+
+The phrase menu also recognizes selected verbs with an object between the verb
+and particle. For example, selecting `brought the issue up` highlights the text
+as it appears in the subtitle and can look up `bring up` after an exact miss.
 
 Keys use the existing English word grammar: letters, internal apostrophes/hyphens,
 and up to eight words. Matching is case-insensitive and normalizes curly apostrophes.

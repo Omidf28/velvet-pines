@@ -14,6 +14,7 @@ internal val dialogueDictionary = buildMap<String, WordMeaning> {
     define("bookmarking", "نشانک‌گذاری برای پیدا کردن دوبارهٔ صفحه یا موقعیت")
     define("bring it up", "آن موضوع را مطرح کردن؛ پیش کشیدن آن در گفت‌وگو",
         "brings it up", "brought it up", "bringing it up")
+    define("bring up", "مطرح کردن یک موضوع؛ پیش کشیدن آن در گفت‌وگو")
     define("call it a day", "برای امروز دست از کار کشیدن؛ کار را همین‌جا تمام کردن")
     define("catch off guard", "غافلگیر کردن؛ کسی را در موقعیتی که آمادگی ندارد گیر انداختن", "caught off guard")
     define("catfished", "با هویت جعلی در اینترنت فریب داده شد")
@@ -45,6 +46,7 @@ internal val dialogueDictionary = buildMap<String, WordMeaning> {
     define("plot twist", "چرخش غیرمنتظره در داستان")
     define("put it off", "آن کار را به تعویق انداختن؛ انجامش را به بعد موکول کردن",
         "puts it off", "putting it off")
+    define("put off", "به تعویق انداختن؛ انجام چیزی را به بعد موکول کردن")
     define("read the room", "حال‌وهوای جمع را فهمیدن و رفتار را با آن هماهنگ کردن")
     define("run it by me", "موضوع یا پیشنهاد را با من در میان بگذار تا نظر بدهم", "ran it by me")
     define("screenshot", "تصویر ثبت‌شده از صفحهٔ نمایش؛ از صفحه عکس گرفتن")
