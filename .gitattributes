@@ -12,3 +12,4 @@ gradlew text eol=lf
 *.vtt -text
 /test-fixtures/* -text
 /test-fixtures/* whitespace=cr-at-eol
+/app/src/main/assets/learner-profiles/profiles.tsv text eol=lf
