@@ -40,18 +40,21 @@ internal fun DictionarySearchPanel(
     var retry by remember { mutableIntStateOf(0) }
     val prefix = remember(query) { normalizeDictionaryPrefix(query) }
     val exactKey = remember(query) { normalizeDictionaryTerm(query) }
-    var results by remember(query, personal, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
-    var searching by remember(query, personal, retry) { mutableStateOf(prefix != null) }
-    var failed by remember(query, personal, retry) { mutableStateOf(false) }
+    val browsing = query.isBlank()
+    var pageStarts by rememberSaveable(query) { mutableStateOf(listOf("")) }
+    val after = pageStarts.last()
+    var results by remember(query, after, personal, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
+    var searching by remember(query, after, personal, retry) { mutableStateOf(browsing || prefix != null) }
+    var failed by remember(query, after, personal, retry) { mutableStateOf(false) }
     var detail by remember(selected, personal, retry) { mutableStateOf<DictionaryResult?>(null) }
     var detailFailed by remember(selected, personal, retry) { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
-    LaunchedEffect(query, personal, retry) {
-        if (prefix == null) return@LaunchedEffect
-        delay(200)
+    LaunchedEffect(query, after, personal, retry) {
+        if (!browsing && prefix == null) return@LaunchedEffect
+        if (!browsing) delay(200)
         try {
-            results = withContext(Dispatchers.IO) { dictionary.search(query, personal) }
+            results = withContext(Dispatchers.IO) { dictionary.search(query, personal, after) }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed = true }
         searching = false
@@ -85,10 +88,11 @@ internal fun DictionarySearchPanel(
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item(key = "status") {
                     Text(when {
-                        query.isBlank() -> "Enter a word or the start of a phrase to search offline."
-                        prefix == null -> "Use English letters. Up to 8 words and 80 characters."
+                        !browsing && prefix == null -> "Use English letters. Up to 8 words and 80 characters."
                         searching -> "Searching…"
                         failed -> "Could not read the dictionary. Check available storage and try again."
+                        browsing && results.entries.isEmpty() -> "No more entries."
+                        browsing -> "Page ${pageStarts.size} · Tap a word to see its meaning."
                         results.entries.isEmpty() -> "No matches for this search. You can add a personal definition."
                         results.hasMore -> "First ${results.entries.size} results. Type more to narrow the search."
                         else -> "${results.entries.size} results"
@@ -104,12 +108,22 @@ internal fun DictionarySearchPanel(
                             .padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(entry.term, color = PinesPalette.Accent,
                                 style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
-                            Text(entry.meaning.persian, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            if (!browsing) Text(entry.meaning.persian, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Rtl))
                             Text(entry.source, style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
                         }
                     }
                 }
+            }
+            if (browsing) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(
+                    enabled = pageStarts.size > 1 && !searching,
+                    onClick = { pageStarts = pageStarts.dropLast(1) }
+                ) { Text("Previous") }
+                TextButton(
+                    enabled = !searching && !failed && results.hasMore,
+                    onClick = { pageStarts = pageStarts + results.entries.last().term }
+                ) { Text("Next") }
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

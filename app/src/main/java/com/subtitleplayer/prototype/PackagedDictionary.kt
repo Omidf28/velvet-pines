@@ -21,13 +21,18 @@ internal class PackagedDictionary(context: Context) {
         }
     }
 
-    /** Prefix range uses the primary-key index, not a scan of 230,000 definitions. Call on IO. */
-    fun search(input: String, personal: Map<String, WordMeaning>): DictionarySearchResult {
-        val prefix = normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
+    /** Blank input browses by keyset; prefix searches use the same primary-key index. Call on IO. */
+    fun search(input: String, personal: Map<String, WordMeaning>, after: String = ""): DictionarySearchResult {
+        val prefix = if (input.isBlank()) "" else
+            normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
+        val boundary = if (prefix.isEmpty()) after else ""
         return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             val indexed = db.rawQuery(
-                "SELECT term, definition FROM lexicon WHERE term >= ? AND term < ? ORDER BY term LIMIT ?",
-                arrayOf(prefix, prefix + '\u007f', (dictionarySearchLimit + 1).toString())
+                if (prefix.isEmpty())
+                    "SELECT term, definition FROM lexicon WHERE term > ? ORDER BY term LIMIT ?"
+                else "SELECT term, definition FROM lexicon WHERE term >= ? AND term < ? ORDER BY term LIMIT ?",
+                if (prefix.isEmpty()) arrayOf(boundary, (dictionarySearchLimit + 1).toString())
+                else arrayOf(prefix, prefix + '\u007f', (dictionarySearchLimit + 1).toString())
             ).use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
@@ -36,7 +41,7 @@ internal class PackagedDictionary(context: Context) {
                     }
                 }
             }
-            mergeDictionarySearch(prefix, indexed, personal, findIndexed = { db.findMeaning(it) })
+            mergeDictionarySearch(prefix, indexed, personal, after = boundary, findIndexed = { db.findMeaning(it) })
         }
     }
 

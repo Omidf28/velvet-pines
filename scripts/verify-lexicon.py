@@ -73,9 +73,16 @@ def verify(asset_dir, apk=None, previous=None, require_additive=False):
                 assert all(key.startswith(prefix) for key in keys)
             plan = conn.execute('EXPLAIN QUERY PLAN ' + query, ('coffee', 'coffee\x7f', 41)).fetchall()
             assert any('SEARCH' in row[3] and 'PRIMARY KEY' in row[3] for row in plan), plan
+            browse = 'SELECT term, definition FROM lexicon WHERE term > ? ORDER BY term LIMIT ?'
+            for boundary in ('', 'coffee', 'take off', 'zzzzzz'):
+                keys = [row[0] for row in conn.execute(browse, (boundary, 41))]
+                assert len(keys) <= 41 and keys == sorted(set(keys))
+                assert all(key > boundary for key in keys)
+            plan = conn.execute('EXPLAIN QUERY PLAN ' + browse, ('coffee', 41)).fetchall()
+            assert any('SEARCH' in row[3] and 'PRIMARY KEY' in row[3] for row in plan), plan
             if previous is not None:
                 compare_previous(conn, previous, require_additive)
-        print(f'PASS: {count:,} entries; {words:,} single-token keys; hashes, license, integrity, all rows and indexed prefix queries valid')
+        print(f'PASS: {count:,} entries; {words:,} single-token keys; hashes, license, integrity, all rows and indexed search/browse queries valid')
     finally:
         if archive: archive.close()
 

@@ -158,6 +158,17 @@ with the asset whenever the builder or data changes.
 
 ## Acceptance still required on Android
 
+Opening the dictionary with an empty search now shows an alphabetical list.
+Each page contains up to 40 terms merged from the packaged, supplemental and
+personal dictionaries. Previous and Next replace the current page. The SQL query
+uses a primary-key boundary and reads at most 41 rows per page. Tap a term to
+open its full meaning and pronunciation. Searching resets the browse position.
+
+Check first opening, several consecutive pages, returning from a definition,
+clearing a search, editing a personal definition, rotation and large text on a
+phone. Confirm personal meanings appear once and retain priority. The final page
+should disable Next, and Previous should return to the preceding page.
+
 Use `test-fixtures/broad-meanings.en.srt` with any suitable local test video:
 
 - In airplane mode, tap `beautiful`, `forest`, `serendipity` and `language`.

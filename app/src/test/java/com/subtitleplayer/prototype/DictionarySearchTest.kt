@@ -101,4 +101,28 @@ class DictionarySearchTest {
         assertTrue(mergeDictionarySearch("zzvelvetqz", emptyList(), emptyMap()).entries.isEmpty())
         assertThrows(IllegalArgumentException::class.java) { mergeDictionarySearch("a", emptyList(), emptyMap(), 0) }
     }
+    @Test fun browsingPagesCoverEverySourceWithoutSkippingPersonalEntriesOrRepeatingKeys() {
+        val indexed = (0..89).map { "zpage" + ('a' + it / 26) + ('a' + it % 26) }
+            .map { it to WordMeaning(it, "منبع") }
+        val personal = (0..119).associate {
+            val term = "zown" + ('a' + it / 26) + ('a' + it % 26)
+            term to WordMeaning(term, "شخصی")
+        } + ("coffee" to WordMeaning("coffee", "معنی شخصی"))
+        val expected = (indexed.map { it.first } + personal.keys +
+            commonWordMeanings.keys + dialogueDictionary.keys).distinct().sorted()
+        val actual = mutableListOf<DictionarySearchEntry>()
+        var after = ""
+        do {
+            val page = mergeDictionarySearch("", indexed.filter { it.first > after }.take(41),
+                personal, after = after)
+            assertTrue(page.entries.isNotEmpty())
+            assertTrue(page.entries.size <= dictionarySearchLimit)
+            assertTrue(page.entries.all { it.term > after })
+            actual.addAll(page.entries)
+            after = page.entries.last().term
+        } while (page.hasMore)
+        assertEquals(expected, actual.map { it.term })
+        assertEquals("معنی شخصی", actual.single { it.term == "coffee" }.meaning.persian)
+        assertTrue(mergeDictionarySearch("", emptyList(), personal, after = after).entries.isEmpty())
+    }
 }
