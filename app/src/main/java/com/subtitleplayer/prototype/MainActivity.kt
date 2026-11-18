@@ -1093,6 +1093,8 @@ class MainActivity : ComponentActivity() {
         val recentBrowseState = remember { LibraryBrowseState() }
         val streamsBrowseState = remember { StreamsBrowseState() }
         val flashcardsState = rememberSaveableStateHolder()
+        val dictionaryState = rememberSaveableStateHolder()
+        var homeDictionary by rememberSaveable { mutableStateOf(false) }
         var showDictionary by rememberSaveable { mutableStateOf(false) }
         var dictionarySeed by rememberSaveable { mutableStateOf("") }
         var showDialogues by remember(videoUri, subtitleUri) { mutableStateOf(false) }
@@ -1104,6 +1106,7 @@ class MainActivity : ComponentActivity() {
             showLibrary = true
             showStreams = destination == HomeDestination.Streams
             showWords = destination == HomeDestination.Flashcards
+            homeDictionary = destination == HomeDestination.Dictionary
         }
         fun openHomeFromVideo() {
             lookup = null
@@ -1131,6 +1134,7 @@ class MainActivity : ComponentActivity() {
             enabled = !pictureInPicture && (showWords || showLibrary || videoUri != null)
         ) {
             when {
+                showLibrary && homeDictionary -> homeDictionary = false
                 showStreams -> showStreams = false
                 showWords -> showWords = false
                 showLibrary -> finish()
@@ -1318,6 +1322,26 @@ class MainActivity : ComponentActivity() {
                 onDismiss = { showDictionary = false; controlsVisible = true; controlsInteraction++ }
             )
         }
+        if (showLibrary && homeDictionary && !pictureInPicture) {
+            dictionaryState.SaveableStateProvider("dictionary") {
+                DictionarySearchPanel(
+                    dictionary = packagedDictionary,
+                    personal = personalMeanings,
+                    personalReady = personalEntries != null,
+                    dao = personalDictionary,
+                    speech = pronunciation,
+                    initialTerm = "",
+                    beforeSpeak = { player.pause() },
+                    onDismiss = { selectHome(HomeDestination.Files) },
+                    bottomBar = { HomeNavigation(HomeDestination.Dictionary, ::selectHome) },
+                    onReturnToPlayback = if (videoUri != null) ({
+                        homeDictionary = false
+                        showLibrary = false
+                    }) else null
+                )
+            }
+            return
+        }
         if (showStreams && !pictureInPicture) {
             StreamsScreen(
                 state = streamsBrowseState,
@@ -1386,7 +1410,7 @@ class MainActivity : ComponentActivity() {
                 skipSeconds = skipSeconds,
                 onPlaySample = { showLibrary = false; openDemoVideo() },
                 bottomBar = { HomeNavigation(HomeDestination.Files, ::selectHome) },
-                onDictionary = { dictionarySeed = ""; showDictionary = true },
+                onDictionary = { selectHome(HomeDestination.Dictionary) },
                 onReturnToPlayback = { showLibrary = false }
             )
             return

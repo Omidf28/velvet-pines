@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 internal enum class HomeDestination(val label: String) {
-    Files("Files"), Streams("Streams"), Flashcards("Flashcards")
+    Files("Files"), Streams("Streams"), Dictionary("Dictionary"), Flashcards("Flashcards")
 }
 
 @Composable
@@ -48,6 +48,7 @@ internal fun HomeNavigation(selected: HomeDestination, onSelect: (HomeDestinatio
                     when (destination) {
                         HomeDestination.Files -> HomeNavigationIcon(folder = true)
                         HomeDestination.Streams -> StreamNavigationIcon()
+                        HomeDestination.Dictionary -> DictionaryNavigationIcon()
                         HomeDestination.Flashcards -> HomeNavigationIcon(folder = false)
                     }
                 },
@@ -55,6 +56,20 @@ internal fun HomeNavigation(selected: HomeDestination, onSelect: (HomeDestinatio
                 colors = colors
             )
         }
+    }
+}
+
+@Composable
+private fun DictionaryNavigationIcon() {
+    val ink = LocalContentColor.current
+    Canvas(Modifier.size(24.dp)) {
+        val u = size.width / 24f
+        val stroke = Stroke(1.7f * u, join = StrokeJoin.Round)
+        drawRoundRect(ink, Offset(4 * u, 3 * u), Size(16 * u, 18 * u),
+            CornerRadius(2 * u), style = stroke)
+        drawLine(ink, Offset(8 * u, 3 * u), Offset(8 * u, 21 * u), 1.7f * u)
+        drawLine(ink, Offset(11 * u, 9 * u), Offset(17 * u, 9 * u), 1.7f * u)
+        drawLine(ink, Offset(11 * u, 13 * u), Offset(16 * u, 13 * u), 1.7f * u)
     }
 }
 

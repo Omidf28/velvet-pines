@@ -1,5 +1,6 @@
 package com.subtitleplayer.prototype
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,7 +33,9 @@ internal fun DictionarySearchPanel(
     speech: EnglishPronunciation,
     initialTerm: String,
     beforeSpeak: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    bottomBar: (@Composable () -> Unit)? = null,
+    onReturnToPlayback: (() -> Unit)? = null
 ) {
     var query by rememberSaveable { mutableStateOf(initialTerm) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
@@ -70,7 +73,12 @@ internal fun DictionarySearchPanel(
     DisposableEffect(speech) { onDispose { speech.stop() } }
     fun close() { keyboard?.hide(); speech.stop(); onDismiss() }
     fun select(term: String) { keyboard?.hide(); speech.stop(); selected = term }
-    PlayerOverlayPanel("English–Persian dictionary", onDismiss = ::close) {
+    BackHandler(enabled = selected != null && !editing) {
+        keyboard?.hide()
+        speech.stop()
+        selected = null
+    }
+    val content: @Composable ColumnScope.() -> Unit = {
         val term = selected
         if (term == null) {
             OutlinedTextField(
@@ -154,6 +162,33 @@ internal fun DictionarySearchPanel(
                 dao, term, detail?.meaning, term in personal,
                 onSaved = { retry++ }, onDismiss = { editing = false }
             )
+        }
+    }
+    if (bottomBar == null) {
+        PlayerOverlayPanel("English–Persian dictionary", onDismiss = ::close, content = content)
+    } else {
+        Scaffold(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding(),
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = bottomBar
+        ) { padding ->
+            Column(
+                Modifier.fillMaxSize().padding(padding)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Dictionary", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (onReturnToPlayback != null) PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = {
+                        keyboard?.hide()
+                        speech.stop()
+                        onReturnToPlayback()
+                    })
+                }
+                content()
+            }
         }
     }
 }
