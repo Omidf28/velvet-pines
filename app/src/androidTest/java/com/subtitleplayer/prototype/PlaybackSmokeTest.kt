@@ -61,10 +61,12 @@ class PlaybackSmokeTest {
             database.bookmarks().remove(term)
         }
         try {
+            android.util.Log.i("DictionaryBookmarksTest", "Opening Dictionary")
             compose.onNodeWithText("Dictionary").performClick()
             compose.onNodeWithText("English word or phrase").performTextInput(term)
             waitForNode(hasText("Show meaning for “$term”"))
             compose.onNodeWithText("Show meaning for “$term”").performClick()
+            android.util.Log.i("DictionaryBookmarksTest", "Saving selected word")
             waitForNode(hasText("Save word") and isEnabled())
             compose.onNodeWithText("Save word").performScrollTo().performClick()
             waitForNode(hasText("Remove from saved"))
@@ -72,9 +74,11 @@ class PlaybackSmokeTest {
             compose.onNodeWithText("Clear").performClick()
             compose.onNodeWithText("Saved words").performClick()
             waitForNode(hasText(term))
+            android.util.Log.i("DictionaryBookmarksTest", "Recreating saved-word list")
             compose.activityRule.scenario.recreate()
             waitForNode(hasText(term))
             compose.onNodeWithText(term).performClick()
+            android.util.Log.i("DictionaryBookmarksTest", "Removing saved word")
             waitForNode(hasText("Remove from saved") and isEnabled())
             compose.onNodeWithText("Remove from saved").performScrollTo().performClick()
             waitForNode(hasText("Save word") and isEnabled())
@@ -82,6 +86,7 @@ class PlaybackSmokeTest {
             assertEquals("معنی آزمایشی", runBlocking {
                 database.backup().allDictionary().single { it.wordKey == term }.meaning
             })
+            android.util.Log.i("DictionaryBookmarksTest", "Bookmark lifecycle passed")
         } finally {
             runBlocking {
                 database.bookmarks().remove(term)

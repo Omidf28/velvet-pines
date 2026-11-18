@@ -73,7 +73,7 @@ internal fun DictionarySearchPanel(
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed = true }
         searching = false
-        listState.scrollToItem(0)
+        listState.requestScrollToItem(0)
     }
     LaunchedEffect(selected, personal, bookmarks, retry) {
         val term = selected ?: return@LaunchedEffect
@@ -216,27 +216,26 @@ internal fun DictionarySearchPanel(
     if (bottomBar == null) {
         PlayerOverlayPanel("English–Persian dictionary", onDismiss = ::close, content = content)
     } else {
-        Scaffold(
-            modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding(),
-            containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            bottomBar = bottomBar
-        ) { padding ->
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
-                Modifier.fillMaxSize().padding(padding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                Modifier.fillMaxSize().safeDrawingPadding().imePadding()
             ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Dictionary", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (onReturnToPlayback != null) PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = {
-                        keyboard?.hide()
-                        speech.stop()
-                        onReturnToPlayback()
-                    })
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Dictionary", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (onReturnToPlayback != null) PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = {
+                            keyboard?.hide()
+                            speech.stop()
+                            onReturnToPlayback()
+                        })
+                    }
+                    content()
                 }
-                content()
+                bottomBar()
             }
         }
     }
