@@ -53,6 +53,18 @@ class PlaybackSmokeTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     @Test
+    fun dictionaryLevelFilterOpensTheSourceHeadwordProfileOffline() {
+        compose.onNodeWithText("Dictionary").performClick()
+        compose.onNodeWithText("All levels").performClick()
+        compose.onNodeWithText("B1").performClick()
+        compose.onNodeWithText("English word or Persian meaning").performTextInput("abandon")
+        waitForNode(hasText("abandon"))
+        compose.onNodeWithText("abandon").performClick()
+        waitForNode(hasText("abandon · B1 · verb · CEFR-J"))
+        compose.onNodeWithText("abandon · B1 · verb · CEFR-J").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun packagedDictionaryFindsEnglishWordsFromPersianMeaningsOffline() {
         compose.onNodeWithText("Dictionary").performClick()
         compose.onNodeWithText("English word or Persian meaning").performTextInput("قهوه")

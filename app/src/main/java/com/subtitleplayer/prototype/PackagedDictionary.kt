@@ -22,18 +22,22 @@ internal class PackagedDictionary(context: Context) {
     }
 
     /** Blank input browses by keyset; prefix searches use the same primary-key index. Call on IO. */
-    fun search(input: String, personal: Map<String, WordMeaning>, after: String = ""): DictionarySearchResult {
-        persianSearchTokens(input)?.let { return searchPersian(it, personal) }
+    fun search(input: String, personal: Map<String, WordMeaning>, after: String = "", level: DictionaryLevel? = null): DictionarySearchResult {
+        persianSearchTokens(input)?.let { return searchPersian(it, personal, level) }
         val prefix = if (input.isBlank()) "" else
             normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
         val boundary = if (prefix.isEmpty()) after else ""
+        val filter = if (level == null) "" else " AND term IN (SELECT term FROM learner_profiles WHERE level = ?)"
+        val arguments = if (prefix.isEmpty()) mutableListOf(boundary)
+            else mutableListOf(prefix, prefix + '\u007f')
+        level?.let { arguments.add(it.name) }
+        arguments.add((dictionarySearchLimit + 1).toString())
         return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             val indexed = db.rawQuery(
                 if (prefix.isEmpty())
-                    "SELECT term, definition FROM lexicon WHERE term > ? ORDER BY term LIMIT ?"
-                else "SELECT term, definition FROM lexicon WHERE term >= ? AND term < ? ORDER BY term LIMIT ?",
-                if (prefix.isEmpty()) arrayOf(boundary, (dictionarySearchLimit + 1).toString())
-                else arrayOf(prefix, prefix + '\u007f', (dictionarySearchLimit + 1).toString())
+                    "SELECT term, definition FROM lexicon WHERE term > ?$filter ORDER BY term LIMIT ?"
+                else "SELECT term, definition FROM lexicon WHERE term >= ? AND term < ?$filter ORDER BY term LIMIT ?",
+                arguments.toTypedArray()
             ).use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
@@ -42,20 +46,23 @@ internal class PackagedDictionary(context: Context) {
                     }
                 }
             }
-            mergeDictionarySearch(prefix, indexed, personal, after = boundary, findIndexed = { db.findMeaning(it) })
+            mergeDictionarySearch(prefix, indexed, personal, after = boundary,
+                allowed = level?.let { db.levelTerms(it) }, findIndexed = { db.findMeaning(it) })
         }
     }
 
-    private fun searchPersian(tokens: List<String>, personal: Map<String, WordMeaning>): DictionarySearchResult {
+    private fun searchPersian(tokens: List<String>, personal: Map<String, WordMeaning>, level: DictionaryLevel?): DictionarySearchResult {
         val match = tokens.joinToString(" INTERSECT ") {
             "SELECT term FROM persian_terms WHERE token >= ? AND token < ?"
         }
         // Over-fetch enough rows to allow filtering every overridden definition.
         val limit = dictionarySearchLimit + 1 + dictionaryOverrideKeys(personal).size
-        val arguments = tokens.flatMap { listOf(it, it + '\uffff') } + listOf(tokens.joinToString(" "), limit.toString())
+        val filter = if (level == null) "" else " AND term IN (SELECT term FROM learner_profiles WHERE level = ?)"
+        val arguments = tokens.flatMap { listOf(it, it + '\uffff') } +
+            listOfNotNull(level?.name) + listOf(tokens.joinToString(" "), limit.toString())
         return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             val indexed = db.rawQuery(
-                "SELECT term, definition FROM lexicon WHERE term IN ($match) " +
+                "SELECT term, definition FROM lexicon WHERE term IN ($match)$filter " +
                     "ORDER BY NOT EXISTS (SELECT 1 FROM persian_terms AS exact " +
                     "WHERE exact.token = ? AND exact.term = lexicon.term AND exact.exact_meaning = 1), " +
                     "instr(term, ' ') > 0, length(term), term LIMIT ?",
@@ -68,7 +75,24 @@ internal class PackagedDictionary(context: Context) {
                     }
                 }
             }
-            mergePersianDictionarySearch(tokens, indexed, personal)
+            mergePersianDictionarySearch(tokens, indexed, personal, level?.let { db.levelTerms(it) })
+        }
+    }
+
+    fun levelTerms(level: DictionaryLevel): Set<String> =
+        SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { it.levelTerms(level) }
+
+    private fun SQLiteDatabase.levelTerms(level: DictionaryLevel): Set<String> = rawQuery(
+        "SELECT DISTINCT term FROM learner_profiles WHERE level = ?", arrayOf(level.name)
+    ).use { cursor -> buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) } }
+
+    fun profiles(term: String): List<LearnerProfile> {
+        val key = normalizeDictionaryTerm(term) ?: return emptyList()
+        return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery("SELECT level, pos, source FROM learner_profiles WHERE term = ? ORDER BY level, pos, source",
+                arrayOf(key)).use { cursor ->
+                buildList { while (cursor.moveToNext()) add(LearnerProfile(cursor.getString(0), cursor.getString(1), cursor.getString(2))) }
+            }
         }
     }
 

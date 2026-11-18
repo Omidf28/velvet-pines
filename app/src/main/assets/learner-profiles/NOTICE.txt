@@ -1,0 +1,31 @@
+English vocabulary profiles
+
+Source repository
+https://github.com/openlanguageprofiles/olp-en-cefrj
+Pinned commit d4e45b75b38f27b30dfc5c44d8c571aec7e7092f
+
+CEFR-J Wordlist Version 1.5
+Compiled by Yukio Tono, Tokyo University of Foreign Studies.
+Copyright Tono Laboratory at TUFS.
+Retrieved through Open Language Profiles. The source allows research and
+commercial use with citation. The complete supplied terms, references and
+disclaimer are retained in SOURCE-TERMS.md.
+
+Octanove Vocabulary Profile C1/C2 Version 1.0
+Created by Octanove Labs and supplied by Open Language Profiles.
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International.
+https://creativecommons.org/licenses/by-sa/4.0/
+The complete license is retained in CC-BY-SA-4.0.txt.
+
+Velvet Pines modifications
+Normalized English keys, expanded slash-separated variants, removed duplicate
+records, omitted unsupported keys and converted the profiles to TSV and SQLite.
+The manifest records source hashes and omitted records. Source CEFR levels and
+parts of speech are retained, including the source's missing part of speech.
+Profiles describe headwords and parts of speech. Persian definitions are
+provided by the separately attributed English-Persian dictionary.
+
+The transformed Octanove profile data is supplied under CC BY-SA 4.0.
+To the extent Velvet Pines holds database rights in the combined SQLite
+compilation, those rights are offered under CC BY-SA 4.0. Individual contents
+retain their stated source terms and notices.

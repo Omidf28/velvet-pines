@@ -31,7 +31,7 @@ index confirmed that all 233,213 existing key and definition pairs were retained
 License: Apache 2.0. The original license, attribution and modification notice ship
 inside the APK. See [third-party notices](../THIRD_PARTY_NOTICES.md).
 
-The gzip asset is 21,363,196 bytes. The installed read-only database is 58,802,176 bytes,
+The gzip asset is 21,532,744 bytes. The installed read-only database is 59,437,056 bytes,
 including 1,172,977 Persian token-to-term mappings. Prior packaged index files are
 removed after the replacement's size and hash have been verified.
 The `.bin` asset contains gzip data; this extension prevents the Android asset merger from silently unpacking `.gz` source assets. It is unpacked into Android's no-backup directory on the first indexed lookup, with
@@ -129,6 +129,15 @@ The builder records which letter files are absent upstream. Then run:
 python scripts/build-lexicon.py <cache> <output>
 ```
 
+The builder includes the committed assets from `app/src/main/assets/learner-profiles`.
+To regenerate them, download the two CSV files listed in that directory's
+manifest from Open Language Profiles commit
+`d4e45b75b38f27b30dfc5c44d8c571aec7e7092f` into `<profile-cache>`, then run
+`python scripts/build-learner-profiles.py <profile-cache> <profile-output>`.
+The importer verifies both pinned source hashes. Pass the resulting directory
+to the lexicon builder with `--profiles <profile-output>` and to the verifier
+with the same flag when validating a separate output folder.
+
 Copy `dictionary-en-fa.sqlite.bin` and `manifest.json` into the existing asset folder,
 retaining its license and notice. The script uses only Python's standard library,
 validates SQLite integrity, emits source checksums, and uses deterministic gzip
@@ -159,6 +168,28 @@ Python/SQLite version differences may change output bytes; regenerate the manife
 with the asset whenever the builder or data changes.
 
 ## Acceptance still required on Android
+
+The level menu offers B1, B2, C1 and C2 alongside All levels. The selected level
+restricts alphabetical browsing, English and Persian search, and Saved words.
+It resets the browse page and survives home-tab switches and recreation.
+Entry details show the source headword's level, part of speech and source.
+The profile applies to that headword and part of speech. Persian definitions
+retain their original source and personal definitions retain priority.
+
+The imported source profiles contain 10,097 records for 8,833 normalized terms.
+The packaged dictionary has Persian definitions for 2,346 B1 terms, 2,670 B2
+terms, 968 C1 terms and 898 C2 terms. A word can occur at several levels for
+different parts of speech. The source also supplies A1/A2 profiles, which are
+shown in entry details. Missing source parts of speech remain empty.
+The bundled manifest records the four unsupported source keys and the source
+hashes. Original terms, citations, a modification notice and the CC BY-SA 4.0
+text ship alongside the profile data.
+
+Check each level on a phone with empty, English and Persian queries and saved
+words. Verify that All levels restores the full list and that an ungraded
+saved word remains available after clearing the level filter. Open abandon
+and check its B1 verb profile from CEFR-J. Repeat after rotation and in airplane
+mode, including upgrading an earlier installed index.
 
 Opening the dictionary with an empty search now shows an alphabetical list.
 The search field accepts English words and Persian meanings. Persian lookup uses

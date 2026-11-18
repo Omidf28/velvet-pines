@@ -1,5 +1,5 @@
 """Build the pinned Apache-2.0 English/Persian lexicon; Python standard library only."""
-import argparse, gzip, hashlib, html, json, re, sqlite3, pathlib
+import argparse, csv, gzip, hashlib, html, json, re, sqlite3, pathlib
 PIN = '224f15d42d145c59b5dc2c6890c4736693613cc2'
 BASE_GROUPS = ('generic-1', 'generic-13')
 EXTRA_GROUPS = ('chat-slang', 'idioms-1', 'idioms-2', 'idioms-3', 'essential-english-words-2', 'generic-16')
@@ -27,7 +27,29 @@ def add_persian_index(conn):
     conn.execute('PRAGMA user_version=2')
     return conn.execute('SELECT count(*) FROM persian_terms').fetchone()[0]
 
-def build(cache, output):
+def add_learner_profiles(conn, directory):
+    manifest = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
+    data = (directory / 'profiles.tsv').read_bytes()
+    assert hashlib.sha256(data).hexdigest() == manifest['sha256']
+    rows = list(csv.DictReader(data.decode().splitlines(), delimiter='\t'))
+    assert len(rows) == manifest['profiles']
+    conn.execute('CREATE TABLE learner_profiles(term TEXT NOT NULL, level TEXT NOT NULL, pos TEXT NOT NULL, source TEXT NOT NULL, PRIMARY KEY(term,level,pos,source)) WITHOUT ROWID')
+    conn.executemany('INSERT INTO learner_profiles VALUES (?,?,?,?)',
+                     ((row['term'], row['level'], row['pos'], row['source']) for row in rows))
+    conn.execute('CREATE INDEX learner_profiles_level ON learner_profiles(level,term)')
+    conn.execute('PRAGMA user_version=3')
+    return {
+        'sourceCommit': manifest['sourceCommit'],
+        'sha256': manifest['sha256'],
+        'profiles': len(rows),
+        'coveredLevelTerms': {
+            level: conn.execute('SELECT count(DISTINCT term) FROM learner_profiles JOIN lexicon USING(term) WHERE level=?', (level,)).fetchone()[0]
+            for level in ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')
+        }
+    }
+
+
+def build(cache, output, profiles=None):
     output.mkdir(parents=True, exist_ok=True)
     entries, hashes = {}, {}
     source_groups = BASE_GROUPS + EXTRA_GROUPS + FILL_GROUPS
@@ -63,12 +85,13 @@ def build(cache, output):
         conn.execute('CREATE TABLE lexicon(term TEXT PRIMARY KEY, definition TEXT NOT NULL) WITHOUT ROWID')
         conn.executemany('INSERT INTO lexicon VALUES (?,?)', sorted(entries.items()))
         persian_index_rows = add_persian_index(conn)
+        learner_profiles = add_learner_profiles(conn, profiles or pathlib.Path(__file__).resolve().parents[1] / 'app/src/main/assets/learner-profiles')
         conn.commit()
         assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
     data = db.read_bytes()
     compressed = gzip.compress(data, compresslevel=9, mtime=0)
     (output / 'dictionary-en-fa.sqlite.bin').write_bytes(compressed)
-    manifest = dict(formatVersion=2, persianIndexRows=persian_index_rows, sourceCommit=PIN, sourceGroups=source_groups,
+    manifest = dict(formatVersion=3, learnerProfiles=learner_profiles, persianIndexRows=persian_index_rows, sourceCommit=PIN, sourceGroups=source_groups,
                     absentSourceLetters=ABSENT_LETTERS,
                     entries=len(entries), addedEntries=len(entries) - len(original_keys),
                     words=sum(' ' not in key for key in entries), phrases=sum(' ' in key for key in entries),
@@ -82,5 +105,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('cache', type=pathlib.Path)
     parser.add_argument('output', type=pathlib.Path)
+    parser.add_argument('--profiles', type=pathlib.Path, help='Directory containing generated learner profiles')
     args = parser.parse_args()
-    build(args.cache, args.output)
+    build(args.cache, args.output, args.profiles)

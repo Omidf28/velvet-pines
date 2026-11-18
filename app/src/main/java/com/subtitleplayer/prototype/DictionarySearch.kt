@@ -18,32 +18,35 @@ internal fun mergeDictionarySearch(
     personal: Map<String, WordMeaning>,
     limit: Int = dictionarySearchLimit,
     after: String = "",
+    allowed: Set<String>? = null,
     findIndexed: (String) -> WordMeaning? = { null }
 ): DictionarySearchResult {
     require(limit > 0)
     val merged = mutableMapOf<String, DictionarySearchEntry>()
     for ((term, meaning) in indexed) {
-        if (!term.startsWith(prefix)) continue
+        if (!term.startsWith(prefix) || (allowed != null && term !in allowed)) continue
         val resolved = immediateDictionaryMeaning(term, personal) ?: DictionaryResult(meaning, "Offline dictionary")
         merged[term] = DictionarySearchEntry(term, resolved.meaning!!, resolved.source)
     }
     for ((term, meaning) in commonWordMeanings) {
-        if (term.startsWith(prefix)) merged[term] = DictionarySearchEntry(term,
+        if (term.startsWith(prefix) && (allowed == null || term in allowed)) merged[term] = DictionarySearchEntry(term,
             personal[term] ?: WordMeaning(term, meaning), if (term in personal) "Personal dictionary" else "Offline dictionary")
     }
     for ((term, meaning) in dialogueDictionary) {
-        if (term.startsWith(prefix) && term !in merged) {
+        if (term.startsWith(prefix) && term !in merged && (allowed == null || term in allowed)) {
             merged[term] = DictionarySearchEntry(term, personal[term] ?: meaning,
                 if (term in personal) "Personal dictionary" else "Offline dictionary")
         }
     }
-    immediateDictionaryMeaning(prefix, personal)?.let {
+    immediateDictionaryMeaning(prefix, personal)?.takeIf { allowed == null || prefix in allowed }?.let {
         merged[prefix] = DictionarySearchEntry(prefix, it.meaning!!, it.source)
     }
-    personal.entries.asSequence().filter { it.key.startsWith(prefix) && it.key > after }.sortedBy { it.key }.take(limit + 1).forEach {
+    personal.entries.asSequence().filter {
+        it.key.startsWith(prefix) && it.key > after && (allowed == null || it.key in allowed)
+    }.sortedBy { it.key }.take(limit + 1).forEach {
         merged[it.key] = DictionarySearchEntry(it.key, it.value, "Personal dictionary")
     }
-    if (prefix !in merged && normalizeDictionaryTerm(prefix) != null) {
+    if (prefix !in merged && normalizeDictionaryTerm(prefix) != null && (allowed == null || prefix in allowed)) {
         val fallback = indexedDictionaryMeaning(prefix, exactKnownMissing = true, find = findIndexed)
         fallback.meaning?.let { merged[prefix] = DictionarySearchEntry(prefix, it, fallback.source) }
     }

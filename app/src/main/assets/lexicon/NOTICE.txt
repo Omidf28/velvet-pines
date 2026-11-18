@@ -9,3 +9,7 @@ Modified for Velvet Pines: normalized keys, filtered unsupported keys, removed H
 merged and limited definitions, and converted the data to a compressed SQLite index.
 The original authors do not endorse this application. Definitions may be incomplete
 or inaccurate. Source-file SHA-256 checksums are recorded in manifest.json.
+
+The learner_profiles table uses additional sources and terms recorded in
+../learner-profiles/NOTICE.txt, including CC BY-SA 4.0 for the Octanove data
+and database rights in the combined compilation.

@@ -31,13 +31,16 @@ internal fun searchDictionaryBookmarks(
     entries: List<DictionaryBookmark>,
     input: String,
     after: String,
-    personal: Map<String, WordMeaning>
+    personal: Map<String, WordMeaning>,
+    allowed: Set<String>? = null
 ): DictionarySearchResult {
     val persian = persianSearchTokens(input)
     val prefix = if (input.isBlank() || persian != null) "" else
         normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
     val matches = entries.asSequence()
-        .filter { it.wordKey.startsWith(prefix) && it.wordKey > after }
+        .filter {
+            it.wordKey.startsWith(prefix) && it.wordKey > after && (allowed == null || it.wordKey in allowed)
+        }
         .sortedBy { it.wordKey }
         .map { entry ->
             val result = immediateDictionaryMeaning(entry.wordKey, personal)

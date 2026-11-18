@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "sourceCommit": "224f15d42d145c59b5dc2c6890c4736693613cc2",
   "sourceGroups": [
     "generic-1",
@@ -21,9 +21,9 @@
   "addedEntries": 2770,
   "words": 97969,
   "phrases": 135722,
-  "databaseBytes": 58802176,
-  "databaseSha256": "ff55084cb2e117200d37a04fbf1403fb8c9647b9017ab242dc2b7f179e0721c1",
-  "compressedSha256": "a49c2e7ff3da81db557ea2cb976f50739406ad7703be522a3986bde92a2b68ad",
+  "databaseBytes": 59437056,
+  "databaseSha256": "56a6df4f7da1f1ac0b3d0ab78ec26802cfca4d98d3882e5ef0a008fd5818a8b0",
+  "compressedSha256": "21d7fec5abb495cb9bb59b156a7bb9a3e5591fe3bb56d0cd30b44ad58e7a0419",
   "sourceFiles": {
     "generic-1/A.json": "a7d712ca0bc89886c096a32208c3a614062a12a94bf939bb5cb53a769188d572",
     "generic-1/B.json": "f42d3f089bc82d4b608ad6861c5030998fd90a02e4409c3438212ce21e404bfb",
@@ -250,5 +250,18 @@
     "generic-14/Y.json": "fa1eb2d374090df3aafef0db0b396b246b894f7c6120ba9c7874cab1f3dacaf1",
     "generic-14/Z.json": "ff9c5b2f3f1e32fe80a684b5e07dfef1fb7542c38b0874a4676bcbaa06431f95"
   },
-  "persianIndexRows": 1172977
+  "persianIndexRows": 1172977,
+  "learnerProfiles": {
+    "sourceCommit": "d4e45b75b38f27b30dfc5c44d8c571aec7e7092f",
+    "sha256": "f88df2b5c87c563406f566e54a32b946c6ce636215b1d29a9f6586a6b1c13c0b",
+    "profiles": 10097,
+    "coveredLevelTerms": {
+      "A1": 1072,
+      "A2": 1353,
+      "B1": 2346,
+      "B2": 2670,
+      "C1": 968,
+      "C2": 898
+    }
+  }
 }

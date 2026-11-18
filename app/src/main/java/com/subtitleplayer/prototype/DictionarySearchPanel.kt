@@ -44,6 +44,9 @@ internal fun DictionarySearchPanel(
     var editing by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var savedOnly by rememberSaveable { mutableStateOf(false) }
+    var levelName by rememberSaveable { mutableStateOf<String?>(null) }
+    val level = DictionaryLevel.entries.firstOrNull { it.name == levelName }
+    var showLevelMenu by remember { mutableStateOf(false) }
     val bookmarks by remember(bookmarksDao) { bookmarksDao.observeAll() }.collectAsState(initial = null)
     val savedByKey = remember(bookmarks) { bookmarks.orEmpty().associateBy { it.wordKey } }
     val scope = rememberCoroutineScope()
@@ -54,28 +57,38 @@ internal fun DictionarySearchPanel(
     val validQuery = prefix != null || persianTokens != null
     val exactKey = remember(query) { normalizeDictionaryTerm(query) }
     val browsing = query.isBlank()
-    var pageStarts by rememberSaveable(query, savedOnly) { mutableStateOf(listOf("")) }
+    var pageStarts by rememberSaveable(query, savedOnly, level) { mutableStateOf(listOf("")) }
     val after = pageStarts.last()
-    var results by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
-    var searching by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(browsing || validQuery) }
-    var failed by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(false) }
+    var results by remember(query, after, personal, bookmarks, savedOnly, level, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
+    var searching by remember(query, after, personal, bookmarks, savedOnly, level, retry) { mutableStateOf(browsing || validQuery) }
+    var failed by remember(query, after, personal, bookmarks, savedOnly, level, retry) { mutableStateOf(false) }
     var detail by remember(selected, personal, bookmarks, retry) { mutableStateOf<DictionaryResult?>(null) }
     var detailFailed by remember(selected, personal, bookmarks, retry) { mutableStateOf(false) }
+    var profiles by remember(selected, retry) { mutableStateOf<List<LearnerProfile>>(emptyList()) }
+    var profileFailed by remember(selected, retry) { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
-    LaunchedEffect(query, after, personal, bookmarks, savedOnly, retry) {
+    LaunchedEffect(query, after, personal, bookmarks, savedOnly, level, retry) {
         if (!browsing && !validQuery) return@LaunchedEffect
         if (savedOnly && bookmarks == null) return@LaunchedEffect
         if (!browsing) delay(200)
         try {
             results = withContext(Dispatchers.IO) {
-                if (savedOnly) searchDictionaryBookmarks(bookmarks.orEmpty(), query, after, personal)
-                else dictionary.search(query, personal, after)
+                if (savedOnly) searchDictionaryBookmarks(bookmarks.orEmpty(), query, after, personal,
+                    allowed = level?.let { dictionary.levelTerms(it) })
+                else dictionary.search(query, personal, after, level)
             }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed = true }
         searching = false
         listState.requestScrollToItem(0)
+    }
+    LaunchedEffect(selected, retry) {
+        val term = selected ?: return@LaunchedEffect
+        try {
+            profiles = withContext(Dispatchers.IO) { dictionary.profiles(term) }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { profileFailed = true }
     }
     LaunchedEffect(selected, personal, bookmarks, retry) {
         val term = selected ?: return@LaunchedEffect
@@ -102,9 +115,19 @@ internal fun DictionarySearchPanel(
     val content: @Composable ColumnScope.() -> Unit = {
         val term = selected
         if (term == null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !savedOnly, onClick = { savedOnly = false }, label = { Text("All words") })
                 FilterChip(selected = savedOnly, onClick = { savedOnly = true }, label = { Text("Saved words") })
+                Box {
+                    TextButton(onClick = { showLevelMenu = true }) { Text(level?.let { "Level · ${it.name}" } ?: "All levels") }
+                    DropdownMenu(expanded = showLevelMenu, onDismissRequest = { showLevelMenu = false }) {
+                        DropdownMenuItem(text = { Text("All levels") }, onClick = { levelName = null; showLevelMenu = false })
+                        for (option in DictionaryLevel.entries) DropdownMenuItem(
+                            text = { Text(option.name) },
+                            onClick = { levelName = option.name; showLevelMenu = false }
+                        )
+                    }
+                }
             }
             OutlinedTextField(
                 value = query,
@@ -124,6 +147,7 @@ internal fun DictionarySearchPanel(
                         !browsing && !validQuery -> "Use English or Persian letters. Up to 8 words and 80 characters."
                         searching -> "Searching…"
                         failed -> "Could not read the dictionary. Check available storage and try again."
+                        level != null && results.entries.isEmpty() -> "No matches at this level. Try another level or clear the search."
                         savedOnly && results.entries.isEmpty() -> "No saved words match. Open a word and choose Save word."
                         browsing && results.entries.isEmpty() -> "No more entries."
                         browsing -> "Page ${pageStarts.size} · Tap a word to see its meaning."
@@ -132,7 +156,7 @@ internal fun DictionarySearchPanel(
                         else -> "${results.entries.size} results"
                     }, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                     if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
-                    if (exactKey != null && !savedOnly) TextButton(onClick = { select(exactKey) }) {
+                    if (exactKey != null && !savedOnly && level == null) TextButton(onClick = { select(exactKey) }) {
                         Text("Show meaning for “$exactKey”", maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -178,6 +202,17 @@ internal fun DictionarySearchPanel(
                         style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.ContentOrLtr))
                     result?.let { Text(it.source, color = PinesPalette.Muted, style = MaterialTheme.typography.labelSmall) }
                     if (detailFailed) TextButton(onClick = { retry++ }) { Text("Try again") }
+                    if (profiles.isNotEmpty()) {
+                        Text("CEFR vocabulary profile", style = MaterialTheme.typography.titleSmall)
+                        for (profile in profiles) Text(
+                            listOf(term, profile.level, profile.partOfSpeech, profile.source)
+                                .filter { it.isNotBlank() }.joinToString(" · "),
+                            color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (profileFailed && !detailFailed) TextButton(onClick = { retry++ }) {
+                        Text("Retry vocabulary profile")
+                    }
                 }
                 item {
                     val saved = savedByKey[term]

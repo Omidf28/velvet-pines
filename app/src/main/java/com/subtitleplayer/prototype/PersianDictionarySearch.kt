@@ -31,16 +31,19 @@ internal fun persianResultOrder(tokens: List<String>) = compareBy<DictionarySear
 internal fun mergePersianDictionarySearch(
     tokens: List<String>,
     indexed: List<Pair<String, WordMeaning>>,
-    personal: Map<String, WordMeaning>
+    personal: Map<String, WordMeaning>,
+    allowed: Set<String>? = null
 ): DictionarySearchResult {
     val entries = mutableMapOf<String, DictionarySearchEntry>()
     for ((term, meaning) in indexed) {
+        if (allowed != null && term !in allowed) continue
         val result = immediateDictionaryMeaning(term, personal) ?: DictionaryResult(meaning, "Offline dictionary")
         val effective = result.meaning ?: continue
         if (matchesPersianMeaning(effective.persian, tokens))
             entries[term] = DictionarySearchEntry(term, effective, result.source)
     }
     for (term in dictionaryOverrideKeys(personal)) {
+        if (allowed != null && term !in allowed) continue
         val result = immediateDictionaryMeaning(term, personal) ?: continue
         val meaning = result.meaning ?: continue
         if (matchesPersianMeaning(meaning.persian, tokens))
