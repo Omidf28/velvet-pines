@@ -53,6 +53,16 @@ class PlaybackSmokeTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     @Test
+    fun packagedDictionaryFindsEnglishWordsFromPersianMeaningsOffline() {
+        compose.onNodeWithText("Dictionary").performClick()
+        compose.onNodeWithText("English word or Persian meaning").performTextInput("قهوه")
+        waitForNode(hasText("coffee"))
+        compose.onNodeWithText("coffee").performClick()
+        waitForNode(hasText("قهوه", substring = true))
+        compose.onNode(hasText("قهوه", substring = true)).assertIsDisplayed()
+    }
+
+    @Test
     fun dictionaryBookmarksSurviveRecreationAndCanBeRemovedFromSavedWords() {
         val database = SavedWordsDatabase.get(compose.activity)
         val term = "zbookmarktest"
@@ -63,7 +73,7 @@ class PlaybackSmokeTest {
         try {
             android.util.Log.i("DictionaryBookmarksTest", "Opening Dictionary")
             compose.onNodeWithText("Dictionary").performClick()
-            compose.onNodeWithText("English word or phrase").performTextInput(term)
+            compose.onNodeWithText("English word or Persian meaning").performTextInput(term)
             waitForNode(hasText("Show meaning for “$term”"))
             compose.onNodeWithText("Show meaning for “$term”").performClick()
             android.util.Log.i("DictionaryBookmarksTest", "Saving selected word")

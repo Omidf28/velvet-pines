@@ -33,17 +33,21 @@ internal fun searchDictionaryBookmarks(
     after: String,
     personal: Map<String, WordMeaning>
 ): DictionarySearchResult {
-    val prefix = if (input.isBlank()) "" else
+    val persian = persianSearchTokens(input)
+    val prefix = if (input.isBlank() || persian != null) "" else
         normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
     val matches = entries.asSequence()
         .filter { it.wordKey.startsWith(prefix) && it.wordKey > after }
         .sortedBy { it.wordKey }
-        .take(dictionarySearchLimit + 1)
         .map { entry ->
             val result = immediateDictionaryMeaning(entry.wordKey, personal)
             DictionarySearchEntry(entry.wordKey,
                 result?.meaning ?: WordMeaning(entry.headword, entry.meaning),
                 result?.source ?: "Saved dictionary entry")
-        }.toList()
+        }
+        .filter { persian == null || matchesPersianMeaning(it.meaning.persian, persian) }
+        .sortedWith(if (persian == null) compareBy { it.term } else persianResultOrder(persian))
+        .take(dictionarySearchLimit + 1)
+        .toList()
     return DictionarySearchResult(matches.take(dictionarySearchLimit), matches.size > dictionarySearchLimit)
 }

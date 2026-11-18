@@ -50,19 +50,21 @@ internal fun DictionarySearchPanel(
     var saving by remember { mutableStateOf(false) }
     var saveErrorTerm by remember { mutableStateOf<String?>(null) }
     val prefix = remember(query) { normalizeDictionaryPrefix(query) }
+    val persianTokens = remember(query) { persianSearchTokens(query) }
+    val validQuery = prefix != null || persianTokens != null
     val exactKey = remember(query) { normalizeDictionaryTerm(query) }
     val browsing = query.isBlank()
     var pageStarts by rememberSaveable(query, savedOnly) { mutableStateOf(listOf("")) }
     val after = pageStarts.last()
     var results by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
-    var searching by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(browsing || prefix != null) }
+    var searching by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(browsing || validQuery) }
     var failed by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(false) }
     var detail by remember(selected, personal, bookmarks, retry) { mutableStateOf<DictionaryResult?>(null) }
     var detailFailed by remember(selected, personal, bookmarks, retry) { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     LaunchedEffect(query, after, personal, bookmarks, savedOnly, retry) {
-        if (!browsing && prefix == null) return@LaunchedEffect
+        if (!browsing && !validQuery) return@LaunchedEffect
         if (savedOnly && bookmarks == null) return@LaunchedEffect
         if (!browsing) delay(200)
         try {
@@ -107,19 +109,19 @@ internal fun DictionarySearchPanel(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it.take(160) },
-                label = { Text("English word or phrase") },
+                label = { Text("English word or Persian meaning") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                 trailingIcon = if (query.isEmpty()) null else ({ TextButton(onClick = { query = "" }) { Text("Clear") } }),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr)
+                textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.ContentOrLtr)
             )
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item(key = "status") {
                     Text(when {
-                        !browsing && prefix == null -> "Use English letters. Up to 8 words and 80 characters."
+                        !browsing && !validQuery -> "Use English or Persian letters. Up to 8 words and 80 characters."
                         searching -> "Searching…"
                         failed -> "Could not read the dictionary. Check available storage and try again."
                         savedOnly && results.entries.isEmpty() -> "No saved words match. Open a word and choose Save word."

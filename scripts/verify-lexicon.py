@@ -52,7 +52,9 @@ def verify(asset_dir, apk=None, previous=None, require_additive=False):
         with sqlite3.connect(':memory:') as conn:
             conn.deserialize(data)
             assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
-            assert conn.execute('PRAGMA user_version').fetchone()[0] == 1
+            version = manifest['formatVersion']
+            assert version in (1, 2)
+            assert conn.execute('PRAGMA user_version').fetchone()[0] == version
             count, words = conn.execute("SELECT count(*),sum(instr(term, ' ')=0) FROM lexicon").fetchone()
             assert count == manifest['entries'] and words == manifest['words']
             assert count - words == manifest['phrases']
@@ -80,6 +82,20 @@ def verify(asset_dir, apk=None, previous=None, require_additive=False):
                 assert all(key > boundary for key in keys)
             plan = conn.execute('EXPLAIN QUERY PLAN ' + browse, ('coffee', 41)).fetchall()
             assert any('SEARCH' in row[3] and 'PRIMARY KEY' in row[3] for row in plan), plan
+            if version >= 2:
+                assert conn.execute('SELECT count(*) FROM persian_terms').fetchone()[0] == manifest['persianIndexRows']
+                assert conn.execute('SELECT count(*) FROM persian_terms LEFT JOIN lexicon USING(term) WHERE lexicon.term IS NULL').fetchone()[0] == 0
+                reverse = ("SELECT term, definition FROM lexicon WHERE term IN "
+                           "(SELECT term FROM persian_terms WHERE token >= ? AND token < ?) "
+                           "ORDER BY NOT EXISTS (SELECT 1 FROM persian_terms AS exact "
+                           "WHERE exact.token = ? AND exact.term = lexicon.term AND exact.exact_meaning = 1), "
+                           "instr(term, ' ') > 0, length(term), term LIMIT ?")
+                for token, expected in (('قهوه', 'coffee'), ('جنگل', 'forest')):
+                    keys = [row[0] for row in conn.execute(reverse, (token, token + '\uffff', token, 41))]
+                    assert expected in keys[:5], (token, keys)
+                plan = conn.execute('EXPLAIN QUERY PLAN ' + reverse, ('قهوه', 'قهوه\uffff', 'قهوه', 41)).fetchall()
+                assert any('SEARCH persian_terms USING PRIMARY KEY' in row[3] for row in plan), plan
+                assert conn.execute('SELECT 1 FROM persian_terms WHERE token = ? LIMIT 1', ('كتاب',)).fetchone() is None
             if previous is not None:
                 compare_previous(conn, previous, require_additive)
         print(f'PASS: {count:,} entries; {words:,} single-token keys; hashes, license, integrity, all rows and indexed search/browse queries valid')

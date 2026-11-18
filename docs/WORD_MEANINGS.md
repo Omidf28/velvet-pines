@@ -31,7 +31,9 @@ index confirmed that all 233,213 existing key and definition pairs were retained
 License: Apache 2.0. The original license, attribution and modification notice ship
 inside the APK. See [third-party notices](../THIRD_PARTY_NOTICES.md).
 
-The gzip asset is 7,139,900 bytes. The installed read-only database is 20,779,008 bytes.
+The gzip asset is 21,363,196 bytes. The installed read-only database is 58,802,176 bytes,
+including 1,172,977 Persian token-to-term mappings. Prior packaged index files are
+removed after the replacement's size and hash have been verified.
 The `.bin` asset contains gzip data; this extension prevents the Android asset merger from silently unpacking `.gz` source assets. It is unpacked into Android's no-backup directory on the first indexed lookup, with
 size bounds and SHA-256 verification. Installation and queries run on an IO dispatcher;
 no full dictionary map is loaded into memory. It does not modify the user's Room
@@ -159,6 +161,15 @@ with the asset whenever the builder or data changes.
 ## Acceptance still required on Android
 
 Opening the dictionary with an empty search now shows an alphabetical list.
+The search field accepts English words and Persian meanings. Persian lookup uses
+a bundled inverted index over the existing definitions. Arabic yeh and kaf are
+folded to Persian forms, and vowel marks, tatweel and zero-width non-joiners are
+removed for matching. Each query word must match a word prefix in the definition.
+Queries accept up to eight words and 80 input characters. Exact single-word
+Persian senses rank first, followed by single-word English entries and shorter
+terms. Personal definitions participate in search and override archived meanings.
+The Saved words filter searches its retained definitions with the same rules.
+
 The Dictionary tab in the home navigation opens this list as a full screen,
 without opening a video. Switching tabs preserves the query, browse page and
 selected entry. Back from an entry returns to its list, and Back from the list
@@ -196,6 +207,11 @@ Remove its bookmark and confirm its personal definition and any flashcard remain
 Test upgrading a version 3 database with existing cards and personal definitions,
 then creating and restoring a backup with bookmarks. Restore a version 1 backup
 as well and confirm previously saved bookmarks remain.
+In airplane mode, search for قهوه and open coffee, then repeat with Arabic kaf
+and yeh in a word such as كتاب. Check a multiword query, a personal-only meaning,
+rapid language changes while typing, clearing the field and reopening a result.
+Verify the first search after upgrade installs the larger index without losing
+bookmarks, personal definitions or review progress.
 
 Use `test-fixtures/broad-meanings.en.srt` with any suitable local test video:
 

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "sourceCommit": "224f15d42d145c59b5dc2c6890c4736693613cc2",
   "sourceGroups": [
     "generic-1",
@@ -21,9 +21,9 @@
   "addedEntries": 2770,
   "words": 97969,
   "phrases": 135722,
-  "databaseBytes": 20779008,
-  "databaseSha256": "0905b68ec7ec551998270b4f1848f4dfd2d3cb4a5c41964646099cf2a3994c1b",
-  "compressedSha256": "5123bfcb62669799e1d312cb9f6bde481ad655c4040eadc913d553b2db2d79ee",
+  "databaseBytes": 58802176,
+  "databaseSha256": "ff55084cb2e117200d37a04fbf1403fb8c9647b9017ab242dc2b7f179e0721c1",
+  "compressedSha256": "a49c2e7ff3da81db557ea2cb976f50739406ad7703be522a3986bde92a2b68ad",
   "sourceFiles": {
     "generic-1/A.json": "a7d712ca0bc89886c096a32208c3a614062a12a94bf939bb5cb53a769188d572",
     "generic-1/B.json": "f42d3f089bc82d4b608ad6861c5030998fd90a02e4409c3438212ce21e404bfb",
@@ -249,5 +249,6 @@
     "generic-14/X.json": "32ea7a1298abf190c69f7ef4db536d1b2523508e701cab43083e78b9c98593e8",
     "generic-14/Y.json": "fa1eb2d374090df3aafef0db0b396b246b894f7c6120ba9c7874cab1f3dacaf1",
     "generic-14/Z.json": "ff9c5b2f3f1e32fe80a684b5e07dfef1fb7542c38b0874a4676bcbaa06431f95"
-  }
+  },
+  "persianIndexRows": 1172977
 }

@@ -23,6 +23,7 @@ internal class PackagedDictionary(context: Context) {
 
     /** Blank input browses by keyset; prefix searches use the same primary-key index. Call on IO. */
     fun search(input: String, personal: Map<String, WordMeaning>, after: String = ""): DictionarySearchResult {
+        persianSearchTokens(input)?.let { return searchPersian(it, personal) }
         val prefix = if (input.isBlank()) "" else
             normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
         val boundary = if (prefix.isEmpty()) after else ""
@@ -42,6 +43,32 @@ internal class PackagedDictionary(context: Context) {
                 }
             }
             mergeDictionarySearch(prefix, indexed, personal, after = boundary, findIndexed = { db.findMeaning(it) })
+        }
+    }
+
+    private fun searchPersian(tokens: List<String>, personal: Map<String, WordMeaning>): DictionarySearchResult {
+        val match = tokens.joinToString(" INTERSECT ") {
+            "SELECT term FROM persian_terms WHERE token >= ? AND token < ?"
+        }
+        // Over-fetch enough rows to allow filtering every overridden definition.
+        val limit = dictionarySearchLimit + 1 + dictionaryOverrideKeys(personal).size
+        val arguments = tokens.flatMap { listOf(it, it + '\uffff') } + listOf(tokens.joinToString(" "), limit.toString())
+        return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            val indexed = db.rawQuery(
+                "SELECT term, definition FROM lexicon WHERE term IN ($match) " +
+                    "ORDER BY NOT EXISTS (SELECT 1 FROM persian_terms AS exact " +
+                    "WHERE exact.token = ? AND exact.term = lexicon.term AND exact.exact_meaning = 1), " +
+                    "instr(term, ' ') > 0, length(term), term LIMIT ?",
+                arguments.toTypedArray()
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val term = cursor.getString(0)
+                        add(term to WordMeaning(term, cursor.getString(1)))
+                    }
+                }
+            }
+            mergePersianDictionarySearch(tokens, indexed, personal)
         }
     }
 
@@ -98,6 +125,10 @@ internal class PackagedDictionary(context: Context) {
             } finally { temp.delete() }
         }
         verifiedPath = file.path
+        // Reclaim older packaged indexes after the replacement has been verified.
+        context.noBackupFilesDir.listFiles()?.filter {
+            it.name != file.name && it.name.matches(Regex("lexicon-[a-f0-9]{64}\\.sqlite"))
+        }?.forEach { it.delete() }
         file
     }
 
