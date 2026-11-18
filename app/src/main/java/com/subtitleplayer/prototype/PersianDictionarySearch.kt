@@ -19,7 +19,7 @@ internal fun matchesPersianMeaning(meaning: String, tokens: List<String>): Boole
 }
 
 internal fun dictionaryOverrideKeys(personal: Map<String, WordMeaning>): Set<String> =
-    commonWordMeanings.keys + dialogueDictionary.keys + personal.keys
+    commonWordMeanings.keys + defaultDictionaryKeys() + personal.keys
 
 internal fun persianResultOrder(tokens: List<String>) = compareBy<DictionarySearchEntry>(
     { tokens.size != 1 || it.meaning.persian.lineSequence().none { line ->

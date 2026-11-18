@@ -215,6 +215,9 @@ private val maxPhraseWords = (phraseDictionary.keys + dialogueDictionary.keys).m
     key.count { it == ' ' } + 1
 }
 
+internal fun defaultDictionaryKeys(): Set<String> =
+    starterDictionary.keys + phraseDictionary.keys + dialogueDictionary.keys
+
 internal fun defaultTermMeaning(term: String): WordMeaning? {
     val key = normalizeDictionaryTerm(term) ?: return null
     return phraseDictionary[key] ?: lookupWord(key) ?: dialogueDictionary[key]

@@ -4,6 +4,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PersianDictionarySearchTest {
+    @Test fun includesExistingStarterPhrasesWhenNoArchiveRowIsPresent() {
+        val result = mergePersianDictionarySearch(listOf("تسلیم"), emptyList(), emptyMap())
+        assertTrue(result.entries.any { it.term == "give up" })
+    }
+
     @Test fun foldsArabicLettersMarksAndJoinersInBothQueriesAndDefinitions() {
         assertEquals(listOf("کتاب", "یادگیری"), persianSearchTokens(" كِتاب  ياد‌گيري "))
         assertTrue(matchesPersianMeaning("کتاب‌های یادگیری زبان", listOf("کتاب", "یادگیر")))
