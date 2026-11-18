@@ -20,6 +20,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -50,6 +51,44 @@ import java.net.URI
 class PlaybackSmokeTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun dictionaryBookmarksSurviveRecreationAndCanBeRemovedFromSavedWords() {
+        val database = SavedWordsDatabase.get(compose.activity)
+        val term = "zbookmarktest"
+        runBlocking {
+            database.dictionary().put(PersonalDictionaryEntry(term, term, "معنی آزمایشی"))
+            database.bookmarks().remove(term)
+        }
+        try {
+            compose.onNodeWithText("Dictionary").performClick()
+            compose.onNodeWithText("English word or phrase").performTextInput(term)
+            waitForNode(hasText("Show meaning for “$term”"))
+            compose.onNodeWithText("Show meaning for “$term”").performClick()
+            waitForNode(hasText("Save word") and isEnabled())
+            compose.onNodeWithText("Save word").performScrollTo().performClick()
+            waitForNode(hasText("Remove from saved"))
+            compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            compose.onNodeWithText("Clear").performClick()
+            compose.onNodeWithText("Saved words").performClick()
+            waitForNode(hasText(term))
+            compose.activityRule.scenario.recreate()
+            waitForNode(hasText(term))
+            compose.onNodeWithText(term).performClick()
+            waitForNode(hasText("Remove from saved") and isEnabled())
+            compose.onNodeWithText("Remove from saved").performScrollTo().performClick()
+            waitForNode(hasText("Save word") and isEnabled())
+            assertFalse(runBlocking { database.backup().allBookmarks().any { it.wordKey == term } })
+            assertEquals("معنی آزمایشی", runBlocking {
+                database.backup().allDictionary().single { it.wordKey == term }.meaning
+            })
+        } finally {
+            runBlocking {
+                database.bookmarks().remove(term)
+                database.dictionary().remove(term)
+            }
+        }
+    }
 
     @Test
     fun partiallyWatchedStreamOffersResumeAndPlaybackFromBeginning() {
