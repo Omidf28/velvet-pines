@@ -19,6 +19,7 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -58,8 +59,9 @@ class PlaybackSmokeTest {
         compose.onNodeWithText("All levels").performClick()
         compose.onNodeWithText("B1").performClick()
         compose.onNodeWithText("English word or Persian meaning").performTextInput("abandon")
-        waitForNode(hasText("abandon"))
-        compose.onNodeWithText("abandon").performClick()
+        val result = hasText("abandon") and !hasSetTextAction()
+        waitForNode(result)
+        compose.onNode(result).performClick()
         waitForNode(hasText("abandon · B1 · verb · CEFR-J"))
         compose.onNodeWithText("abandon · B1 · verb · CEFR-J").performScrollTo().assertIsDisplayed()
     }
