@@ -83,10 +83,17 @@ internal val vocabularyMigration2To3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [SavedWord::class, PersonalDictionaryEntry::class], version = 3, exportSchema = false)
+internal val vocabularyMigration3To4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS dictionary_bookmarks (wordKey TEXT NOT NULL, headword TEXT NOT NULL, meaning TEXT NOT NULL, PRIMARY KEY(wordKey))")
+    }
+}
+
+@Database(entities = [SavedWord::class, PersonalDictionaryEntry::class, DictionaryBookmark::class], version = 4, exportSchema = false)
 internal abstract class SavedWordsDatabase : RoomDatabase() {
     abstract fun words(): SavedWordsDao
     abstract fun dictionary(): PersonalDictionaryDao
+    abstract fun bookmarks(): DictionaryBookmarksDao
     abstract fun backup(): LearningBackupDao
 
     companion object {
@@ -98,7 +105,7 @@ internal abstract class SavedWordsDatabase : RoomDatabase() {
                 context.applicationContext,
                 SavedWordsDatabase::class.java,
                 "saved-words.db"
-            ).addMigrations(vocabularyMigration1To2, vocabularyMigration2To3).build().also { instance = it }
+            ).addMigrations(vocabularyMigration1To2, vocabularyMigration2To3, vocabularyMigration3To4).build().also { instance = it }
         }
     }
 }

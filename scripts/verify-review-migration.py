@@ -18,6 +18,8 @@ DELETE_WORD = next(query for query in QUERIES if query.startswith("DELETE FROM s
 SOURCE_DUE = next(query for query in QUERIES if "WHERE sourceUri = :source AND reviewDueAt" in query)
 RECORD = next(query for query in QUERIES if "SET reviewLevel" in query)
 UPDATE_DEFINITION = next(query for query in QUERIES if "SET headword" in query)
+BOOKMARK_SOURCE = (ROOT / "app/src/main/java/com/subtitleplayer/prototype/DictionaryBookmarks.kt").read_text(encoding="utf-8-sig")
+DELETE_BOOKMARK = re.search(r'@Query\("(DELETE FROM dictionary_bookmarks[^"]+)"\)', BOOKMARK_SOURCE)[1]
 V1_SCHEMA = """CREATE TABLE saved_words (
 word TEXT NOT NULL, wordKey TEXT NOT NULL, headword TEXT NOT NULL,
 meaning TEXT NOT NULL, dialogue TEXT NOT NULL, positionMs INTEGER NOT NULL,
@@ -37,7 +39,7 @@ class ReviewMigrationTest(unittest.TestCase):
         self.db.execute(V1_SCHEMA)
         self.db.execute(V1_INDEX)
         self.db.execute(f"INSERT INTO saved_words ({COLUMNS}) VALUES ({','.join('?' * 10)})", OLD_WORD)
-        self.assertEqual(4, len(MIGRATIONS))
+        self.assertEqual(5, len(MIGRATIONS))
         for sql in MIGRATIONS:
             self.db.execute(sql)
 
@@ -45,6 +47,35 @@ class ReviewMigrationTest(unittest.TestCase):
         self.assertEqual(OLD_WORD, self.db.execute(f"SELECT {COLUMNS} FROM saved_words").fetchone())
         self.assertEqual((0, 0, 0), self.db.execute("SELECT reviewLevel, reviewDueAt, reviewCount FROM saved_words").fetchone())
         self.assertEqual(1, len(self.db.execute(DUE, {"now": 0}).fetchall()))
+
+    def test_upgrade_from_version_three_preserves_learning_data_and_adds_empty_bookmarks(self):
+        db = sqlite3.connect(":memory:")
+        self.addCleanup(db.close)
+        db.execute(V1_SCHEMA)
+        db.execute(V1_INDEX)
+        db.execute(f"INSERT INTO saved_words ({COLUMNS}) VALUES ({','.join('?' * 10)})", OLD_WORD)
+        for sql in MIGRATIONS[:4]:
+            db.execute(sql)
+        db.execute(RECORD, dict(id=1, expectedCount=0, level=3, dueAt=12345))
+        db.execute("INSERT INTO personal_dictionary VALUES ('coffee', 'coffee', 'قهوه')")
+        db.execute(MIGRATIONS[4])
+        self.assertEqual((1, 3, 12345, 1),
+                         db.execute("SELECT id, reviewLevel, reviewDueAt, reviewCount FROM saved_words").fetchone())
+        self.assertEqual([("coffee", "coffee", "قهوه")], db.execute("SELECT * FROM personal_dictionary").fetchall())
+        self.assertEqual([], db.execute("SELECT * FROM dictionary_bookmarks").fetchall())
+
+    def test_bookmark_save_restore_and_removal_leave_other_learning_data_intact(self):
+        self.db.execute("INSERT INTO personal_dictionary VALUES ('coffee', 'coffee', 'شخصی')")
+        insert = "INSERT OR IGNORE INTO dictionary_bookmarks VALUES (?, ?, ?)"
+        self.db.execute(insert, ("coffee", "coffee", "قهوه"))
+        self.assertEqual(0, self.db.execute(insert, ("coffee", "coffee", "پشتیبان قدیمی")).rowcount)
+        self.assertEqual([("coffee", "coffee", "قهوه")], self.db.execute("SELECT * FROM dictionary_bookmarks").fetchall())
+        self.db.execute(insert, ("forest", "forest", "جنگل"))
+        self.assertEqual(1, self.db.execute(DELETE_BOOKMARK, {"key": "coffee"}).rowcount)
+        self.assertEqual(0, self.db.execute(DELETE_BOOKMARK, {"key": "coffee"}).rowcount)
+        self.assertEqual([("forest", "forest", "جنگل")], self.db.execute("SELECT * FROM dictionary_bookmarks").fetchall())
+        self.assertEqual("شخصی", self.db.execute("SELECT meaning FROM personal_dictionary").fetchone()[0])
+        self.assertEqual(OLD_WORD, self.db.execute(f"SELECT {COLUMNS} FROM saved_words").fetchone())
 
     def test_review_persists_and_becomes_due_at_exact_boundary(self):
         args = dict(id=1, expectedCount=0, level=1, dueAt=86400000)
@@ -97,7 +128,8 @@ class ReviewMigrationTest(unittest.TestCase):
         for sql in MIGRATIONS[:3]:
             db.execute(sql)
         db.execute(RECORD, dict(id=1, expectedCount=0, level=4, dueAt=123456))
-        db.execute(MIGRATIONS[3])
+        for sql in MIGRATIONS[3:]:
+            db.execute(sql)
         self.assertEqual(
             (1, 4, 123456, 1),
             db.execute("SELECT id, reviewLevel, reviewDueAt, reviewCount FROM saved_words").fetchone(),
@@ -182,7 +214,7 @@ class ReviewMigrationTest(unittest.TestCase):
         self.addCleanup(fresh.close)
         for sql in creates:
             fresh.execute(sql)
-        for table in ("saved_words", "personal_dictionary"):
+        for table in ("saved_words", "personal_dictionary", "dictionary_bookmarks"):
             self.assertEqual(
                 fresh.execute(f"PRAGMA table_info({table})").fetchall(),
                 self.db.execute(f"PRAGMA table_info({table})").fetchall(),

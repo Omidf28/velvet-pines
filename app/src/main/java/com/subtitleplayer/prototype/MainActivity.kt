@@ -246,6 +246,7 @@ class MainActivity : ComponentActivity() {
         WordLookupService({ packagedDictionary.resolve(it, emptyMap()) }, ::translateSelectedTerm)
     }
     private val personalDictionary by lazy { SavedWordsDatabase.get(applicationContext).dictionary() }
+    private val dictionaryBookmarks by lazy { SavedWordsDatabase.get(applicationContext).bookmarks() }
 
     override fun attachBaseContext(newBase: Context) {
         val english = Configuration().apply { setLocale(Locale.ENGLISH) }
@@ -1309,6 +1310,7 @@ class MainActivity : ComponentActivity() {
             DictionarySearchPanel(
                 dictionary = packagedDictionary, personal = personalMeanings,
                 personalReady = personalEntries != null, dao = personalDictionary,
+                bookmarksDao = dictionaryBookmarks,
                 speech = pronunciation, initialTerm = dictionarySeed,
                 beforeSpeak = {
                     val resume = player.playWhenReady && player.playbackState != Player.STATE_ENDED
@@ -1329,6 +1331,7 @@ class MainActivity : ComponentActivity() {
                     personal = personalMeanings,
                     personalReady = personalEntries != null,
                     dao = personalDictionary,
+                    bookmarksDao = dictionaryBookmarks,
                     speech = pronunciation,
                     initialTerm = "",
                     beforeSpeak = { player.pause() },

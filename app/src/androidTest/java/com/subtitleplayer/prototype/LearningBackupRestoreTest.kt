@@ -31,19 +31,24 @@ class LearningBackupRestoreTest {
             val sourceId = source.words().insertWord(word)
             assertEquals(1, source.words().recordReview(sourceId, expectedCount = 0, level = 2, dueAt = 12_000))
             source.dictionary().put(definition)
+            val bookmark = DictionaryBookmark("forest", "forest", "جنگل")
+            source.bookmarks().save(bookmark)
 
             val snapshot = source.backup().snapshot()
             file.outputStream().use { writeLearningBackup(snapshot, it) }
             val backup = file.inputStream().use { parseLearningBackup(readSubtitleBytes(it, learningBackupLimit)) }
-            assertEquals(LearningRestoreResult(1, 1), destination.backup().restore(backup))
+            assertEquals(LearningRestoreResult(1, 1, 1), destination.backup().restore(backup))
             val restored = destination.backup().snapshot()
             val restoredWord = restored.words.single()
             assertEquals(snapshot.words.single().copy(id = 0), restoredWord.copy(id = 0))
             assertEquals(snapshot.dictionary, restored.dictionary)
+            assertEquals(snapshot.bookmarks, restored.bookmarks)
 
             destination.words().save(word.copy(meaning = "رهسپار شدن"))
             assertEquals(1, destination.words().recordReview(restoredWord.id, expectedCount = 1, level = 3, dueAt = 20_000))
             destination.dictionary().put(definition.copy(meaning = "درود"))
+            destination.bookmarks().remove("forest")
+            destination.bookmarks().save(bookmark.copy(meaning = "معنی تازه"))
             val edited = destination.backup().snapshot()
 
             assertEquals(LearningRestoreResult(0, 0), destination.backup().restore(backup))

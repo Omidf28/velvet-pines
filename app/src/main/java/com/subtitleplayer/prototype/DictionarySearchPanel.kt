@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Independent offline lookup; opening the window does not alter playback or its bounds. */
@@ -30,6 +31,7 @@ internal fun DictionarySearchPanel(
     personal: Map<String, WordMeaning>,
     personalReady: Boolean,
     dao: PersonalDictionaryDao,
+    bookmarksDao: DictionaryBookmarksDao,
     speech: EnglishPronunciation,
     initialTerm: String,
     beforeSpeak: () -> Unit,
@@ -41,34 +43,51 @@ internal fun DictionarySearchPanel(
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
+    var savedOnly by rememberSaveable { mutableStateOf(false) }
+    val bookmarks by remember(bookmarksDao) { bookmarksDao.observeAll() }.collectAsState(initial = null)
+    val savedByKey = remember(bookmarks) { bookmarks.orEmpty().associateBy { it.wordKey } }
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var saveErrorTerm by remember { mutableStateOf<String?>(null) }
     val prefix = remember(query) { normalizeDictionaryPrefix(query) }
     val exactKey = remember(query) { normalizeDictionaryTerm(query) }
     val browsing = query.isBlank()
-    var pageStarts by rememberSaveable(query) { mutableStateOf(listOf("")) }
+    var pageStarts by rememberSaveable(query, savedOnly) { mutableStateOf(listOf("")) }
     val after = pageStarts.last()
-    var results by remember(query, after, personal, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
-    var searching by remember(query, after, personal, retry) { mutableStateOf(browsing || prefix != null) }
-    var failed by remember(query, after, personal, retry) { mutableStateOf(false) }
-    var detail by remember(selected, personal, retry) { mutableStateOf<DictionaryResult?>(null) }
-    var detailFailed by remember(selected, personal, retry) { mutableStateOf(false) }
+    var results by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
+    var searching by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(browsing || prefix != null) }
+    var failed by remember(query, after, personal, bookmarks, savedOnly, retry) { mutableStateOf(false) }
+    var detail by remember(selected, personal, bookmarks, retry) { mutableStateOf<DictionaryResult?>(null) }
+    var detailFailed by remember(selected, personal, bookmarks, retry) { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
-    LaunchedEffect(query, after, personal, retry) {
+    LaunchedEffect(query, after, personal, bookmarks, savedOnly, retry) {
         if (!browsing && prefix == null) return@LaunchedEffect
+        if (savedOnly && bookmarks == null) return@LaunchedEffect
         if (!browsing) delay(200)
         try {
-            results = withContext(Dispatchers.IO) { dictionary.search(query, personal, after) }
+            results = withContext(Dispatchers.IO) {
+                if (savedOnly) searchDictionaryBookmarks(bookmarks.orEmpty(), query, after, personal)
+                else dictionary.search(query, personal, after)
+            }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed = true }
         searching = false
         listState.scrollToItem(0)
     }
-    LaunchedEffect(selected, personal, retry) {
+    LaunchedEffect(selected, personal, bookmarks, retry) {
         val term = selected ?: return@LaunchedEffect
+        val saved = savedByKey[term]?.let {
+            DictionaryResult(WordMeaning(it.headword, it.meaning), "Saved dictionary entry")
+        }
         try {
-            detail = withContext(Dispatchers.IO) { dictionary.resolve(term, personal) }
+            val result = withContext(Dispatchers.IO) { dictionary.resolve(term, personal) }
+            detail = if (result.meaning == null && saved != null) saved else result
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { detailFailed = true }
+        catch (_: Exception) {
+            detail = immediateDictionaryMeaning(term, personal) ?: saved
+            detailFailed = detail == null
+        }
     }
     DisposableEffect(speech) { onDispose { speech.stop() } }
     fun close() { keyboard?.hide(); speech.stop(); onDismiss() }
@@ -81,6 +100,10 @@ internal fun DictionarySearchPanel(
     val content: @Composable ColumnScope.() -> Unit = {
         val term = selected
         if (term == null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !savedOnly, onClick = { savedOnly = false }, label = { Text("All words") })
+                FilterChip(selected = savedOnly, onClick = { savedOnly = true }, label = { Text("Saved words") })
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it.take(160) },
@@ -99,6 +122,7 @@ internal fun DictionarySearchPanel(
                         !browsing && prefix == null -> "Use English letters. Up to 8 words and 80 characters."
                         searching -> "Searching…"
                         failed -> "Could not read the dictionary. Check available storage and try again."
+                        savedOnly && results.entries.isEmpty() -> "No saved words match. Open a word and choose Save word."
                         browsing && results.entries.isEmpty() -> "No more entries."
                         browsing -> "Page ${pageStarts.size} · Tap a word to see its meaning."
                         results.entries.isEmpty() -> "No matches for this search. You can add a personal definition."
@@ -106,7 +130,7 @@ internal fun DictionarySearchPanel(
                         else -> "${results.entries.size} results"
                     }, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                     if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
-                    if (exactKey != null) TextButton(onClick = { select(exactKey) }) {
+                    if (exactKey != null && !savedOnly) TextButton(onClick = { select(exactKey) }) {
                         Text("Show meaning for “$exactKey”", maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -114,8 +138,12 @@ internal fun DictionarySearchPanel(
                     Card(colors = CardDefaults.cardColors(containerColor = PinesPalette.Card), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Show full meaning") { select(entry.term) }
                             .padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(entry.term, color = PinesPalette.Accent,
-                                style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(entry.term, Modifier.weight(1f), color = PinesPalette.Accent,
+                                    style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
+                                if (entry.term in savedByKey) Text("Saved", color = PinesPalette.Accent,
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
                             if (!browsing) Text(entry.meaning.persian, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Rtl))
                             Text(entry.source, style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
@@ -150,6 +178,27 @@ internal fun DictionarySearchPanel(
                     if (detailFailed) TextButton(onClick = { retry++ }) { Text("Try again") }
                 }
                 item {
+                    val saved = savedByKey[term]
+                    val meaning = detail?.meaning
+                    OutlinedButton(
+                        enabled = bookmarks != null && !saving && (saved != null || meaning != null),
+                        onClick = {
+                            saving = true
+                            saveErrorTerm = null
+                            scope.launch {
+                                try {
+                                    if (saved != null) bookmarksDao.remove(term)
+                                    else if (meaning != null) bookmarksDao.save(
+                                        DictionaryBookmark(term, meaning.headword, meaning.persian.trim())
+                                    )
+                                } catch (cancelled: CancellationException) { throw cancelled }
+                                catch (_: Exception) { saveErrorTerm = term }
+                                finally { saving = false }
+                            }
+                        }
+                    ) { Text(if (saved != null) "Remove from saved" else "Save word") }
+                    if (saveErrorTerm == term) Text("Could not update saved words. Try again.",
+                        color = MaterialTheme.colorScheme.error)
                     PronunciationControls(speech, term, contentColor = PinesPalette.Accent, beforeSpeak = beforeSpeak)
                     TextButton(enabled = personalReady && (detail != null || detailFailed), onClick = {
                         speech.stop(); editing = true

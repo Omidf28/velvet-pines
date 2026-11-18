@@ -5,10 +5,14 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.security.DigestOutputStream
 
-internal data class LearningBackup(val words: List<SavedWord>, val dictionary: List<PersonalDictionaryEntry>)
+internal data class LearningBackup(
+    val words: List<SavedWord>,
+    val dictionary: List<PersonalDictionaryEntry>,
+    val bookmarks: List<DictionaryBookmark> = emptyList()
+)
 internal const val learningBackupLimit = 32 * 1024 * 1024
 private const val backupMagic = 0x53504c42
-private const val backupVersion = 1
+private const val backupVersion = 2
 
 private class LimitedBackupOutput(private val target: OutputStream) : OutputStream() {
     private var remaining = learningBackupLimit
@@ -39,7 +43,8 @@ private fun DataInputStream.count(): Int = readInt().also {
 }
 
 internal fun writeLearningBackup(backup: LearningBackup, output: OutputStream) {
-    if (backup.words.size > 20000 || backup.dictionary.size > 20000) throw IOException("Too many records")
+    if (backup.words.size > 20000 || backup.dictionary.size > 20000 || backup.bookmarks.size > 20000)
+        throw IOException("Too many records")
     val limited = LimitedBackupOutput(output)
     val digest = MessageDigest.getInstance("SHA-256")
     val data = DataOutputStream(DigestOutputStream(limited, digest))
@@ -52,6 +57,8 @@ internal fun writeLearningBackup(backup: LearningBackup, output: OutputStream) {
     }
     data.writeInt(backup.dictionary.size)
     backup.dictionary.forEach { data.text(it.wordKey); data.text(it.headword); data.text(it.meaning) }
+    data.writeInt(backup.bookmarks.size)
+    backup.bookmarks.forEach { data.text(it.wordKey); data.text(it.headword); data.text(it.meaning) }
     data.flush()
     limited.write(digest.digest())
 }
@@ -63,7 +70,9 @@ internal fun parseLearningBackup(bytes: ByteArray): LearningBackup {
     val digest = MessageDigest.getInstance("SHA-256").apply { update(bytes, 0, bodySize) }.digest()
     if (!MessageDigest.isEqual(digest, bytes.copyOfRange(bodySize, bytes.size))) throw IOException("Backup checksum mismatch")
     val data = DataInputStream(ByteArrayInputStream(bytes, 0, bodySize))
-    if (data.readInt() != backupMagic || data.readInt() != backupVersion) throw IOException("Unsupported backup")
+    if (data.readInt() != backupMagic) throw IOException("Unsupported backup")
+    val version = data.readInt()
+    if (version !in 1..backupVersion) throw IOException("Unsupported backup")
     val words = List(data.count()) {
         val word = data.text(); val key = data.text(); val headword = data.text(); val meaning = data.text()
         val dialogue = data.text(); val source = data.text(); val name = data.text()
@@ -80,6 +89,12 @@ internal fun parseLearningBackup(bytes: ByteArray): LearningBackup {
             validPersonalMeaning(meaning) != meaning) throw IOException("Invalid dictionary entry")
         PersonalDictionaryEntry(key, headword, meaning)
     }
+    val bookmarks = if (version >= 2) List(data.count()) {
+        val key = data.text(); val headword = data.text(); val meaning = data.text()
+        if (normalizeDictionaryTerm(key) != key || normalizeDictionaryTerm(headword) == null ||
+            validPersonalMeaning(meaning) != meaning) throw IOException("Invalid dictionary bookmark")
+        DictionaryBookmark(key, headword, meaning)
+    } else emptyList()
     if (data.available() != 0) throw IOException("Unexpected trailing data")
-    return LearningBackup(words, dictionary)
+    return LearningBackup(words, dictionary, bookmarks)
 }

@@ -166,6 +166,18 @@ returns to Files. If a video is loaded, Return to video opens its paused player.
 The dictionary opened from the player menu or a selected subtitle word continues
 to use the overlay panel.
 
+Choose Save word in an entry to bookmark it, or Remove from saved to remove the
+bookmark. Saved marks appear in list rows. The Saved words filter supports the
+same English prefix search and alphabetical pages. Each bookmark keeps the term
+and a definition snapshot in the user's Room database. Personal definitions
+take priority, and the saved snapshot is available if an updated offline index
+no longer contains the term or the index cannot be read.
+
+Room version 4 adds the bookmark table through a migration from version 3.
+Learning backups now use format version 2 and include bookmarks. This app also
+reads version 1 backups, which contain no bookmark section. Restoring either
+format adds entries while preserving existing entries with the same key.
+
 Each page contains up to 40 terms merged from the packaged, supplemental and
 personal dictionaries. Previous and Next replace the current page. The SQL query
 uses a primary-key boundary and reads at most 41 rows per page. Tap a term to
@@ -179,6 +191,11 @@ Also switch from Dictionary to every other home tab and back, both from the
 list and from an open entry. Repeat with the keyboard open and after rotation.
 Verify Back first leaves the entry, then returns to Files. Return to a loaded
 video and confirm its position and selected subtitle track are preserved.
+Save a term, restart in airplane mode, find it under Saved words and open it.
+Remove its bookmark and confirm its personal definition and any flashcard remain.
+Test upgrading a version 3 database with existing cards and personal definitions,
+then creating and restoring a backup with bookmarks. Restore a version 1 backup
+as well and confirm previously saved bookmarks remain.
 
 Use `test-fixtures/broad-meanings.en.srt` with any suitable local test video:
 

@@ -9,7 +9,8 @@ import org.junit.Test
 class LearningBackupTest {
     private val word = SavedWord("went", "went", "go", "رفتن", "We went home.", 2500, 2000,
         "asset:///demo.mp4", "نمونه", id = 99, reviewLevel = 4, reviewDueAt = 123456, reviewCount = 7)
-    private val backup = LearningBackup(listOf(word), listOf(PersonalDictionaryEntry("hello", "hello", "سلام\nمثال")))
+    private val backup = LearningBackup(listOf(word), listOf(PersonalDictionaryEntry("hello", "hello", "سلام\nمثال")),
+        listOf(DictionaryBookmark("coffee", "coffee", "قهوه")))
     private fun bytes(value: LearningBackup = backup) =
         ByteArrayOutputStream().also { writeLearningBackup(value, it) }.toByteArray()
 
@@ -17,6 +18,7 @@ class LearningBackupTest {
         val result = parseLearningBackup(bytes())
         assertEquals(backup.words.map { it.copy(id = 0) }, result.words)
         assertEquals(backup.dictionary, result.dictionary)
+        assertEquals(backup.bookmarks, result.bookmarks)
     }
     @Test fun emptyBackupCanBeUsedOnANewInstallation() {
         val empty = LearningBackup(emptyList(), emptyList())
@@ -49,6 +51,28 @@ class LearningBackupTest {
     @Test fun refusesExcessiveRecordCount() {
         assertThrows(IOException::class.java) {
             bytes(LearningBackup(List(20001) { word }, emptyList()))
+        }
+        assertThrows(IOException::class.java) {
+            bytes(backup.copy(bookmarks = List(20001) { backup.bookmarks.single() }))
+        }
+    }
+    @Test fun restoresVersionOneBackupsWithNoBookmarks() {
+        val encoded = bytes(backup.copy(bookmarks = emptyList()))
+        // Version one ended immediately after personal definitions.
+        val body = encoded.copyOf(encoded.size - 32 - 4).also { it[7] = 1 }
+        val legacy = body + MessageDigest.getInstance("SHA-256").digest(body)
+        val result = parseLearningBackup(legacy)
+        assertEquals(backup.words.map { it.copy(id = 0) }, result.words)
+        assertEquals(backup.dictionary, result.dictionary)
+        assertTrue(result.bookmarks.isEmpty())
+    }
+    @Test fun rejectsInvalidBookmarkKeysAndDefinitionsBeforeRestore() {
+        for (invalid in listOf(
+            DictionaryBookmark("Coffee", "coffee", "قهوه"),
+            DictionaryBookmark("coffee", "", "قهوه"),
+            DictionaryBookmark("coffee", "coffee", "")
+        )) {
+            assertThrows(IOException::class.java) { parseLearningBackup(bytes(backup.copy(bookmarks = listOf(invalid)))) }
         }
     }
 }
