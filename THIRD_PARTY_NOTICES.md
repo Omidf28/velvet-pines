@@ -34,6 +34,21 @@ records and omits unsupported keys. Source levels and parts of speech are retain
 [Source and supplied terms](https://github.com/openlanguageprofiles/olp-en-cefrj),
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
+## English entry details
+
+The assets in `app/src/main/assets/english-lexicon/` contain transformed data
+from Open English Wordnet 2025, derived from Princeton University's WordNet
+by the Open English Wordnet Community. The source is supplied under CC BY 4.0
+with attribution to both Princeton WordNet and the Open English Wordnet Team.
+The original license and supplied WordNet notice, a modification notice and
+source/output checksums ship alongside the English index.
+The import normalizes supported lookup keys, groups lexical entries and
+resolves source sense references. Source definitions, examples, IPA text,
+forms and sense relationships are retained. The transformed English data is
+supplied under CC BY 4.0.
+[Source release](https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition),
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Optional translation service
 
 The explicit online translation action uses MyMemory's HTTPS API. The selected term

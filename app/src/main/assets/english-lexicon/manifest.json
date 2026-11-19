@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "source": "Open English Wordnet",
+  "sourceVersion": "2025",
+  "sourceUrl": "https://en-word.net/downloads/english-wordnet-2025.xml.gz",
+  "sourceSha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+  "entries": 126494,
+  "skippedLexicalEntries": 876,
+  "formMappings": 4456,
+  "maxEntryBytes": 18850,
+  "lexicalEntries": 135093,
+  "pronunciations": 43516,
+  "forms": 4473,
+  "senses": 184238,
+  "definitions": 184264,
+  "examples": 103978,
+  "synonyms": 283702,
+  "antonyms": 7967,
+  "related": 60647,
+  "databaseBytes": 90329088,
+  "databaseSha256": "03596ae1389c6de1bfc0e9227b03e0e02eec7193f78193d950f09f52440b9294",
+  "compressedSha256": "57243d4e1e0d29ad45440fcbf5d59babbab2a5921f0abb4eb89ce7eef69f01ec"
+}

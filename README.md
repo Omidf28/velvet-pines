@@ -125,6 +125,7 @@ Run [Android emulator smoke test](https://github.com/Omidf28/velvet-pines/action
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug
 python scripts/verify-review-migration.py
 python scripts/verify-lexicon.py --apk app/build/outputs/apk/debug/app-debug.apk
+python scripts/verify-english-lexicon.py --apk app/build/outputs/apk/debug/app-debug.apk
 ```
 
 The latest recorded validation includes:

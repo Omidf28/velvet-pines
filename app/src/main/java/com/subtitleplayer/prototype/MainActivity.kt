@@ -242,6 +242,7 @@ class MainActivity : ComponentActivity() {
     private val history by lazy { getSharedPreferences("last_playback", MODE_PRIVATE) }
     private val vocabulary by lazy { SavedWordsDatabase.get(applicationContext).words() }
     private val packagedDictionary by lazy { PackagedDictionary(applicationContext) }
+    private val packagedEnglishDictionary by lazy { PackagedEnglishDictionary(applicationContext) }
     private val wordLookup by lazy {
         WordLookupService({ packagedDictionary.resolve(it, emptyMap()) }, ::translateSelectedTerm)
     }
@@ -1309,6 +1310,7 @@ class MainActivity : ComponentActivity() {
         if (showDictionary && !pictureInPicture && !controlsLocked) {
             DictionarySearchPanel(
                 dictionary = packagedDictionary, personal = personalMeanings,
+                englishDictionary = packagedEnglishDictionary,
                 personalReady = personalEntries != null, dao = personalDictionary,
                 bookmarksDao = dictionaryBookmarks,
                 speech = pronunciation, initialTerm = dictionarySeed,
@@ -1328,6 +1330,7 @@ class MainActivity : ComponentActivity() {
             dictionaryState.SaveableStateProvider("dictionary") {
                 DictionarySearchPanel(
                     dictionary = packagedDictionary,
+                    englishDictionary = packagedEnglishDictionary,
                     personal = personalMeanings,
                     personalReady = personalEntries != null,
                     dao = personalDictionary,

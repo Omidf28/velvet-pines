@@ -1,0 +1,22 @@
+Open English Wordnet 2025
+
+Source archive
+https://en-word.net/downloads/english-wordnet-2025.xml.gz
+SHA-256 9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe
+Source repository and release
+https://github.com/globalwordnet/english-wordnet/tree/2025-edition
+
+Derived from Princeton University's WordNet by the Open English Wordnet
+Community. The Open English Wordnet Team supplies the resource under
+Creative Commons Attribution 4.0 International. Attribution is retained for
+both Princeton WordNet and the Open English Wordnet Team. The source license
+and the supplied WordNet notice are included in LICENSE.md and WNDB_License.txt.
+https://creativecommons.org/licenses/by/4.0/
+
+Velvet Pines modifications
+Normalized supported lookup keys, grouped source lexical entries by key,
+resolved source sense references and converted entries to indexed SQLite JSON.
+Definitions, examples, pronunciation text, forms and sense relationships are
+imported from the source. Source lexical and sense identifiers are preserved.
+Whitespace in source text and bundled license files is normalized.
+The transformed English dictionary data is supplied under CC BY 4.0.

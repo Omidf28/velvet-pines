@@ -8,6 +8,7 @@ import android.content.pm.ActivityInfo
 import android.graphics.Rect
 import android.provider.MediaStore
 import android.view.View
+import android.view.KeyEvent
 import androidx.activity.compose.setContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
@@ -47,11 +48,99 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
 import java.io.File
+import java.io.ByteArrayOutputStream
 import java.net.URI
 
 class PlaybackSmokeTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun dictionaryOpenedOverVideoReturnsToResultsBeforeClosing() {
+        openSample()
+        waitForNode(hasContentDescription("Pause"))
+        compose.onNodeWithContentDescription("Pause").performClick()
+        compose.onNodeWithContentDescription("Playback options").performClick()
+        compose.onNodeWithText("Search dictionary").performClick()
+        waitForNode(hasText("English word or Persian meaning"))
+        compose.onNodeWithText("English word or Persian meaning").performTextInput("coffee")
+        val result = hasText("coffee") and !hasSetTextAction()
+        waitForNode(result)
+        compose.onNode(result).performClick()
+        waitForNode(hasText("Results"))
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        waitForNode(hasSetTextAction())
+        compose.onNodeWithText("English word or Persian meaning").assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        waitForNode(hasText("English word or Persian meaning"), present = false)
+        compose.onNodeWithContentDescription("Play").assertIsDisplayed()
+    }
+
+    @Test
+    fun englishSourceFormsResolveToTheirCanonicalEntry() {
+        val dictionary = PackagedEnglishDictionary(compose.activity)
+        val entries = dictionary.lookup("analyses")
+        assertTrue(entries.isNotEmpty())
+        assertTrue(entries.any { it.lemma == "analysis" && it.partOfSpeech == "noun" })
+        assertTrue(entries.flatMap { it.senses }.any { "synthesis" in it.antonyms })
+    }
+
+    @Test
+    fun englishOnlyEntryCanBeSavedAndBackedUp() {
+        val database = SavedWordsDatabase.get(compose.activity)
+        val term = "crowdfunding"
+        val previous = runBlocking { database.backup().allBookmarks().firstOrNull { it.wordKey == term } }
+        runBlocking { database.bookmarks().remove(term) }
+        try {
+            compose.onNodeWithText("Dictionary").performClick()
+            compose.onNodeWithText("English word or Persian meaning").performTextInput(term)
+            val result = hasText(term) and !hasSetTextAction()
+            waitForNode(result)
+            compose.onNode(result).performClick()
+            waitForNode(hasText("Save word") and isEnabled())
+            compose.onNodeWithText("Save word").performScrollTo().performClick()
+            waitForNode(hasText("Remove from saved"))
+            val saved = runBlocking { database.backup().allBookmarks().single { it.wordKey == term } }
+            val definitions = PackagedEnglishDictionary(compose.activity).lookup(term)
+                .flatMap { it.senses }.flatMap { it.definitions }
+            assertTrue(saved.meaning in definitions)
+            val backup = LearningBackup(emptyList(), emptyList(), listOf(saved))
+            val bytes = ByteArrayOutputStream().also { writeLearningBackup(backup, it) }.toByteArray()
+            assertEquals(backup, parseLearningBackup(bytes))
+        } finally {
+            runBlocking {
+                database.bookmarks().remove(term)
+                previous?.let { database.bookmarks().save(it) }
+            }
+        }
+    }
+
+    @Test
+    fun englishEntryShowsIpaExamplesAndNavigatesRelatedWordsOffline() {
+        compose.onNodeWithText("Dictionary").performClick()
+        compose.onNodeWithText("English word or Persian meaning").performTextInput("coffee")
+        val result = hasText("coffee") and !hasSetTextAction()
+        waitForNode(result)
+        compose.onNode(result).performClick()
+        val list = compose.onNode(hasScrollToIndexAction())
+        list.performScrollToNode(hasText("English definitions"))
+        waitForNode(hasText("Loading English entry…"), present = false)
+        list.performScrollToNode(hasText("coffee · noun"))
+        compose.onNodeWithText("UK · /ˈkɒ.fi/").performScrollTo().assertIsDisplayed()
+        val definition = "a beverage consisting of an infusion of ground coffee beans"
+        list.performScrollToNode(hasText(definition))
+        compose.onAllNodes(hasText("Examples and related words"))[0].performScrollTo().performClick()
+        compose.onNodeWithText("he ordered a cup of coffee").performScrollTo().assertIsDisplayed()
+        waitForNode(hasText("java"))
+        compose.onNodeWithText("java").performScrollTo().performClick()
+        waitForNode(hasText("java"))
+        compose.onNodeWithText("java").assertIsDisplayed()
+        compose.activityRule.scenario.recreate()
+        waitForNode(hasText("java"))
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        waitForNode(hasText("Results"))
+        compose.onNodeWithText("coffee").assertIsDisplayed()
+    }
 
     @Test
     fun dictionaryLevelFilterOpensTheSourceHeadwordProfileOffline() {

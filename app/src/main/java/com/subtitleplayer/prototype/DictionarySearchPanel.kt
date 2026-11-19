@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun DictionarySearchPanel(
     dictionary: PackagedDictionary,
+    englishDictionary: PackagedEnglishDictionary,
     personal: Map<String, WordMeaning>,
     personalReady: Boolean,
     dao: PersonalDictionaryDao,
@@ -41,6 +42,7 @@ internal fun DictionarySearchPanel(
 ) {
     var query by rememberSaveable { mutableStateOf(initialTerm) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    var entryHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var editing by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var savedOnly by rememberSaveable { mutableStateOf(false) }
@@ -66,6 +68,9 @@ internal fun DictionarySearchPanel(
     var detailFailed by remember(selected, personal, bookmarks, retry) { mutableStateOf(false) }
     var profiles by remember(selected, retry) { mutableStateOf<List<LearnerProfile>>(emptyList()) }
     var profileFailed by remember(selected, retry) { mutableStateOf(false) }
+    var englishEntries by remember(selected, retry) { mutableStateOf<List<EnglishLexicalEntry>>(emptyList()) }
+    var englishLoading by remember(selected, retry) { mutableStateOf(selected != null) }
+    var englishFailed by remember(selected, retry) { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     LaunchedEffect(query, after, personal, bookmarks, savedOnly, level, retry) {
@@ -74,14 +79,23 @@ internal fun DictionarySearchPanel(
         if (!browsing) delay(200)
         try {
             results = withContext(Dispatchers.IO) {
+                val eligible = level?.let { dictionary.levelTerms(it) }
                 if (savedOnly) searchDictionaryBookmarks(bookmarks.orEmpty(), query, after, personal,
-                    allowed = level?.let { dictionary.levelTerms(it) })
-                else dictionary.search(query, personal, after, level)
+                    allowed = eligible)
+                else englishDictionary.completeExactSearch(dictionary.search(query, personal, after, level), query, eligible)
             }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed = true }
         searching = false
         listState.requestScrollToItem(0)
+    }
+    LaunchedEffect(selected, retry) {
+        val term = selected ?: return@LaunchedEffect
+        try {
+            englishEntries = withContext(Dispatchers.IO) { englishDictionary.lookup(term) }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { englishFailed = true }
+        englishLoading = false
     }
     LaunchedEffect(selected, retry) {
         val term = selected ?: return@LaunchedEffect
@@ -106,13 +120,22 @@ internal fun DictionarySearchPanel(
     }
     DisposableEffect(speech) { onDispose { speech.stop() } }
     fun close() { keyboard?.hide(); speech.stop(); onDismiss() }
-    fun select(term: String) { keyboard?.hide(); speech.stop(); selected = term }
-    BackHandler(enabled = selected != null && !editing) {
+    fun select(term: String) { keyboard?.hide(); speech.stop(); entryHistory = emptyList(); selected = term }
+    fun selectRelated(term: String) {
+        val key = normalizeDictionaryTerm(term) ?: return
+        if (key == selected) return
         keyboard?.hide()
         speech.stop()
-        selected = null
+        selected?.let { entryHistory = entryHistory + it }
+        selected = key
     }
     val content: @Composable ColumnScope.() -> Unit = {
+        BackHandler(enabled = selected != null && !editing) {
+            keyboard?.hide()
+            speech.stop()
+            selected = entryHistory.lastOrNull()
+            entryHistory = entryHistory.dropLast(1)
+        }
         val term = selected
         if (term == null) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,7 +194,7 @@ internal fun DictionarySearchPanel(
                                     style = MaterialTheme.typography.labelSmall)
                             }
                             if (!browsing) Text(entry.meaning.persian, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Rtl))
+                                style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.ContentOrLtr))
                             Text(entry.source, style = MaterialTheme.typography.labelSmall, color = PinesPalette.Muted)
                         }
                     }
@@ -191,14 +214,14 @@ internal fun DictionarySearchPanel(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(term, Modifier.weight(1f), color = PinesPalette.Accent,
                     style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
-                TextButton(onClick = { speech.stop(); selected = null }) { Text("Results") }
+                TextButton(onClick = { speech.stop(); entryHistory = emptyList(); selected = null }) { Text("Results") }
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     val result = detail
                     Text(if (detailFailed) "Could not load the meaning. Try again."
                         else if (result == null) "Loading meaning…"
-                        else result.meaning?.persian ?: "No offline meaning found. You can add a personal definition.",
+                        else result.meaning?.persian ?: "No Persian meaning found. You can add a personal definition.",
                         style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.ContentOrLtr))
                     result?.let { Text(it.source, color = PinesPalette.Muted, style = MaterialTheme.typography.labelSmall) }
                     if (detailFailed) TextButton(onClick = { retry++ }) { Text("Try again") }
@@ -216,9 +239,14 @@ internal fun DictionarySearchPanel(
                 }
                 item {
                     val saved = savedByKey[term]
-                    val meaning = detail?.meaning
+                    val englishDefinition = englishEntries.asSequence()
+                        .flatMap { it.senses.asSequence() }
+                        .flatMap { it.definitions.asSequence() }
+                        .mapNotNull(::validPersonalMeaning).firstOrNull()
+                    val meaning = detail?.meaning ?: englishDefinition?.takeIf { detail != null || detailFailed }
+                        ?.let { WordMeaning(term, it) }
                     OutlinedButton(
-                        enabled = bookmarks != null && !saving && (saved != null || meaning != null),
+                        enabled = bookmarks != null && !saving && (saved != null || (personalReady && meaning != null)),
                         onClick = {
                             saving = true
                             saveErrorTerm = null
@@ -243,6 +271,8 @@ internal fun DictionarySearchPanel(
                     Text("Personal definitions take priority across videos. To save a word with its line and timestamp, use the card in the player.",
                         color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                 }
+                englishDictionarySection(englishEntries, englishLoading, englishFailed,
+                    onRetry = { retry++ }, onSelectWord = ::selectRelated)
             }
             if (editing) PersonalMeaningDialog(
                 dao, term, detail?.meaning, term in personal,

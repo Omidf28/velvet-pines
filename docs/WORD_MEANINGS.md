@@ -121,6 +121,15 @@ the application correctly rejects (the latter has an offline definition).
 
 ## Rebuilding the data
 
+The English details index is built separately from the official Open English
+Wordnet 2025 XML archive. Download the source URL recorded in
+`app/src/main/assets/english-lexicon/manifest.json`, then run
+`python scripts/build-english-lexicon.py <source.xml.gz> <output>`.
+The importer requires the pinned source SHA-256. Copy the generated
+`dictionary-en.sqlite.bin` and `manifest.json` into the English asset folder,
+retaining its license and notices. Run `python scripts/verify-english-lexicon.py`
+or pass `--apk <apk>` to verify the packaged assets, every entry and the indexes.
+
 Download the files listed in the manifest's `sourceFiles` from the pinned commit
 under `Dictionaries/` and preserve their group and letter paths in `<cache>`.
 The builder records which letter files are absent upstream. Then run:
@@ -168,6 +177,43 @@ Python/SQLite version differences may change output bytes; regenerate the manife
 with the asset whenever the builder or data changes.
 
 ## Acceptance still required on Android
+
+English entry details now include the available definitions, IPA, examples,
+word forms, synonyms, antonyms and derivationally related words from Open
+English Wordnet 2025. Each source sense retains its identifiers and associated
+examples and relationships. The CEFR panel retains the headword/POS profile
+from its own source. The user can expand examples and related words per sense,
+open a related entry and return through the entry history using Android Back.
+Results returns directly to the original word list. Entry history survives
+home-tab changes and Activity recreation.
+
+The English index has 126,494 normalized lookup keys, 184,238 source senses,
+103,978 examples and 43,516 pronunciation records. It contains 4,456 mappings
+for source-provided forms. Exact lexical entries take priority over form
+aliases, and a form lookup returns its associated lexical entries. Source
+headwords and their pronunciation text appear together. Pronunciation playback
+uses the existing device English TTS controls.
+
+The compressed English asset is 14,765,531 bytes and its installed database is
+90,329,088 bytes. The two installed dictionary indexes total 149,766,144 bytes.
+Installation streams and verifies each index on IO. Each lookup reads indexed
+entry rows. Cached versions are reclaimed per dictionary after a replacement
+is verified. These assets reside in the app's no-backup directory.
+
+Exact English searches can include an English-source entry when its Persian
+definition is unavailable. Such entries can be bookmarked with an English
+definition snapshot and included in learning backups. Personal meanings retain
+priority, and snapshots use the existing bookmark validation. New English
+examples, pronunciations and relations display wherever the source supplies
+them. A missing entry or a loading failure has an explicit state and retry.
+
+On a phone in airplane mode, open coffee, check the IPA, expand its first
+English sense, open java from Synonyms and go back. Rotate or recreate the
+Activity on the related entry and verify Back returns to coffee. Look up
+analyses and check its analysis headword. Look up crowdfunding, save its
+English meaning, restart, find it under Saved words and verify a backup restore.
+Repeat first lookup after installation, switching entries while loading,
+large text and returning to video during installation.
 
 The level menu offers B1, B2, C1 and C2 alongside All levels. The selected level
 restricts alphabetical browsing, English and Persian search, and Saved words.
