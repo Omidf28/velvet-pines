@@ -21,6 +21,9 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -612,8 +615,18 @@ class PlaybackSmokeTest {
     }
 
     private fun waitForNode(matcher: SemanticsMatcher, present: Boolean = true) {
-        compose.waitUntil(15_000) {
-            compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() == present
+        try {
+            compose.waitUntil(15_000) {
+                compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() == present
+            }
+        } catch (timeout: ComposeTimeoutException) {
+            val roots = compose.onAllNodes(isRoot(), useUnmergedTree = true)
+            for (index in roots.fetchSemanticsNodes().indices) {
+                roots[index].printToString().lineSequence().forEach {
+                    android.util.Log.e("DictionaryUiTest", it)
+                }
+            }
+            throw AssertionError("Timed out waiting for ${matcher.description} with present=$present", timeout)
         }
     }
 }
