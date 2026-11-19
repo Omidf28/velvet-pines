@@ -14,6 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,7 +74,7 @@ internal fun DictionarySearchPanel(
     var englishEntries by remember(selected, retry) { mutableStateOf<List<EnglishLexicalEntry>>(emptyList()) }
     var englishLoading by remember(selected, retry) { mutableStateOf(selected != null) }
     var englishFailed by remember(selected, retry) { mutableStateOf(false) }
-    val keyboard = LocalSoftwareKeyboardController.current
+    val screenKeyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     LaunchedEffect(query, after, personal, bookmarks, savedOnly, level, retry) {
         if (!browsing && !validQuery) return@LaunchedEffect
@@ -119,17 +122,18 @@ internal fun DictionarySearchPanel(
         }
     }
     DisposableEffect(speech) { onDispose { speech.stop() } }
-    fun close() { keyboard?.hide(); speech.stop(); onDismiss() }
-    fun select(term: String) { keyboard?.hide(); speech.stop(); entryHistory = emptyList(); selected = term }
-    fun selectRelated(term: String) {
-        val key = normalizeDictionaryTerm(term) ?: return
-        if (key == selected) return
-        keyboard?.hide()
-        speech.stop()
-        selected?.let { entryHistory = entryHistory + it }
-        selected = key
-    }
+    fun close() { screenKeyboard?.hide(); speech.stop(); onDismiss() }
     val content: @Composable ColumnScope.() -> Unit = {
+        val keyboard = LocalSoftwareKeyboardController.current
+        fun select(term: String) { keyboard?.hide(); speech.stop(); entryHistory = emptyList(); selected = term }
+        fun selectRelated(term: String) {
+            val key = normalizeDictionaryTerm(term) ?: return
+            if (key == selected) return
+            keyboard?.hide()
+            speech.stop()
+            selected?.let { entryHistory = entryHistory + it }
+            selected = key
+        }
         BackHandler(enabled = selected != null && !editing) {
             keyboard?.hide()
             speech.stop()
@@ -142,7 +146,10 @@ internal fun DictionarySearchPanel(
                 FilterChip(selected = !savedOnly, onClick = { savedOnly = false }, label = { Text("All words") })
                 FilterChip(selected = savedOnly, onClick = { savedOnly = true }, label = { Text("Saved words") })
                 Box {
-                    TextButton(onClick = { showLevelMenu = true }) { Text(level?.let { "Level · ${it.name}" } ?: "All levels") }
+                    TextButton(onClick = { showLevelMenu = true }, modifier = Modifier.semantics {
+                        contentDescription = "Filter vocabulary level"
+                        stateDescription = level?.name ?: "All levels"
+                    }) { Text(level?.name ?: "Level") }
                     DropdownMenu(expanded = showLevelMenu, onDismissRequest = { showLevelMenu = false }) {
                         DropdownMenuItem(text = { Text("All levels") }, onClick = { levelName = null; showLevelMenu = false })
                         for (option in DictionaryLevel.entries) DropdownMenuItem(
@@ -179,7 +186,7 @@ internal fun DictionarySearchPanel(
                         else -> "${results.entries.size} results"
                     }, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                     if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
-                    if (exactKey != null && !savedOnly && level == null) TextButton(onClick = { select(exactKey) }) {
+                    if (exactKey != null && !savedOnly && level == null && results.entries.none { it.term == exactKey }) TextButton(onClick = { select(exactKey) }) {
                         Text("Show meaning for “$exactKey”", maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -295,7 +302,7 @@ internal fun DictionarySearchPanel(
                         Text("Dictionary", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (onReturnToPlayback != null) PlayerIconButton(PlayerGlyph.Play, "Return to video", onClick = {
-                            keyboard?.hide()
+                            screenKeyboard?.hide()
                             speech.stop()
                             onReturnToPlayback()
                         })

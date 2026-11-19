@@ -35,6 +35,7 @@ import androidx.compose.ui.test.performFirstLinkClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.media3.ui.PlayerView
 import androidx.test.core.app.ActivityScenario
@@ -66,7 +67,7 @@ class PlaybackSmokeTest {
         compose.onNodeWithContentDescription("Playback options").performClick()
         compose.onNodeWithText("Search dictionary").performClick()
         waitForNode(hasText("English word or Persian meaning"))
-        compose.onNodeWithText("English word or Persian meaning").performTextInput("coffee")
+        enterDictionaryQuery("coffee")
         val result = hasText("coffee") and !hasSetTextAction()
         waitForNode(result)
         compose.onNode(result).performClick()
@@ -96,7 +97,7 @@ class PlaybackSmokeTest {
         runBlocking { database.bookmarks().remove(term) }
         try {
             compose.onNodeWithText("Dictionary").performClick()
-            compose.onNodeWithText("English word or Persian meaning").performTextInput(term)
+            enterDictionaryQuery(term)
             val result = hasText(term) and !hasSetTextAction()
             waitForNode(result)
             compose.onNode(result).performClick()
@@ -121,7 +122,7 @@ class PlaybackSmokeTest {
     @Test
     fun englishEntryShowsIpaExamplesAndNavigatesRelatedWordsOffline() {
         compose.onNodeWithText("Dictionary").performClick()
-        compose.onNodeWithText("English word or Persian meaning").performTextInput("coffee")
+        enterDictionaryQuery("coffee")
         val result = hasText("coffee") and !hasSetTextAction()
         waitForNode(result)
         compose.onNode(result).performClick()
@@ -148,9 +149,9 @@ class PlaybackSmokeTest {
     @Test
     fun dictionaryLevelFilterOpensTheSourceHeadwordProfileOffline() {
         compose.onNodeWithText("Dictionary").performClick()
-        compose.onNodeWithText("All levels").performClick()
+        compose.onNodeWithContentDescription("Filter vocabulary level").performClick()
         compose.onNodeWithText("B1").performClick()
-        compose.onNodeWithText("English word or Persian meaning").performTextInput("abandon")
+        enterDictionaryQuery("abandon")
         val result = hasText("abandon") and !hasSetTextAction()
         waitForNode(result)
         compose.onNode(result).performClick()
@@ -161,7 +162,7 @@ class PlaybackSmokeTest {
     @Test
     fun packagedDictionaryFindsEnglishWordsFromPersianMeaningsOffline() {
         compose.onNodeWithText("Dictionary").performClick()
-        compose.onNodeWithText("English word or Persian meaning").performTextInput("قهوه")
+        enterDictionaryQuery("قهوه")
         waitForNode(hasText("coffee"))
         compose.onNodeWithText("coffee").performClick()
         waitForNode(hasText("قهوه", substring = true))
@@ -179,9 +180,10 @@ class PlaybackSmokeTest {
         try {
             android.util.Log.i("DictionaryBookmarksTest", "Opening Dictionary")
             compose.onNodeWithText("Dictionary").performClick()
-            compose.onNodeWithText("English word or Persian meaning").performTextInput(term)
-            waitForNode(hasText("Show meaning for “$term”"))
-            compose.onNodeWithText("Show meaning for “$term”").performClick()
+            enterDictionaryQuery(term)
+            val result = hasText(term) and !hasSetTextAction()
+            waitForNode(result)
+            compose.onNode(result).performClick()
             android.util.Log.i("DictionaryBookmarksTest", "Saving selected word")
             waitForNode(hasText("Save word") and isEnabled())
             compose.onNodeWithText("Save word").performScrollTo().performClick()
@@ -612,6 +614,12 @@ class PlaybackSmokeTest {
             check(video.getGlobalVisibleRect(bounds)) { "The video frame is not visible" }
         }
         return bounds
+    }
+
+    private fun enterDictionaryQuery(term: String) {
+        val input = compose.onNodeWithText("English word or Persian meaning")
+        input.performTextInput(term)
+        input.performImeAction()
     }
 
     private fun waitForNode(matcher: SemanticsMatcher, present: Boolean = true) {
