@@ -290,7 +290,7 @@ internal fun DictionarySearchPanel(
                 item {
                     val saved = savedByKey[term]
                     val meaning = bookmarkMeaning
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         enabled = bookmarks != null && !saving && (saved != null || (personalReady && meaning != null)),
                         onClick = {

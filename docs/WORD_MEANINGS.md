@@ -261,10 +261,11 @@ and a definition snapshot in the user's Room database. Personal definitions
 take priority, and the saved snapshot is available if an updated offline index
 no longer contains the term or the index cannot be read.
 
-Room version 4 adds the bookmark table through a migration from version 3.
-Learning backups now use format version 2 and include bookmarks. This app also
-reads version 1 backups, which contain no bookmark section. Restoring either
-format adds entries while preserving existing entries with the same key.
+Room version 4 added bookmarks; version 5 adds personal vocabulary lists through
+an additional migration. Learning backups use format version 3 with bookmarks,
+list names and memberships. The reader also accepts versions 1 and 2. Restoration
+adds new entries while preserving existing entries with the same key. See
+[personal vocabulary lists](VOCABULARY_LISTS.md) for organization and transfer.
 
 Each page contains up to 40 terms merged from the packaged, supplemental and
 personal dictionaries. Previous and Next replace the current page. The SQL query

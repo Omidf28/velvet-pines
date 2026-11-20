@@ -72,11 +72,18 @@ internal fun VocabularyListsPanel(
                         Text("${list.wordCount} words", style = MaterialTheme.typography.bodySmall, color = PinesPalette.Muted)
                     }
                     if (word == null) {
-                        TextButton(enabled = !busy, onClick = {
-                            editKey = list.nameKey; name = list.name; error = null; editing = true
-                        }, modifier = Modifier.semantics { contentDescription = "Rename list ${list.name}" }) { Text("Rename") }
-                        TextButton(enabled = !busy, onClick = { deleting = list },
-                            modifier = Modifier.semantics { contentDescription = "Delete list ${list.name}" }) { Text("Delete") }
+                        var menu by remember { mutableStateOf(false) }
+                        Box {
+                            PlayerIconButton(PlayerGlyph.More, "List options for ${list.name}", enabled = !busy,
+                                onClick = { menu = true })
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenuItem(text = { Text("Rename") }, onClick = {
+                                    menu = false; editKey = list.nameKey; name = list.name; error = null; editing = true
+                                }, modifier = Modifier.semantics { contentDescription = "Rename list ${list.name}" })
+                                DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; deleting = list },
+                                    modifier = Modifier.semantics { contentDescription = "Delete list ${list.name}" })
+                            }
+                        }
                     }
                 }
             }
