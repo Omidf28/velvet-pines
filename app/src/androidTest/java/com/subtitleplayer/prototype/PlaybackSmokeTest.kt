@@ -216,6 +216,8 @@ class PlaybackSmokeTest {
 
     @Test
     fun sharedLinkLeavesTheCurrentVideoPausedAndClosesDictionaryOverlay() {
+        val launchIntent = Intent(compose.activity.intent)
+        try {
         openSample()
         waitForNode(hasContentDescription("Pause"))
         var originalPlayer: androidx.media3.common.Player? = null
@@ -245,6 +247,11 @@ class PlaybackSmokeTest {
         compose.activityRule.scenario.onActivity {
             assertEquals(originalItem, it.samplePlayer().currentMediaItem)
             assertEquals(1_500L, it.samplePlayer().currentPosition)
+        }
+        } finally {
+            // ActivityScenario filters lifecycle callbacks using the launch Intent. Production
+            // correctly calls setIntent for new shares; restore only test metadata before cleanup.
+            compose.activityRule.scenario.onActivity { it.intent = launchIntent }
         }
     }
 

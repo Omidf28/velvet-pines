@@ -40,14 +40,16 @@ class SharedStreamIntentTest {
             compose.onNodeWithText(edited).assertIsDisplayed()
             scenario.onActivity { activity ->
                 activity.startActivity(Intent(Intent.ACTION_SEND).setType("text/plain")
-                    .setClass(activity, MainActivity::class.java).putExtra(Intent.EXTRA_TEXT, "No URL here"))
+                    .setClass(activity, MainActivity::class.java).setPackage(context.packageName)
+                    .addCategory(Intent.CATEGORY_DEFAULT).putExtra(Intent.EXTRA_TEXT, "No URL here"))
             }
             waitForText("No supported link found. Share an HTTPS or RTSP URL.")
             compose.onNodeWithText(edited).assertIsDisplayed()
             val archive = "https://media.example/season/index.html"
             scenario.onActivity { activity ->
                 activity.startActivity(Intent(Intent.ACTION_SEND).setType("text/plain")
-                    .setClass(activity, MainActivity::class.java).putExtra(Intent.EXTRA_TEXT, archive))
+                    .setClass(activity, MainActivity::class.java).setPackage(context.packageName)
+                    .addCategory(Intent.CATEGORY_DEFAULT).putExtra(Intent.EXTRA_TEXT, archive))
             }
             waitForText(archive)
             compose.onNodeWithText(archive).assertIsDisplayed()
