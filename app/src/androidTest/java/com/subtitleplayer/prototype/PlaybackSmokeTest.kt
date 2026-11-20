@@ -9,6 +9,10 @@ import android.graphics.Rect
 import android.provider.MediaStore
 import android.view.View
 import android.view.KeyEvent
+import android.os.Build
+import android.view.inspector.WindowInspector
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.activity.compose.setContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
@@ -73,6 +77,7 @@ class PlaybackSmokeTest {
         waitForNode(result)
         compose.onNode(result).performClick()
         waitForNode(hasText("Results"))
+        waitForKeyboardDismissal()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         waitForNode(hasSetTextAction())
         compose.onNodeWithText("English word or Persian meaning").assertIsDisplayed()
@@ -760,6 +765,21 @@ class PlaybackSmokeTest {
     private fun openSample() {
         compose.onNodeWithContentDescription("Files menu").assertIsDisplayed()
         compose.onNodeWithText("Play sample").performClick()
+    }
+
+    private fun waitForKeyboardDismissal() {
+        compose.waitForIdle()
+        compose.waitUntil(15_000) {
+            var hidden = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val windows = if (Build.VERSION.SDK_INT >= 29) WindowInspector.getGlobalWindowViews()
+                    .filter { it.hasWindowFocus() } else listOf(compose.activity.window.decorView)
+                hidden = windows.isNotEmpty() && windows.all { view ->
+                    ViewCompat.getRootWindowInsets(view)?.let { !it.isVisible(WindowInsetsCompat.Type.ime()) } == true
+                }
+            }
+            hidden
+        }
     }
 
     private fun selectSampleWord() {
