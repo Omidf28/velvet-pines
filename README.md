@@ -53,6 +53,7 @@ The Android beta is available for device testing. Windows and iOS are in plannin
 - Personal dictionary import and export using TSV with preview and transactional import.
 - Vocabulary export to CSV and Anki-compatible text.
 - Versioned `.spbackup` files with SHA-256 integrity verification and transactional restoration of learning data.
+- Personal dictionary lists with multiple memberships, offline browsing, renaming, and backup transfer. See [vocabulary lists](docs/VOCABULARY_LISTS.md).
 - Backups preserve vocabulary and review progress; media files, file permissions, and application preferences are excluded.
 
 ## Technology Stack

@@ -36,10 +36,11 @@ class ReviewMigrationTest(unittest.TestCase):
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
         self.addCleanup(self.db.close)
+        self.db.execute("PRAGMA foreign_keys=ON")
         self.db.execute(V1_SCHEMA)
         self.db.execute(V1_INDEX)
         self.db.execute(f"INSERT INTO saved_words ({COLUMNS}) VALUES ({','.join('?' * 10)})", OLD_WORD)
-        self.assertEqual(5, len(MIGRATIONS))
+        self.assertEqual(8, len(MIGRATIONS))
         for sql in MIGRATIONS:
             self.db.execute(sql)
 
@@ -76,6 +77,30 @@ class ReviewMigrationTest(unittest.TestCase):
         self.assertEqual([("forest", "forest", "جنگل")], self.db.execute("SELECT * FROM dictionary_bookmarks").fetchall())
         self.assertEqual("شخصی", self.db.execute("SELECT meaning FROM personal_dictionary").fetchone()[0])
         self.assertEqual(OLD_WORD, self.db.execute(f"SELECT {COLUMNS} FROM saved_words").fetchone())
+
+    def test_list_migration_rename_and_removal_preserve_words(self):
+        self.db.execute("INSERT INTO dictionary_bookmarks VALUES ('coffee', 'coffee', 'قهوه')")
+        self.db.execute("INSERT INTO vocabulary_lists VALUES ('ielts', 'IELTS')")
+        self.db.execute("INSERT INTO vocabulary_lists VALUES ('work', 'Work')")
+        self.db.execute("INSERT INTO vocabulary_list_words VALUES ('ielts', 'coffee')")
+        self.db.execute("INSERT INTO vocabulary_list_words VALUES ('work', 'coffee')")
+        self.db.execute("UPDATE vocabulary_lists SET nameKey='exam', name='Exam' WHERE nameKey='ielts'")
+        self.assertEqual([('exam', 'coffee'), ('work', 'coffee')],
+                         self.db.execute("SELECT * FROM vocabulary_list_words ORDER BY listKey").fetchall())
+        self.db.execute("DELETE FROM vocabulary_lists WHERE nameKey='exam'")
+        self.assertEqual([('work', 'coffee')], self.db.execute("SELECT * FROM vocabulary_list_words").fetchall())
+        self.assertEqual(1, self.db.execute("SELECT count(*) FROM dictionary_bookmarks").fetchone()[0])
+        self.db.execute(DELETE_BOOKMARK, {'key': 'coffee'})
+        self.assertEqual([], self.db.execute("SELECT * FROM vocabulary_list_words").fetchall())
+        self.assertEqual([('work', 'Work')], self.db.execute("SELECT * FROM vocabulary_lists").fetchall())
+
+    def test_list_assignments_cannot_reference_missing_words_or_lists(self):
+        self.db.execute("INSERT INTO vocabulary_lists VALUES ('ielts', 'IELTS')")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("INSERT INTO vocabulary_list_words VALUES ('ielts', 'missing')")
+        self.db.execute("INSERT INTO dictionary_bookmarks VALUES ('coffee', 'coffee', 'قهوه')")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("INSERT INTO vocabulary_list_words VALUES ('missing', 'coffee')")
 
     def test_review_persists_and_becomes_due_at_exact_boundary(self):
         args = dict(id=1, expectedCount=0, level=1, dueAt=86400000)
@@ -209,12 +234,12 @@ class ReviewMigrationTest(unittest.TestCase):
     def test_migrated_schema_matches_room_generated_schema(self):
         if ROOM_SCHEMA is None:
             self.skipTest("pass --room-schema to compare Room's generated schema")
-        creates = re.findall(r'connection.execSQL\("(CREATE (?:TABLE|UNIQUE INDEX)[^"]+)"\)', ROOM_SCHEMA.read_text(encoding="utf-8-sig"))
+        creates = re.findall(r'connection.execSQL\("(CREATE (?:TABLE|(?:UNIQUE )?INDEX)[^"]+)"\)', ROOM_SCHEMA.read_text(encoding="utf-8-sig"))
         fresh = sqlite3.connect(":memory:")
         self.addCleanup(fresh.close)
         for sql in creates:
             fresh.execute(sql)
-        for table in ("saved_words", "personal_dictionary", "dictionary_bookmarks"):
+        for table in ("saved_words", "personal_dictionary", "dictionary_bookmarks", "vocabulary_lists", "vocabulary_list_words"):
             self.assertEqual(
                 fresh.execute(f"PRAGMA table_info({table})").fetchall(),
                 self.db.execute(f"PRAGMA table_info({table})").fetchall(),
@@ -222,6 +247,10 @@ class ReviewMigrationTest(unittest.TestCase):
             self.assertEqual(
                 fresh.execute(f"PRAGMA index_list({table})").fetchall(),
                 self.db.execute(f"PRAGMA index_list({table})").fetchall(),
+            )
+            self.assertEqual(
+                sorted(fresh.execute(f"PRAGMA foreign_key_list({table})").fetchall()),
+                sorted(self.db.execute(f"PRAGMA foreign_key_list({table})").fetchall()),
             )
 
 

@@ -6,9 +6,48 @@ import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LearningBackupRestoreTest {
+    @Test
+    fun listsSupportMultipleMembershipsRenameAndLosslessBackup() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val source = Room.inMemoryDatabaseBuilder(context, SavedWordsDatabase::class.java).build()
+        val destination = Room.inMemoryDatabaseBuilder(context, SavedWordsDatabase::class.java).build()
+        try {
+            val dao = source.bookmarks()
+            val word = DictionaryBookmark("coffee", "coffee", "قهوه")
+            assertFalse(dao.setListWord(word, "missing", true))
+            assertTrue(source.backup().allBookmarks().isEmpty())
+            assertEquals(VocabularyListWriteResult.Updated, dao.createList(" IELTS  Writing ", word))
+            assertEquals(VocabularyListWriteResult.NameTaken, dao.createList("ielts writing"))
+            assertEquals(VocabularyListWriteResult.Updated, dao.createList("Work"))
+            assertTrue(dao.setListWord(word, "work", true))
+            assertTrue(dao.setListWord(word, "work", true))
+            assertEquals(2, source.backup().allListWords().size)
+            assertEquals(VocabularyListWriteResult.NameTaken, dao.renameList("work", "IELTS Writing"))
+            assertEquals(VocabularyListWriteResult.Updated, dao.renameList("ielts writing", "Exam"))
+            assertEquals(setOf("exam", "work"), source.backup().allListWords().map { it.listKey }.toSet())
+            val snapshot = source.backup().snapshot()
+            val bytes = java.io.ByteArrayOutputStream().also { writeLearningBackup(snapshot, it) }.toByteArray()
+            val backup = parseLearningBackup(bytes)
+            assertEquals(LearningRestoreResult(0, 0, 1, 2, 2), destination.backup().restore(backup))
+            assertEquals(snapshot, destination.backup().snapshot())
+            assertEquals(LearningRestoreResult(0, 0), destination.backup().restore(backup))
+            assertTrue(dao.setListWord(word, "work", false))
+            assertEquals(1, source.backup().allListWords().size)
+            assertEquals(listOf(word), source.backup().allBookmarks())
+            dao.deleteList("exam")
+            assertTrue(source.backup().allListWords().isEmpty())
+            assertEquals(listOf(word), source.backup().allBookmarks())
+            destination.bookmarks().remove("coffee")
+            assertTrue(destination.backup().allListWords().isEmpty())
+            assertEquals(2, destination.backup().allLists().size)
+        } finally { destination.close(); source.close() }
+    }
+
     @Test
     fun backupRestoresReviewProgressAndKeepsExistingEdits() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()

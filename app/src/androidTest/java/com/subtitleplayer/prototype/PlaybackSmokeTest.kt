@@ -35,6 +35,7 @@ import androidx.compose.ui.test.performFirstLinkClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.media3.ui.PlayerView
@@ -209,6 +210,69 @@ class PlaybackSmokeTest {
             runBlocking {
                 database.bookmarks().remove(term)
                 database.dictionary().remove(term)
+            }
+        }
+    }
+
+    @Test
+    fun dictionaryListsCanBeCreatedOpenedRenamedAndDeleted() {
+        val database = SavedWordsDatabase.get(compose.activity)
+        val term = "zlisttest"
+        val original = "Test vocabulary"
+        val renamed = "Exam vocabulary"
+        runBlocking {
+            database.dictionary().put(PersonalDictionaryEntry(term, term, "معنی آزمایشی"))
+            database.bookmarks().remove(term)
+            database.bookmarks().deleteList(vocabularyListKey(original))
+            database.bookmarks().deleteList(vocabularyListKey(renamed))
+        }
+        try {
+            compose.onNodeWithText("Dictionary").performClick()
+            enterDictionaryQuery(term)
+            val result = hasText(term) and !hasSetTextAction()
+            waitForNode(result)
+            compose.onNode(result).performClick()
+            waitForNode(hasText("Lists") and isEnabled())
+            compose.onNodeWithText("Lists").performScrollTo().performClick()
+            compose.onNodeWithText("New list").performClick()
+            compose.onNodeWithText("List name").performTextInput(original)
+            compose.onNodeWithText("List name").performImeAction()
+            compose.onNodeWithText("Create").performClick()
+            waitForNode(hasContentDescription("Include in $original"))
+            compose.onNodeWithContentDescription("Include in $original").assertIsDisplayed()
+            assertEquals(listOf(VocabularyListWord(vocabularyListKey(original), term)), runBlocking { database.backup().allListWords() })
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            waitForNode(hasText("Results"))
+            compose.onNodeWithText("Results").performClick()
+            compose.onNodeWithText("Clear").performClick()
+            compose.onNodeWithText("Saved words").performClick()
+            compose.onNodeWithText("Saved words").performClick()
+            compose.onNodeWithText("Manage lists").performClick()
+            waitForNode(hasText(original))
+            compose.onNodeWithText(original).performClick()
+            waitForNode(hasText(term))
+            compose.activityRule.scenario.recreate()
+            waitForNode(hasText(original))
+            waitForNode(hasText(term))
+            compose.onNodeWithText("Saved words").performClick()
+            compose.onNodeWithText("Manage lists").performClick()
+            compose.onNodeWithContentDescription("Rename list $original").performClick()
+            compose.onNodeWithText("List name").performTextClearance()
+            compose.onNodeWithText("List name").performTextInput(renamed)
+            compose.onNodeWithText("List name").performImeAction()
+            compose.onNodeWithText("Save").performClick()
+            waitForNode(hasContentDescription("Delete list $renamed"))
+            compose.onNodeWithContentDescription("Delete list $renamed").performClick()
+            compose.onNodeWithText("Delete list").performClick()
+            waitForNode(hasText("No lists yet. Create one to get started."))
+            assertEquals(listOf(term), runBlocking { database.backup().allBookmarks().map { it.wordKey }.filter { it == term } })
+            assertTrue(runBlocking { database.backup().allListWords().none { it.wordKey == term } })
+        } finally {
+            runBlocking {
+                database.bookmarks().remove(term)
+                database.dictionary().remove(term)
+                database.bookmarks().deleteList(vocabularyListKey(original))
+                database.bookmarks().deleteList(vocabularyListKey(renamed))
             }
         }
     }

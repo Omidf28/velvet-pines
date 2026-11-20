@@ -10,7 +10,9 @@ class LearningBackupTest {
     private val word = SavedWord("went", "went", "go", "رفتن", "We went home.", 2500, 2000,
         "asset:///demo.mp4", "نمونه", id = 99, reviewLevel = 4, reviewDueAt = 123456, reviewCount = 7)
     private val backup = LearningBackup(listOf(word), listOf(PersonalDictionaryEntry("hello", "hello", "سلام\nمثال")),
-        listOf(DictionaryBookmark("coffee", "coffee", "قهوه")))
+        listOf(DictionaryBookmark("coffee", "coffee", "قهوه")),
+        listOf(VocabularyList("ielts writing", "IELTS Writing")),
+        listOf(VocabularyListWord("ielts writing", "coffee")))
     private fun bytes(value: LearningBackup = backup) =
         ByteArrayOutputStream().also { writeLearningBackup(value, it) }.toByteArray()
 
@@ -19,6 +21,8 @@ class LearningBackupTest {
         assertEquals(backup.words.map { it.copy(id = 0) }, result.words)
         assertEquals(backup.dictionary, result.dictionary)
         assertEquals(backup.bookmarks, result.bookmarks)
+        assertEquals(backup.lists, result.lists)
+        assertEquals(backup.listWords, result.listWords)
     }
     @Test fun emptyBackupCanBeUsedOnANewInstallation() {
         val empty = LearningBackup(emptyList(), emptyList())
@@ -57,14 +61,33 @@ class LearningBackupTest {
         }
     }
     @Test fun restoresVersionOneBackupsWithNoBookmarks() {
-        val encoded = bytes(backup.copy(bookmarks = emptyList()))
+        val encoded = bytes(backup.copy(bookmarks = emptyList(), lists = emptyList(), listWords = emptyList()))
         // Version one ended immediately after personal definitions.
-        val body = encoded.copyOf(encoded.size - 32 - 4).also { it[7] = 1 }
+        val body = encoded.copyOf(encoded.size - 32 - 12).also { it[7] = 1 }
         val legacy = body + MessageDigest.getInstance("SHA-256").digest(body)
         val result = parseLearningBackup(legacy)
         assertEquals(backup.words.map { it.copy(id = 0) }, result.words)
         assertEquals(backup.dictionary, result.dictionary)
         assertTrue(result.bookmarks.isEmpty())
+        assertTrue(result.lists.isEmpty())
+    }
+    @Test fun restoresVersionTwoBackupsWithNoLists() {
+        val encoded = bytes(backup.copy(lists = emptyList(), listWords = emptyList()))
+        val body = encoded.copyOf(encoded.size - 32 - 8).also { it[7] = 2 }
+        val result = parseLearningBackup(body + MessageDigest.getInstance("SHA-256").digest(body))
+        assertEquals(backup.bookmarks, result.bookmarks)
+        assertTrue(result.lists.isEmpty())
+        assertTrue(result.listWords.isEmpty())
+    }
+    @Test fun rejectsOrphanDuplicateAndMalformedLists() {
+        for (invalid in listOf(
+            backup.copy(lists = backup.lists + backup.lists),
+            backup.copy(lists = listOf(VocabularyList("ielts writing", " IELTS Writing "))),
+            backup.copy(lists = listOf(VocabularyList("wrong", "IELTS Writing"))),
+            backup.copy(listWords = backup.listWords + backup.listWords),
+            backup.copy(listWords = listOf(VocabularyListWord("missing", "coffee"))),
+            backup.copy(listWords = listOf(VocabularyListWord("ielts writing", "missing")))
+        )) assertThrows(IOException::class.java) { bytes(invalid) }
     }
     @Test fun rejectsInvalidBookmarkKeysAndDefinitionsBeforeRestore() {
         for (invalid in listOf(
@@ -72,7 +95,7 @@ class LearningBackupTest {
             DictionaryBookmark("coffee", "", "قهوه"),
             DictionaryBookmark("coffee", "coffee", "")
         )) {
-            assertThrows(IOException::class.java) { parseLearningBackup(bytes(backup.copy(bookmarks = listOf(invalid)))) }
+            assertThrows(IOException::class.java) { parseLearningBackup(bytes(backup.copy(bookmarks = listOf(invalid), listWords = emptyList()))) }
         }
     }
 }

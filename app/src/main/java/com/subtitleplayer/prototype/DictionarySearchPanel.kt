@@ -49,6 +49,21 @@ internal fun DictionarySearchPanel(
     var editing by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var savedOnly by rememberSaveable { mutableStateOf(false) }
+    var selectedListKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSavedMenu by remember { mutableStateOf(false) }
+    var manageLists by rememberSaveable { mutableStateOf(false) }
+    var wordLists by rememberSaveable { mutableStateOf(false) }
+    val lists by remember(bookmarksDao) { bookmarksDao.observeLists() }.collectAsState(initial = null)
+    var listWords by remember(savedOnly, selectedListKey) { mutableStateOf<List<String>?>(null) }
+    LaunchedEffect(savedOnly, selectedListKey) {
+        val key = selectedListKey
+        if (savedOnly && key != null) bookmarksDao.observeListWords(key).collect { listWords = it }
+    }
+    LaunchedEffect(lists, selectedListKey) {
+        val key = selectedListKey
+        if (key != null && lists != null && lists!!.none { it.nameKey == key } && bookmarksDao.findList(key) == null)
+            selectedListKey = null
+    }
     var levelName by rememberSaveable { mutableStateOf<String?>(null) }
     val level = DictionaryLevel.entries.firstOrNull { it.name == levelName }
     var showLevelMenu by remember { mutableStateOf(false) }
@@ -62,11 +77,11 @@ internal fun DictionarySearchPanel(
     val validQuery = prefix != null || persianTokens != null
     val exactKey = remember(query) { normalizeDictionaryTerm(query) }
     val browsing = query.isBlank()
-    var pageStarts by rememberSaveable(query, savedOnly, level) { mutableStateOf(listOf("")) }
+    var pageStarts by rememberSaveable(query, savedOnly, selectedListKey, level) { mutableStateOf(listOf("")) }
     val after = pageStarts.last()
-    var results by remember(query, after, personal, bookmarks, savedOnly, level, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
-    var searching by remember(query, after, personal, bookmarks, savedOnly, level, retry) { mutableStateOf(browsing || validQuery) }
-    var failed by remember(query, after, personal, bookmarks, savedOnly, level, retry) { mutableStateOf(false) }
+    var results by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
+    var searching by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) { mutableStateOf(browsing || validQuery) }
+    var failed by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) { mutableStateOf(false) }
     var detail by remember(selected, personal, bookmarks, retry) { mutableStateOf<DictionaryResult?>(null) }
     var detailFailed by remember(selected, personal, bookmarks, retry) { mutableStateOf(false) }
     var profiles by remember(selected, retry) { mutableStateOf<List<LearnerProfile>>(emptyList()) }
@@ -74,16 +89,29 @@ internal fun DictionarySearchPanel(
     var englishEntries by remember(selected, retry) { mutableStateOf<List<EnglishLexicalEntry>>(emptyList()) }
     var englishLoading by remember(selected, retry) { mutableStateOf(selected != null) }
     var englishFailed by remember(selected, retry) { mutableStateOf(false) }
+    val englishDefinition = englishEntries.asSequence().flatMap { it.senses.asSequence() }
+        .flatMap { it.definitions.asSequence() }.mapNotNull(::validPersonalMeaning).firstOrNull()
+    val bookmarkMeaning = detail?.meaning ?: englishDefinition?.takeIf { detail != null || detailFailed }
+        ?.let { WordMeaning(selected.orEmpty(), it) }
+    val listBookmark = selected?.let { term -> savedByKey[term] ?: bookmarkMeaning?.let {
+        DictionaryBookmark(term, it.headword, it.persian.trim())
+    } }
     val screenKeyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
-    LaunchedEffect(query, after, personal, bookmarks, savedOnly, level, retry) {
+    LaunchedEffect(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) {
         if (!browsing && !validQuery) return@LaunchedEffect
         if (savedOnly && bookmarks == null) return@LaunchedEffect
+        if (savedOnly && selectedListKey != null && listWords == null) return@LaunchedEffect
         if (!browsing) delay(200)
         try {
             results = withContext(Dispatchers.IO) {
                 val eligible = level?.let { dictionary.levelTerms(it) }
-                if (savedOnly) searchDictionaryBookmarks(bookmarks.orEmpty(), query, after, personal,
+                if (savedOnly) searchDictionaryBookmarks(bookmarks.orEmpty().let { entries ->
+                    if (selectedListKey == null) entries else {
+                        val members = listWords.orEmpty().toSet()
+                        entries.filter { it.wordKey in members }
+                    }
+                }, query, after, personal,
                     allowed = eligible)
                 else englishDictionary.completeExactSearch(dictionary.search(query, personal, after, level), query, eligible)
             }
@@ -134,7 +162,7 @@ internal fun DictionarySearchPanel(
             selected?.let { entryHistory = entryHistory + it }
             selected = key
         }
-        BackHandler(enabled = selected != null && !editing) {
+        BackHandler(enabled = selected != null && !editing && !manageLists && !wordLists) {
             keyboard?.hide()
             speech.stop()
             selected = entryHistory.lastOrNull()
@@ -142,9 +170,20 @@ internal fun DictionarySearchPanel(
         }
         val term = selected
         if (term == null) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(selected = !savedOnly, onClick = { savedOnly = false }, label = { Text("All words") })
-                FilterChip(selected = savedOnly, onClick = { savedOnly = true }, label = { Text("Saved words") })
+                Box {
+                    FilterChip(selected = savedOnly, onClick = {
+                        if (savedOnly) showSavedMenu = true else savedOnly = true
+                    }, label = { Text("Saved words") })
+                    DropdownMenu(expanded = showSavedMenu, onDismissRequest = { showSavedMenu = false }) {
+                        DropdownMenuItem(text = { Text("All saved words") }, onClick = { selectedListKey = null; showSavedMenu = false })
+                        for (list in lists.orEmpty()) DropdownMenuItem(text = { Text("${list.name} (${list.wordCount})") },
+                            onClick = { selectedListKey = list.nameKey; showSavedMenu = false })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Manage lists") }, onClick = { showSavedMenu = false; manageLists = true })
+                    }
+                }
                 Box {
                     TextButton(onClick = { showLevelMenu = true }, modifier = Modifier.semantics {
                         contentDescription = "Filter vocabulary level"
@@ -173,12 +212,16 @@ internal fun DictionarySearchPanel(
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item(key = "status") {
+                    if (savedOnly) Text(selectedListKey?.let { key -> lists.orEmpty().find { it.nameKey == key }?.name }
+                        ?: "All saved words · Tap Saved words for lists",
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = PinesPalette.Accent, style = MaterialTheme.typography.labelMedium)
                     Text(when {
                         !browsing && !validQuery -> "Use English or Persian letters. Up to 8 words and 80 characters."
                         searching -> "Searching…"
                         failed -> "Could not read the dictionary. Check available storage and try again."
                         level != null && results.entries.isEmpty() -> "No matches at this level. Try another level or clear the search."
-                        savedOnly && results.entries.isEmpty() -> "No saved words match. Open a word and choose Save word."
+                        savedOnly && results.entries.isEmpty() -> "No saved words match. Open a word to save it or add it to a list."
                         browsing && results.entries.isEmpty() -> "No more entries."
                         browsing -> "Page ${pageStarts.size} · Tap a word to see its meaning."
                         results.entries.isEmpty() -> "No matches for this search. You can add a personal definition."
@@ -246,12 +289,8 @@ internal fun DictionarySearchPanel(
                 }
                 item {
                     val saved = savedByKey[term]
-                    val englishDefinition = englishEntries.asSequence()
-                        .flatMap { it.senses.asSequence() }
-                        .flatMap { it.definitions.asSequence() }
-                        .mapNotNull(::validPersonalMeaning).firstOrNull()
-                    val meaning = detail?.meaning ?: englishDefinition?.takeIf { detail != null || detailFailed }
-                        ?.let { WordMeaning(term, it) }
+                    val meaning = bookmarkMeaning
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(
                         enabled = bookmarks != null && !saving && (saved != null || (personalReady && meaning != null)),
                         onClick = {
@@ -269,6 +308,9 @@ internal fun DictionarySearchPanel(
                             }
                         }
                     ) { Text(if (saved != null) "Remove from saved" else "Save word") }
+                    TextButton(enabled = bookmarks != null && !saving && listBookmark != null && (saved != null || personalReady),
+                        onClick = { wordLists = true }) { Text("Lists") }
+                    }
                     if (saveErrorTerm == term) Text("Could not update saved words. Try again.",
                         color = MaterialTheme.colorScheme.error)
                     PronunciationControls(speech, term, contentColor = PinesPalette.Accent, beforeSpeak = beforeSpeak)
@@ -313,4 +355,9 @@ internal fun DictionarySearchPanel(
             }
         }
     }
+    if (manageLists) VocabularyListsPanel(bookmarksDao, null, onDismiss = { manageLists = false },
+        onOpen = { key -> selectedListKey = key; savedOnly = true; query = ""; manageLists = false },
+        onRenamed = { oldKey, newKey -> if (selectedListKey == oldKey) selectedListKey = newKey })
+    if (wordLists && listBookmark != null) VocabularyListsPanel(bookmarksDao, listBookmark,
+        onDismiss = { wordLists = false }, onOpen = {}, onRenamed = { _, _ -> })
 }

@@ -8,11 +8,23 @@ import java.security.DigestOutputStream
 internal data class LearningBackup(
     val words: List<SavedWord>,
     val dictionary: List<PersonalDictionaryEntry>,
-    val bookmarks: List<DictionaryBookmark> = emptyList()
+    val bookmarks: List<DictionaryBookmark> = emptyList(),
+    val lists: List<VocabularyList> = emptyList(),
+    val listWords: List<VocabularyListWord> = emptyList()
 )
 internal const val learningBackupLimit = 32 * 1024 * 1024
 private const val backupMagic = 0x53504c42
-private const val backupVersion = 2
+private const val backupVersion = 3
+
+private fun validateBackupLists(backup: LearningBackup) {
+    val keys = backup.lists.map { it.nameKey }.toSet()
+    val words = backup.bookmarks.map { it.wordKey }.toSet()
+    if (keys.size != backup.lists.size || backup.lists.any {
+        validVocabularyListName(it.name) != it.name || vocabularyListKey(it.name) != it.nameKey
+    } || backup.listWords.toSet().size != backup.listWords.size || backup.listWords.any {
+        it.listKey !in keys || it.wordKey !in words
+    }) throw IOException("Invalid vocabulary lists")
+}
 
 private class LimitedBackupOutput(private val target: OutputStream) : OutputStream() {
     private var remaining = learningBackupLimit
@@ -43,8 +55,10 @@ private fun DataInputStream.count(): Int = readInt().also {
 }
 
 internal fun writeLearningBackup(backup: LearningBackup, output: OutputStream) {
-    if (backup.words.size > 20000 || backup.dictionary.size > 20000 || backup.bookmarks.size > 20000)
+    if (listOf(backup.words.size, backup.dictionary.size, backup.bookmarks.size,
+            backup.lists.size, backup.listWords.size).any { it > 20000 })
         throw IOException("Too many records")
+    validateBackupLists(backup)
     val limited = LimitedBackupOutput(output)
     val digest = MessageDigest.getInstance("SHA-256")
     val data = DataOutputStream(DigestOutputStream(limited, digest))
@@ -59,6 +73,10 @@ internal fun writeLearningBackup(backup: LearningBackup, output: OutputStream) {
     backup.dictionary.forEach { data.text(it.wordKey); data.text(it.headword); data.text(it.meaning) }
     data.writeInt(backup.bookmarks.size)
     backup.bookmarks.forEach { data.text(it.wordKey); data.text(it.headword); data.text(it.meaning) }
+    data.writeInt(backup.lists.size)
+    backup.lists.forEach { data.text(it.nameKey); data.text(it.name) }
+    data.writeInt(backup.listWords.size)
+    backup.listWords.forEach { data.text(it.listKey); data.text(it.wordKey) }
     data.flush()
     limited.write(digest.digest())
 }
@@ -95,6 +113,8 @@ internal fun parseLearningBackup(bytes: ByteArray): LearningBackup {
             validPersonalMeaning(meaning) != meaning) throw IOException("Invalid dictionary bookmark")
         DictionaryBookmark(key, headword, meaning)
     } else emptyList()
+    val lists = if (version >= 3) List(data.count()) { VocabularyList(data.text(), data.text()) } else emptyList()
+    val listWords = if (version >= 3) List(data.count()) { VocabularyListWord(data.text(), data.text()) } else emptyList()
     if (data.available() != 0) throw IOException("Unexpected trailing data")
-    return LearningBackup(words, dictionary, bookmarks)
+    return LearningBackup(words, dictionary, bookmarks, lists, listWords).also(::validateBackupLists)
 }

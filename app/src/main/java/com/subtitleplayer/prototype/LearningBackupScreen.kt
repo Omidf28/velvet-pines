@@ -39,7 +39,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
                         val stream = context.contentResolver.openOutputStream(uri, "wt") ?: throw IOException("Unavailable output")
                         stream.use { writeLearningBackup(snapshot, it) }
                     }
-                    message = "Backed up ${snapshot.words.size} cards, ${snapshot.dictionary.size} personal definitions and ${snapshot.bookmarks.size} saved dictionary words."
+                    message = "Backed up ${snapshot.words.size} cards, ${snapshot.dictionary.size} personal definitions, ${snapshot.bookmarks.size} saved dictionary words, ${snapshot.lists.size} lists and ${snapshot.listWords.size} list entries."
                 } catch (_: IOException) { fail() }
                 catch (_: SecurityException) { fail() }
                 catch (_: SQLiteException) { fail() }
@@ -60,7 +60,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
                     parseLearningBackup(bytes)
                 }
                 if (restore) pending = backup
-                else message = "Backup verified: ${backup.words.size} cards, ${backup.dictionary.size} personal definitions and ${backup.bookmarks.size} saved dictionary words."
+                else message = "Backup verified: ${backup.words.size} cards, ${backup.dictionary.size} personal definitions, ${backup.bookmarks.size} saved dictionary words, ${backup.lists.size} lists and ${backup.listWords.size} list entries."
             } catch (_: IOException) {
                 message = "Could not verify this backup. Select a complete .spbackup file and check storage access."
             } catch (_: SecurityException) {
@@ -76,7 +76,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { if (!busy) pending = null },
             title = { Text("Restore learning data") },
-            text = { Text("The backup contains ${backup.words.size} cards, ${backup.dictionary.size} personal definitions and ${backup.bookmarks.size} saved dictionary words. New entries will be added. Existing entries are kept when there is a duplicate.") },
+            text = { Text("The backup contains ${backup.words.size} cards, ${backup.dictionary.size} personal definitions, ${backup.bookmarks.size} saved dictionary words, ${backup.lists.size} lists and ${backup.listWords.size} list entries. New entries will be added. Existing entries are kept when there is a duplicate.") },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = {
                     busy = true
@@ -84,7 +84,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
                         try {
                             val added = dao.restore(backup)
                             pending = null
-                            message = "Restored ${added.cards} cards, ${added.personalDefinitions} personal definitions and ${added.bookmarks} saved dictionary words. Existing duplicates were kept."
+                            message = "Restored ${added.cards} cards, ${added.personalDefinitions} personal definitions, ${added.bookmarks} saved dictionary words, ${added.lists} lists and ${added.listEntries} list entries. Existing duplicates were kept."
                         } catch (_: SQLiteException) { fail() }
                         finally { busy = false }
                     }
@@ -99,7 +99,7 @@ internal fun LearningBackupScreen(dao: LearningBackupDao, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Learning backup", style = MaterialTheme.typography.titleLarge)
-            Text("The backup includes flashcards, personal definitions, saved dictionary words, dialogue, source names, and review progress in an unencrypted file.")
+            Text("The backup includes flashcards, personal definitions, saved dictionary words, vocabulary lists, dialogue, source names, and review progress in an unencrypted file.")
             Text("Videos, audio, file permissions, and player settings are excluded. Stream URLs and network passwords are not saved by the app.")
             Button(enabled = !busy && pending == null, onClick = {
                 try { export.launch("velvet-pines-learning.spbackup") }
