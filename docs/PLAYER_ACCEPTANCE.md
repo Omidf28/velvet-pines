@@ -2,7 +2,19 @@
 
 Status: physical-device acceptance is pending. The Android 15 emulator smoke tests cover subtitle-word selection and saving, landscape control taps, timed definitions, URL validation, and Streams navigation and season search with HTML fixtures. See the [beta.6 emulator run](https://github.com/Omidf28/velvet-pines/actions/runs/42636514598).
 
-## Beta 0.7.0-beta.11 Quick Check
+## Beta 0.7.0-beta.12 Quick Check
+
+The beta.12 checkpoint adds the expanded offline dictionaries, CEFR filters,
+English definitions and related entries, personal vocabulary lists, source-derived
+topics, and Share-to-Streams. Install over the previous signed beta and prioritize:
+
+1. Check that existing flashcards, review progress, personal definitions and favorite folders survive the upgrade. Create and verify a learning backup before testing.
+2. In airplane mode, open Dictionary and search in English and Persian. Open coffee, check English details and pronunciation with an installed voice, follow a related word and press Back.
+3. Choose a B1–C2 level, browse a topic from All words, save a word to multiple personal lists, rename a list, restart the app and check it under Saved words.
+4. Share a video or archive link from the browser. Edit the address and rotate the phone. Choose Play URL or Load index yourself. Repeat during a paused movie and return to the same position using Return to video.
+5. Export a backup containing personal lists, verify its counts, and restore in a separate test installation. Confirm that repeat restore preserves existing entries.
+
+### Playback and library regression checks
 
 1. Install the APK over beta.10. Verify that saved words, review progress, and favorite folders are still available. Launch from the app icon and confirm it opens Files.
 2. In Files, open a nested folder and play a video. In portrait, press Android Back and confirm the same folder and scroll position return. Switch between Folders and Recent and verify each retains its place.

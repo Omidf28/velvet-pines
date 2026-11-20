@@ -8,7 +8,7 @@ The application uses Kotlin, Jetpack Compose, AndroidX Media3, and Room. The Eng
 
 ## Project Status
 
-**Current version:** `0.7.0-beta.11` · **Platform:** Android 8.0 / API 26 and later
+**Current version:** `0.7.0-beta.12` · **Platform:** Android 8.0 / API 26 and later
 
 The Android beta is available for device testing. Windows and iOS are in planning for public distribution.
 
