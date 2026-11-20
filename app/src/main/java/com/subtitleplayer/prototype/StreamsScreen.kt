@@ -51,6 +51,8 @@ internal class StreamsBrowseState {
     )
 
     var address by mutableStateOf("")
+    var inputRevision by mutableIntStateOf(0)
+        private set
     var query by mutableStateOf("")
     private var notice by mutableStateOf<Notice?>(null)
     var message: String?
@@ -110,6 +112,19 @@ internal class StreamsBrowseState {
 
     fun reportUnavailable(text: String, request: StreamIndexRequest) {
         notice = Notice(text, failedRequest = request)
+    }
+
+    fun acceptSharedInput(input: SharedStreamInput) {
+        pages = emptyList()
+        resetList()
+        when (input) {
+            is SharedStreamInput.Ready -> {
+                address = input.url
+                message = "Shared link ready. Choose Play URL for a video or Load index for an archive."
+            }
+            is SharedStreamInput.Invalid -> message = input.message
+        }
+        inputRevision++
     }
 
     fun addCatalog(url: String, entries: List<StreamIndexEntry>) {
@@ -191,6 +206,11 @@ internal fun StreamsScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     var loading by remember { mutableStateOf(false) }
     var request by remember { mutableStateOf<Job?>(null) }
+    LaunchedEffect(state.inputRevision) {
+        request?.cancel()
+        request = null
+        loading = false
+    }
     val page = state.currentPage
     val sourceEntries = state.entries
     val archiveSaved = savedSources.any(::isDonyayeSerialArchive)
@@ -222,6 +242,7 @@ internal fun StreamsScreen(
             return
         }
         loading = true
+        val revision = state.inputRevision
         state.message = null
         request = scope.launch {
             try {
@@ -231,15 +252,18 @@ internal fun StreamsScreen(
                             readDonyayeSerialCatalog(url, context.cacheDir, indexRequest.refresh)
                         }
                     }
+                    if (revision != state.inputRevision) return@launch
                     state.openArchive(archive)
                     if (!archiveSaved && savedSources.size < 10) {
                         updateSources(savedSources + url)
                     }
                 } else if (scan) {
                     val catalog = withContext(Dispatchers.IO) { withTimeout(45_000) { scanStreamCatalog(url) } }
+                    if (revision != state.inputRevision) return@launch
                     state.addScan(url.toString(), catalog)
                 } else {
                     val found = withContext(Dispatchers.IO) { readStreamIndex(url, directory = child?.directory == true) }
+                    if (revision != state.inputRevision) return@launch
                     when {
                         found.isEmpty() -> state.message = "This index has no video or catalog links."
                         child == null -> state.addCatalog(url.toString(), found)
@@ -247,18 +271,18 @@ internal fun StreamsScreen(
                     }
                 }
             } catch (_: TimeoutCancellationException) {
-                state.reportUnavailable("The archive request timed out.", indexRequest)
+                if (revision == state.inputRevision) state.reportUnavailable("The archive request timed out.", indexRequest)
             } catch (error: StreamIndexHttpException) {
                 val message = if (isDonyayeSerialArchive(url) && error.status == 503) {
                     "Donyaye Serial returned HTTP 503. Try an Iranian connection with VPN off."
                 } else "Index server returned HTTP ${error.status}."
-                state.reportUnavailable(message, indexRequest)
+                if (revision == state.inputRevision) state.reportUnavailable(message, indexRequest)
             } catch (_: IOException) {
-                state.reportUnavailable("Could not load this index. Check the URL or your connection.", indexRequest)
+                if (revision == state.inputRevision) state.reportUnavailable("Could not load this index. Check the URL or your connection.", indexRequest)
             } catch (_: SecurityException) {
-                state.reportUnavailable("Access to this index was denied.", indexRequest)
+                if (revision == state.inputRevision) state.reportUnavailable("Access to this index was denied.", indexRequest)
             } finally {
-                loading = false
+                if (revision == state.inputRevision) loading = false
             }
         }
     }

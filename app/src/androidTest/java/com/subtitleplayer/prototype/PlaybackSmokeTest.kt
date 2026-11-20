@@ -215,6 +215,40 @@ class PlaybackSmokeTest {
     }
 
     @Test
+    fun sharedLinkLeavesTheCurrentVideoPausedAndClosesDictionaryOverlay() {
+        openSample()
+        waitForNode(hasContentDescription("Pause"))
+        var originalPlayer: androidx.media3.common.Player? = null
+        var originalItem: androidx.media3.common.MediaItem? = null
+        compose.activityRule.scenario.onActivity {
+            originalPlayer = it.samplePlayer().apply { pause(); seekTo(1_500) }
+            originalItem = originalPlayer!!.currentMediaItem
+        }
+        compose.onNodeWithContentDescription("Playback options").performClick()
+        compose.onNodeWithText("Search dictionary").performClick()
+        waitForNode(hasText("English word or Persian meaning"))
+        val url = "https://media.example/episode.mkv?token=shared-test"
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.startActivity(Intent(Intent.ACTION_SEND).setType("text/plain")
+                .setClass(activity, MainActivity::class.java).putExtra(Intent.EXTRA_TEXT, "Episode\n$url"))
+        }
+        waitForNode(hasText("Video or index URL"))
+        compose.onNodeWithText(url).assertIsDisplayed()
+        waitForNode(hasText("English word or Persian meaning"), present = false)
+        compose.activityRule.scenario.onActivity {
+            assertFalse(originalPlayer!!.playWhenReady)
+            assertEquals(originalItem, originalPlayer!!.currentMediaItem)
+            assertEquals(1_500L, originalPlayer!!.currentPosition)
+        }
+        compose.onNodeWithContentDescription("Return to video").performClick()
+        waitForNode(hasContentDescription("Play"))
+        compose.activityRule.scenario.onActivity {
+            assertEquals(originalItem, it.samplePlayer().currentMediaItem)
+            assertEquals(1_500L, it.samplePlayer().currentPosition)
+        }
+    }
+
+    @Test
     fun dictionaryTopicsFilterBeforePagingAndPreservePersonalMeanings() {
         val dictionary = PackagedDictionary(compose.activity)
         val topics = dictionary.topics()

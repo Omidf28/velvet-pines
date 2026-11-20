@@ -18,6 +18,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.ViewModelProvider
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -162,6 +163,7 @@ class MainActivity : ComponentActivity() {
     private var showLibrary by mutableStateOf(false)
     private var showWords by mutableStateOf(false)
     private var showStreams by mutableStateOf(false)
+    private val streamsSession by lazy { ViewModelProvider(this)[StreamsSession::class.java] }
     private var returnToStreams = false
     private val streamBookmarks by lazy {
         StreamPlaybackBookmarks(saved = history.getString("streamBookmarks", null)) { entries ->
@@ -397,6 +399,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (videoUri == null) showLibrary = true
+        if (savedInstanceState == null) stageSharedStream(intent)
 
         setContent {
             VelvetPinesTheme {
@@ -408,6 +411,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (stageSharedStream(intent)) return
         if (handleOpenIntent(intent)) {
             showWords = false
             showStreams = false
@@ -514,6 +518,15 @@ class MainActivity : ComponentActivity() {
         } else {
             openVideo(uri)
         }
+        return true
+    }
+
+    private fun stageSharedStream(intent: Intent): Boolean {
+        val shared = sharedStreamInput(intent) ?: return false
+        pronunciation.stop()
+        player.pause()
+        rememberCurrentProgress()
+        streamsSession.incoming = shared
         return true
     }
 
@@ -1093,7 +1106,7 @@ class MainActivity : ComponentActivity() {
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showHelp by rememberSaveable { mutableStateOf(false) }
         val recentBrowseState = remember { LibraryBrowseState() }
-        val streamsBrowseState = remember { StreamsBrowseState() }
+        val streamsBrowseState = streamsSession.browse
         val flashcardsState = rememberSaveableStateHolder()
         val dictionaryState = rememberSaveableStateHolder()
         var homeDictionary by rememberSaveable { mutableStateOf(false) }
@@ -1113,6 +1126,22 @@ class MainActivity : ComponentActivity() {
         fun openHomeFromVideo() {
             lookup = null
             selectHome(if (returnToStreams) HomeDestination.Streams else HomeDestination.Files)
+        }
+        val incomingShare = streamsSession.incoming
+        LaunchedEffect(incomingShare) {
+            if (incomingShare == null) return@LaunchedEffect
+            showPlayerMenu = false
+            showPlaybackTools = false
+            showSettings = false
+            showHelp = false
+            showDictionary = false
+            showDialogues = false
+            showSubtitleMenu = false
+            editingMeaning = null
+            lookup = null
+            streamsBrowseState.acceptSharedInput(incomingShare)
+            selectHome(HomeDestination.Streams)
+            streamsSession.incoming = null
         }
         LaunchedEffect(sleepDeadlineMs) {
             val deadline = sleepDeadlineMs ?: return@LaunchedEffect

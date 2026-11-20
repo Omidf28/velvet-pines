@@ -22,6 +22,7 @@ The Android beta is available for device testing. Windows and iOS are in plannin
 - Seekable on-demand videos opened from Streams can resume after an app restart when the same link is reopened. Catalog rows show the resume time or replay status. Live streams start at the source's default position.
 - The Streams tab plays direct HTTPS and RTSP links and browses user-supplied HTTPS indexes. Linked HTML pages and directories open as text lists. Search inside an index filters that page. At the root of Streams, search also finds episodes from recently opened indexes by series or season path, title, or filename. Site-wide search requires a provider's searchable catalog or API.
 - Save HTTPS index addresses without query parameters for quick access. Scan archive searches linked pages on the same origin, up to 12 pages and three levels below the archive. Episode search results stay in the current session.
+- Share an HTTPS or RTSP link from another app to prepare it in Streams. Review or edit the address, then choose Play URL or Load index. Receiving a share does not start playback or a network request.
 - Video-first playback with automatic landscape immersion, fading overlaid controls, and control auto-hide. Tapping the video toggles controls without changing the video bounds.
 - Playback speed adjustment, audio-track selection, aspect-ratio controls, A–B repeat, sleep timer, and manual picture-in-picture.
 - Configurable seek gestures, control and orientation locking, and per-media subtitle profiles.
