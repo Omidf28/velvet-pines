@@ -194,8 +194,9 @@ aliases, and a form lookup returns its associated lexical entries. Source
 headwords and their pronunciation text appear together. Pronunciation playback
 uses the existing device English TTS controls.
 
-The compressed English asset is 14,765,531 bytes and its installed database is
-90,329,088 bytes. The two installed dictionary indexes total 149,766,144 bytes.
+The compressed English asset is 15,614,232 bytes and its installed database is
+99,889,152 bytes, including source topic evidence and membership indexes. The two
+installed dictionary indexes total 159,326,208 bytes.
 Installation streams and verifies each index on IO. Each lookup reads indexed
 entry rows. Cached versions are reclaimed per dictionary after a replacement
 is verified. These assets reside in the app's no-backup directory.

@@ -42,6 +42,15 @@ def build(source, output):
     assert len(sense_words) == sum(len(entry.findall('Sense')) for entry in entries)
     grouped = collections.defaultdict(list)
     aliases = set()
+    topic_bytes = (pathlib.Path(__file__).resolve().parents[1] /
+                   'app/src/main/assets/english-lexicon/topics.json').read_bytes()
+    topic_config = json.loads(topic_bytes)
+    assert len({topic['id'] for topic in topic_config}) == len(topic_config)
+    domains = collections.defaultdict(list)
+    for topic in topic_config:
+        for domain in topic['lexfiles']:
+            domains[domain].append(topic['id'])
+    topic_terms = set()
     skipped = 0
     for entry in entries:
         lemma = entry.find('Lemma')
@@ -56,6 +65,8 @@ def build(source, output):
         senses = []
         for sense in entry.findall('Sense'):
             synset = synsets[sense.get('synset')]
+            for topic_id in domains[synset.get('lexfile')]:
+                topic_terms.add((topic_id, key))
             definitions = unique(clean(''.join(item.itertext())) for item in synset.findall('Definition'))
             assert definitions, sense.get('id')
             examples = unique(clean(''.join(item.itertext())) for item in synset.findall('Example'))
@@ -66,7 +77,7 @@ def build(source, output):
                               if item.get('relType') == 'antonym')
             related = unique(sense_words.get(item.get('target'), '') for item in relations
                              if item.get('relType') == 'derivation')
-            senses.append(dict(id=sense.get('id'), synset=sense.get('synset'), definitions=definitions,
+            senses.append(dict(id=sense.get('id'), synset=sense.get('synset'), lexfile=synset.get('lexfile'), definitions=definitions,
                                examples=examples, synonyms=synonyms, antonyms=antonyms, related=related))
         if senses:
             grouped[key].append(dict(id=entry.get('id'), lemma=word,
@@ -77,15 +88,17 @@ def build(source, output):
                 if form_key is not None and form_key != key:
                     aliases.add((form_key, key, entry.get('id')))
     output.mkdir(parents=True, exist_ok=True)
+    (output / 'topics.json').write_bytes(topic_bytes)
     database = output / 'dictionary-en.sqlite'
     if database.exists():
         database.unlink()
     counts = collections.Counter()
     max_entry_bytes = 0
     with sqlite3.connect(database) as conn:
-        conn.execute('PRAGMA user_version=1')
+        conn.execute('PRAGMA user_version=2')
         conn.execute('CREATE TABLE entries(term TEXT PRIMARY KEY, payload TEXT NOT NULL) WITHOUT ROWID')
         conn.execute('CREATE TABLE forms(term TEXT NOT NULL, headword TEXT NOT NULL, entry_id TEXT NOT NULL, PRIMARY KEY(term,headword,entry_id)) WITHOUT ROWID')
+        conn.execute('CREATE TABLE topics(topic TEXT NOT NULL, term TEXT NOT NULL, PRIMARY KEY(topic,term)) WITHOUT ROWID')
         for term, records in sorted(grouped.items()):
             payload = json.dumps(records, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
             max_entry_bytes = max(max_entry_bytes, len(payload.encode()))
@@ -99,6 +112,7 @@ def build(source, output):
                     for field in ('definitions', 'examples', 'synonyms', 'antonyms', 'related'):
                         counts[field] += len(sense[field])
         conn.executemany('INSERT INTO forms VALUES (?,?,?)', sorted(aliases))
+        conn.executemany('INSERT INTO topics VALUES (?,?)', sorted(topic_terms))
         conn.commit()
         assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
     data = database.read_bytes()
@@ -106,11 +120,13 @@ def build(source, output):
     assert max_entry_bytes <= 1024 * 1024
     compressed = gzip.compress(data, compresslevel=9, mtime=0)
     (output / 'dictionary-en.sqlite.bin').write_bytes(compressed)
-    manifest = dict(formatVersion=1, source='Open English Wordnet', sourceVersion='2025',
+    manifest = dict(formatVersion=2, source='Open English Wordnet', sourceVersion='2025',
                     sourceUrl=SOURCE_URL, sourceSha256=SOURCE_SHA256, entries=len(grouped),
                     skippedLexicalEntries=skipped, formMappings=len(aliases), maxEntryBytes=max_entry_bytes, **counts,
                     databaseBytes=len(data), databaseSha256=hashlib.sha256(data).hexdigest(),
                     compressedSha256=hashlib.sha256(compressed).hexdigest())
+    manifest['topicsSha256'] = hashlib.sha256((output / 'topics.json').read_bytes()).hexdigest()
+    manifest['topicCounts'] = dict(sorted(collections.Counter(topic for topic, _ in topic_terms).items()))
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(manifest, indent=2))
 

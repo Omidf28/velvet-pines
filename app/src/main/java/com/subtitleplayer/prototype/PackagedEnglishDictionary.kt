@@ -3,6 +3,11 @@ package com.subtitleplayer.prototype
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import org.json.JSONArray
+import java.io.File
+
+internal fun prepareEnglishLexicon(context: Context): File = preparePackagedLexicon(
+    context, "english-lexicon", "english-lexicon", "dictionary-en.sqlite.bin", 128L * 1024 * 1024
+)
 
 internal data class EnglishPronunciationEntry(val ipa: String, val variety: String)
 
@@ -43,8 +48,7 @@ internal class PackagedEnglishDictionary(context: Context) {
     /** Exact terms take priority over source-provided form aliases. Call on IO. */
     fun lookup(term: String): List<EnglishLexicalEntry> {
         val key = normalizeDictionaryTerm(term) ?: return emptyList()
-        val file = preparePackagedLexicon(context, "english-lexicon", "english-lexicon",
-            "dictionary-en.sqlite.bin", 128L * 1024 * 1024)
+        val file = prepareEnglishLexicon(context)
         var matchingIds: Set<String>? = null
         val payloads = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             val exact = db.rawQuery("SELECT payload FROM entries WHERE term = ? LIMIT 1", arrayOf(key)).use { cursor ->

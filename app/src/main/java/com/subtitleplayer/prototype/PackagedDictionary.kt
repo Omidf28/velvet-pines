@@ -3,6 +3,9 @@ package com.subtitleplayer.prototype
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import java.io.File
+import org.json.JSONArray
+
+internal data class DictionaryTopic(val id: String, val title: String, val wordCount: Int)
 
 
 /** Separate read-only lexicon, never part of the user's Room database or backups. Call on IO. */
@@ -19,17 +22,19 @@ internal class PackagedDictionary(context: Context) {
     }
 
     /** Blank input browses by keyset; prefix searches use the same primary-key index. Call on IO. */
-    fun search(input: String, personal: Map<String, WordMeaning>, after: String = "", level: DictionaryLevel? = null): DictionarySearchResult {
-        persianSearchTokens(input)?.let { return searchPersian(it, personal, level) }
+    fun search(input: String, personal: Map<String, WordMeaning>, after: String = "", level: DictionaryLevel? = null,
+        topic: String? = null): DictionarySearchResult {
+        persianSearchTokens(input)?.let { return searchPersian(it, personal, level, topic) }
         val prefix = if (input.isBlank()) "" else
             normalizeDictionaryPrefix(input) ?: return DictionarySearchResult(emptyList(), false)
         val boundary = if (prefix.isEmpty()) after else ""
-        val filter = if (level == null) "" else " AND term IN (SELECT term FROM learner_profiles WHERE level = ?)"
+        val filter = searchFilter(level, topic)
         val arguments = if (prefix.isEmpty()) mutableListOf(boundary)
             else mutableListOf(prefix, prefix + '\u007f')
         level?.let { arguments.add(it.name) }
+        topic?.let { arguments.add(it) }
         arguments.add((dictionarySearchLimit + 1).toString())
-        return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+        return openSearch(topic != null).use { db ->
             val indexed = db.rawQuery(
                 if (prefix.isEmpty())
                     "SELECT term, definition FROM lexicon WHERE term > ?$filter ORDER BY term LIMIT ?"
@@ -44,20 +49,20 @@ internal class PackagedDictionary(context: Context) {
                 }
             }
             mergeDictionarySearch(prefix, indexed, personal, after = boundary,
-                allowed = level?.let { db.levelTerms(it) }, findIndexed = { db.findMeaning(it) })
+                allowed = db.allowedTerms(level, topic), findIndexed = { db.findMeaning(it) })
         }
     }
 
-    private fun searchPersian(tokens: List<String>, personal: Map<String, WordMeaning>, level: DictionaryLevel?): DictionarySearchResult {
+    private fun searchPersian(tokens: List<String>, personal: Map<String, WordMeaning>, level: DictionaryLevel?, topic: String?): DictionarySearchResult {
         val match = tokens.joinToString(" INTERSECT ") {
             "SELECT term FROM persian_terms WHERE token >= ? AND token < ?"
         }
         // Over-fetch enough rows to allow filtering every overridden definition.
         val limit = dictionarySearchLimit + 1 + dictionaryOverrideKeys(personal).size
-        val filter = if (level == null) "" else " AND term IN (SELECT term FROM learner_profiles WHERE level = ?)"
+        val filter = searchFilter(level, topic)
         val arguments = tokens.flatMap { listOf(it, it + '\uffff') } +
-            listOfNotNull(level?.name) + listOf(tokens.joinToString(" "), limit.toString())
-        return SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            listOfNotNull(level?.name, topic) + listOf(tokens.joinToString(" "), limit.toString())
+        return openSearch(topic != null).use { db ->
             val indexed = db.rawQuery(
                 "SELECT term, definition FROM lexicon WHERE term IN ($match)$filter " +
                     "ORDER BY NOT EXISTS (SELECT 1 FROM persian_terms AS exact " +
@@ -72,8 +77,43 @@ internal class PackagedDictionary(context: Context) {
                     }
                 }
             }
-            mergePersianDictionarySearch(tokens, indexed, personal, level?.let { db.levelTerms(it) })
+            mergePersianDictionarySearch(tokens, indexed, personal, db.allowedTerms(level, topic))
         }
+    }
+
+    private fun searchFilter(level: DictionaryLevel?, topic: String?): String =
+        (if (level == null) "" else " AND term IN (SELECT term FROM learner_profiles WHERE level = ?)") +
+            (if (topic == null) "" else " AND term IN (SELECT term FROM english_topics.topics WHERE topic = ?)")
+
+    private fun openSearch(withTopics: Boolean): SQLiteDatabase {
+        val englishFile = if (withTopics) prepareEnglishLexicon(context) else null
+        val db = SQLiteDatabase.openDatabase(prepare().path, null, SQLiteDatabase.OPEN_READONLY)
+        try {
+            if (englishFile != null) db.execSQL("ATTACH DATABASE ? AS english_topics", arrayOf(englishFile.path))
+            return db
+        } catch (error: Exception) { db.close(); throw error }
+    }
+
+    private fun SQLiteDatabase.allowedTerms(level: DictionaryLevel?, topic: String?): Set<String>? {
+        if (topic == null) return level?.let { levelTerms(it) }
+        val levelClause = if (level == null) "" else " AND term IN (SELECT term FROM learner_profiles WHERE level = ?)"
+        return rawQuery("SELECT term FROM english_topics.topics WHERE topic = ?$levelClause",
+            listOfNotNull(topic, level?.name).toTypedArray()).use { cursor ->
+            buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) }
+        }
+    }
+
+    /** Counts describe the searchable English–Persian entries, rather than the entire source archive. */
+    fun topics(): List<DictionaryTopic> {
+        val config = context.assets.open("english-lexicon/topics.json").bufferedReader().use { JSONArray(it.readText()) }
+        val counts = openSearch(true).use { db ->
+            db.rawQuery("SELECT topic, count(*) FROM english_topics.topics JOIN lexicon ON topics.term = lexicon.term GROUP BY topic", null).use { cursor ->
+                buildMap { while (cursor.moveToNext()) put(cursor.getString(0), cursor.getInt(1)) }
+            }
+        }
+        return List(config.length()) { index -> config.getJSONObject(index).let {
+            DictionaryTopic(it.getString("id"), it.getString("title"), counts[it.getString("id")] ?: 0)
+        } }
     }
 
     fun levelTerms(level: DictionaryLevel): Set<String> =

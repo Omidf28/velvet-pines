@@ -215,6 +215,70 @@ class PlaybackSmokeTest {
     }
 
     @Test
+    fun dictionaryTopicsFilterBeforePagingAndPreservePersonalMeanings() {
+        val dictionary = PackagedDictionary(compose.activity)
+        val topics = dictionary.topics()
+        assertEquals(12, topics.size)
+        assertTrue(topics.all { it.wordCount > 0 })
+        val food = dictionary.search("", emptyMap(), topic = "food")
+        assertEquals(dictionarySearchLimit, food.entries.size)
+        assertTrue(food.hasMore)
+        val next = dictionary.search("", emptyMap(), after = food.entries.last().term, topic = "food")
+        assertTrue(next.entries.all { it.term > food.entries.last().term })
+        assertTrue(next.entries.map { it.term }.intersect(food.entries.map { it.term }.toSet()).isEmpty())
+        assertTrue(dictionary.search("coffee", emptyMap(), topic = "food").entries.any { it.term == "coffee" })
+        assertTrue(dictionary.search("قهوه", emptyMap(), topic = "food").entries.any { it.term == "coffee" })
+        assertTrue(dictionary.search("forest", emptyMap(), topic = "food").entries.isEmpty())
+        val personal = mapOf("coffee" to WordMeaning("coffee", "معنی ویژه"),
+            "zoutside" to WordMeaning("zoutside", "معنی ویژه"))
+        val personalized = dictionary.search("معنی ویژه", personal, topic = "food")
+        assertEquals(listOf("coffee"), personalized.entries.map { it.term })
+        assertEquals("معنی ویژه", personalized.entries.single().meaning.persian)
+        val b1 = dictionary.search("", emptyMap(), level = DictionaryLevel.B1, topic = "food")
+        assertTrue(b1.entries.isNotEmpty())
+        assertTrue(b1.entries.all { it.term in dictionary.levelTerms(DictionaryLevel.B1) })
+        assertTrue(dictionary.search("", emptyMap(), topic = "missing").entries.isEmpty())
+    }
+
+    @Test
+    fun dictionaryTopicSelectionSurvivesRecreationAndSavesToPersonalLists() {
+        val database = SavedWordsDatabase.get(compose.activity)
+        val listName = "Topic study"
+        val previous = runBlocking { database.backup().allBookmarks().find { it.wordKey == "coffee" } }
+        runBlocking { database.bookmarks().deleteList(vocabularyListKey(listName)) }
+        try {
+            compose.onNodeWithText("Dictionary").performClick()
+            compose.onNodeWithContentDescription("Browse dictionary topics").performClick()
+            waitForNode(hasText("Food & drink"))
+            compose.onNodeWithText("Food & drink").performScrollTo().performClick()
+            enterDictionaryQuery("coffee")
+            val result = hasText("coffee") and !hasSetTextAction()
+            waitForNode(result)
+            compose.activityRule.scenario.recreate()
+            waitForNode(result)
+            compose.onNode(result).performClick()
+            waitForNode(hasText("Lists") and isEnabled())
+            compose.onNodeWithText("Lists").performScrollTo().performClick()
+            compose.onNodeWithText("New list").performClick()
+            compose.onNodeWithText("List name").performTextInput(listName)
+            compose.onNodeWithText("List name").performImeAction()
+            compose.onNodeWithText("Create").performClick()
+            waitForNode(hasContentDescription("Include in $listName"))
+            assertTrue(runBlocking { database.backup().allListWords().contains(VocabularyListWord(vocabularyListKey(listName), "coffee")) })
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            compose.onNodeWithText("Results").performClick()
+            compose.onNodeWithContentDescription("Browse dictionary topics").performClick()
+            compose.onNodeWithText("All dictionary words").performClick()
+            compose.onNodeWithText("All words").assertIsDisplayed()
+        } finally {
+            runBlocking {
+                database.bookmarks().deleteList(vocabularyListKey(listName))
+                if (previous == null) database.bookmarks().remove("coffee")
+            }
+        }
+    }
+
+    @Test
     fun dictionaryListsCanBeCreatedOpenedRenamedAndDeleted() {
         val database = SavedWordsDatabase.get(compose.activity)
         val term = "zlisttest"

@@ -49,6 +49,18 @@ internal fun DictionarySearchPanel(
     var editing by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var savedOnly by rememberSaveable { mutableStateOf(false) }
+    var topicId by rememberSaveable { mutableStateOf<String?>(null) }
+    val activeTopic = topicId.takeUnless { savedOnly }
+    var showTopics by remember { mutableStateOf(false) }
+    var topics by remember { mutableStateOf<List<DictionaryTopic>?>(null) }
+    var topicsFailed by remember { mutableStateOf(false) }
+    LaunchedEffect(showTopics, topicId, retry) {
+        if ((!showTopics && topicId == null) || topics != null) return@LaunchedEffect
+        topicsFailed = false
+        try { topics = withContext(Dispatchers.IO) { dictionary.topics() } }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { topicsFailed = true }
+    }
     var selectedListKey by rememberSaveable { mutableStateOf<String?>(null) }
     var showSavedMenu by remember { mutableStateOf(false) }
     var manageLists by rememberSaveable { mutableStateOf(false) }
@@ -77,11 +89,11 @@ internal fun DictionarySearchPanel(
     val validQuery = prefix != null || persianTokens != null
     val exactKey = remember(query) { normalizeDictionaryTerm(query) }
     val browsing = query.isBlank()
-    var pageStarts by rememberSaveable(query, savedOnly, selectedListKey, level) { mutableStateOf(listOf("")) }
+    var pageStarts by rememberSaveable(query, savedOnly, selectedListKey, activeTopic, level) { mutableStateOf(listOf("")) }
     val after = pageStarts.last()
-    var results by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
-    var searching by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) { mutableStateOf(browsing || validQuery) }
-    var failed by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) { mutableStateOf(false) }
+    var results by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, activeTopic, level, retry) { mutableStateOf(DictionarySearchResult(emptyList(), false)) }
+    var searching by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, activeTopic, level, retry) { mutableStateOf(browsing || validQuery) }
+    var failed by remember(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, activeTopic, level, retry) { mutableStateOf(false) }
     var detail by remember(selected, personal, bookmarks, retry) { mutableStateOf<DictionaryResult?>(null) }
     var detailFailed by remember(selected, personal, bookmarks, retry) { mutableStateOf(false) }
     var profiles by remember(selected, retry) { mutableStateOf<List<LearnerProfile>>(emptyList()) }
@@ -98,7 +110,7 @@ internal fun DictionarySearchPanel(
     } }
     val screenKeyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
-    LaunchedEffect(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, level, retry) {
+    LaunchedEffect(query, after, personal, bookmarks, savedOnly, selectedListKey, listWords, activeTopic, level, retry) {
         if (!browsing && !validQuery) return@LaunchedEffect
         if (savedOnly && bookmarks == null) return@LaunchedEffect
         if (savedOnly && selectedListKey != null && listWords == null) return@LaunchedEffect
@@ -113,7 +125,10 @@ internal fun DictionarySearchPanel(
                     }
                 }, query, after, personal,
                     allowed = eligible)
-                else englishDictionary.completeExactSearch(dictionary.search(query, personal, after, level), query, eligible)
+                else {
+                    val result = dictionary.search(query, personal, after, level, activeTopic)
+                    if (activeTopic == null) englishDictionary.completeExactSearch(result, query, eligible) else result
+                }
             }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed = true }
@@ -171,7 +186,21 @@ internal fun DictionarySearchPanel(
         val term = selected
         if (term == null) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(selected = !savedOnly, onClick = { savedOnly = false }, label = { Text("All words") })
+                Box {
+                    FilterChip(selected = !savedOnly, onClick = {
+                        keyboard?.hide(); savedOnly = false; showTopics = true
+                    }, label = { Text(if (activeTopic == null) "All words" else "Topics") },
+                        modifier = Modifier.semantics { contentDescription = "Browse dictionary topics" })
+                    DropdownMenu(expanded = showTopics, onDismissRequest = { showTopics = false }) {
+                        DropdownMenuItem(text = { Text("All dictionary words") }, onClick = { topicId = null; showTopics = false })
+                        HorizontalDivider()
+                        if (topics == null) DropdownMenuItem(
+                            text = { Text(if (topicsFailed) "Could not load topics. Try again." else "Loading topics…") },
+                            enabled = topicsFailed, onClick = { retry++ })
+                        for (topic in topics.orEmpty()) DropdownMenuItem(text = { Text(topic.title) },
+                            onClick = { topicId = topic.id; query = ""; showTopics = false })
+                    }
+                }
                 Box {
                     FilterChip(selected = savedOnly, onClick = {
                         if (savedOnly) showSavedMenu = true else savedOnly = true
@@ -212,6 +241,9 @@ internal fun DictionarySearchPanel(
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item(key = "status") {
+                    if (activeTopic != null) Text(topics.orEmpty().find { it.id == activeTopic }?.let {
+                        "${it.title} · ${it.wordCount} dictionary entries"
+                    } ?: "Topic selected", color = PinesPalette.Accent, style = MaterialTheme.typography.labelMedium)
                     if (savedOnly) Text(selectedListKey?.let { key -> lists.orEmpty().find { it.nameKey == key }?.name }
                         ?: "All saved words · Tap Saved words for lists",
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -224,12 +256,13 @@ internal fun DictionarySearchPanel(
                         savedOnly && results.entries.isEmpty() -> "No saved words match. Open a word to save it or add it to a list."
                         browsing && results.entries.isEmpty() -> "No more entries."
                         browsing -> "Page ${pageStarts.size} · Tap a word to see its meaning."
+                        activeTopic != null && results.entries.isEmpty() -> "No matches in this topic. Try another topic or clear the search."
                         results.entries.isEmpty() -> "No matches for this search. You can add a personal definition."
                         results.hasMore -> "First ${results.entries.size} results. Type more to narrow the search."
                         else -> "${results.entries.size} results"
                     }, color = PinesPalette.Muted, style = MaterialTheme.typography.bodySmall)
                     if (failed) TextButton(onClick = { retry++ }) { Text("Try again") }
-                    if (exactKey != null && !savedOnly && level == null && results.entries.none { it.term == exactKey }) TextButton(onClick = { select(exactKey) }) {
+                    if (exactKey != null && !savedOnly && level == null && activeTopic == null && results.entries.none { it.term == exactKey }) TextButton(onClick = { select(exactKey) }) {
                         Text("Show meaning for “$exactKey”", maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }

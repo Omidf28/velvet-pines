@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "source": "Open English Wordnet",
   "sourceVersion": "2025",
   "sourceUrl": "https://en-word.net/downloads/english-wordnet-2025.xml.gz",
@@ -7,7 +7,7 @@
   "entries": 126494,
   "skippedLexicalEntries": 876,
   "formMappings": 4456,
-  "maxEntryBytes": 18850,
+  "maxEntryBytes": 20679,
   "lexicalEntries": 135093,
   "pronunciations": 43516,
   "forms": 4473,
@@ -17,7 +17,22 @@
   "synonyms": 283702,
   "antonyms": 7967,
   "related": 60647,
-  "databaseBytes": 90329088,
-  "databaseSha256": "03596ae1389c6de1bfc0e9227b03e0e02eec7193f78193d950f09f52440b9294",
-  "compressedSha256": "57243d4e1e0d29ad45440fcbf5d59babbab2a5921f0abb4eb89ce7eef69f01ec"
+  "databaseBytes": 99889152,
+  "databaseSha256": "49b0b873dd5393f2cbff6190f026a195f5b5f356d37e82ac6140a1ecee4e0d64",
+  "compressedSha256": "2b232a3a0f1c7903664980f7d4eab3777d2ed8a34ea7f64f81ef675ba44d5edc",
+  "topicsSha256": "e0d19b7d963f8e02282994fe53bd62fc2f9c78f83b07fc4f29c35b065b93970c",
+  "topicCounts": {
+    "animals": 8601,
+    "body": 4528,
+    "communication": 10668,
+    "emotions": 1343,
+    "food": 4042,
+    "knowledge": 5578,
+    "movement": 1707,
+    "ownership": 2535,
+    "places": 1261,
+    "plants": 12801,
+    "time": 1494,
+    "weather": 127
+  }
 }

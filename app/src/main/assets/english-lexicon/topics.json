@@ -1,0 +1,14 @@
+[
+  {"id":"animals","title":"Animals","lexfiles":["noun.animal"]},
+  {"id":"body","title":"The body","lexfiles":["noun.body","verb.body"]},
+  {"id":"communication","title":"Communication","lexfiles":["noun.communication","verb.communication"]},
+  {"id":"emotions","title":"Emotions","lexfiles":["noun.feeling","verb.emotion"]},
+  {"id":"food","title":"Food & drink","lexfiles":["noun.food","verb.consumption"]},
+  {"id":"knowledge","title":"Thinking & knowledge","lexfiles":["noun.cognition","verb.cognition"]},
+  {"id":"movement","title":"Movement","lexfiles":["verb.motion"]},
+  {"id":"ownership","title":"Money & ownership","lexfiles":["noun.possession","verb.possession"]},
+  {"id":"places","title":"Places","lexfiles":["noun.location"]},
+  {"id":"plants","title":"Plants","lexfiles":["noun.plant"]},
+  {"id":"time","title":"Time","lexfiles":["noun.time"]},
+  {"id":"weather","title":"Weather","lexfiles":["verb.weather"]}
+]

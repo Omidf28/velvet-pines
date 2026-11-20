@@ -17,10 +17,19 @@ def verify(asset_dir, apk=None):
     try:
         if archive:
             expected = {'assets/english-lexicon/' + name for name in
-                        ('dictionary-en.sqlite.bin', 'manifest.json', 'LICENSE.md', 'WNDB_License.txt', 'NOTICE.txt')}
+                        ('dictionary-en.sqlite.bin', 'manifest.json', 'LICENSE.md', 'WNDB_License.txt', 'NOTICE.txt', 'topics.json')}
             assert {name for name in archive.namelist() if name.startswith('assets/english-lexicon/')} == expected
         manifest = json.loads(read('manifest.json'))
-        assert manifest['formatVersion'] == 1 and manifest['sourceVersion'] == '2025'
+        assert manifest['formatVersion'] == 2 and manifest['sourceVersion'] == '2025'
+        assert hashlib.sha256(read('topics.json')).hexdigest() == manifest['topicsSha256']
+        topic_config = json.loads(read('topics.json'))
+        assert len({topic['id'] for topic in topic_config}) == len(topic_config) == 12
+        domains = collections.defaultdict(list)
+        for topic in topic_config:
+            assert re.fullmatch('[a-z]+', topic['id']) and topic['title'] and topic['lexfiles']
+            for domain in topic['lexfiles']:
+                domains[domain].append(topic['id'])
+        expected_topics = set()
         assert manifest['sourceSha256'] == '9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe'
         assert b'Princeton' in read('LICENSE.md') and b'Attribution 4.0' in read('LICENSE.md')
         assert b'Princeton' in read('WNDB_License.txt')
@@ -35,7 +44,7 @@ def verify(asset_dir, apk=None):
         with sqlite3.connect(':memory:') as conn:
             conn.deserialize(data)
             assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
-            assert conn.execute('PRAGMA user_version').fetchone()[0] == 1
+            assert conn.execute('PRAGMA user_version').fetchone()[0] == 2
             assert conn.execute('SELECT count(*) FROM entries').fetchone()[0] == manifest['entries']
             for term, payload in conn.execute('SELECT term,payload FROM entries'):
                 assert len(term) <= 80 and len(term.split()) <= 8
@@ -54,6 +63,8 @@ def verify(asset_dir, apk=None):
                     assert entry['senses']
                     counts['senses'] += len(entry['senses'])
                     for sense in entry['senses']:
+                        assert isinstance(sense['lexfile'], str) and sense['lexfile']
+                        expected_topics.update((topic, term) for topic in domains[sense['lexfile']])
                         sense_ids.append(sense['id'])
                         assert sense['definitions'] and sense['synset'].startswith('oewn-')
                         for field in ('definitions', 'examples', 'synonyms', 'antonyms', 'related'):
@@ -64,6 +75,13 @@ def verify(asset_dir, apk=None):
                 assert count == manifest[key], (key, count)
             assert max_entry_bytes == manifest['maxEntryBytes'] <= 1024 * 1024
             assert conn.execute('SELECT count(*) FROM forms').fetchone()[0] == manifest['formMappings']
+            actual_topics = set(conn.execute('SELECT topic,term FROM topics'))
+            assert actual_topics == expected_topics
+            assert dict(sorted(collections.Counter(topic for topic, _ in actual_topics).items())) == manifest['topicCounts']
+            assert ('food', 'coffee') in actual_topics and ('food', 'forest') not in actual_topics
+            assert ('weather', 'rain') in actual_topics
+            topic_plan = conn.execute('EXPLAIN QUERY PLAN SELECT term FROM topics WHERE topic=? AND term>? ORDER BY term LIMIT 41', ('food', '')).fetchall()
+            assert any('SEARCH' in row[3] and 'PRIMARY KEY' in row[3] for row in topic_plan), topic_plan
             assert conn.execute('SELECT count(*) FROM forms LEFT JOIN entries ON forms.headword=entries.term WHERE entries.term IS NULL').fetchone()[0] == 0
             for headword, entry_id in conn.execute('SELECT headword,entry_id FROM forms'):
                 records = json.loads(conn.execute('SELECT payload FROM entries WHERE term=?', (headword,)).fetchone()[0])

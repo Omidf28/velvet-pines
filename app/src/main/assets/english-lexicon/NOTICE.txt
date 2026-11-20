@@ -19,4 +19,9 @@ resolved source sense references and converted entries to indexed SQLite JSON.
 Definitions, examples, pronunciation text, forms and sense relationships are
 imported from the source. Source lexical and sense identifiers are preserved.
 Whitespace in source text and bundled license files is normalized.
+Topic memberships are imported from the source synset lexfile classifications.
+topics.json maps selected source classifications to readable browsing labels.
+Membership means that at least one source sense belongs to that classification;
+other meanings of the same word can belong to different topics. These categories
+are not an IELTS syllabus or an official examination vocabulary list.
 The transformed English dictionary data is supplied under CC BY 4.0.
